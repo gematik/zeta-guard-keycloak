@@ -1,0 +1,11 @@
+# Currently not used
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-config
+  namespace: zeta-guard
+data:
+  keycloak.version: 1.2.23
+  special.key: |
+    foo=bar
+    bla=blubb

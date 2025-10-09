@@ -1,0 +1,13 @@
+
+POST {{origin}}/realms/zeta-guard/protocol/openid-connect/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:token-exchange&
+client_id=requester-client&
+client_secret=qXpy5mlykWglKNSvs65N8sjNXRZDJDwH&
+scope=audience-target-scope&
+subject_token={{$auth.token("user-auth-initial-client")}}&
+subject_token_type=urn:ietf:params:oauth:token-type:access_token&
+requested_token_type=urn:ietf:params:oauth:token-type:access_token
+
+#audience=audience-target-client

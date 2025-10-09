@@ -1,0 +1,93 @@
+# Expose Keycloak
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{ .Values.deployments.keycloak.service.name }}"
+  namespace: "{{ .Values.namespace }}"
+  labels:
+    app: "{{ .Values.deployments.keycloak.service.name }}"
+spec:
+  type: LoadBalancer
+  ports:
+    - name: http
+      port: {{ .Values.deployments.keycloak.service.port}}
+  selector:
+    app: "{{ .Values.deployments.keycloak.service.name }}"
+---
+# Deployment for the custom Keycloak server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{ .Values.deployments.keycloak.service.name }}"
+  namespace: "{{ .Values.namespace }}"
+  labels:
+    app: "{{ .Values.deployments.keycloak.service.name }}"
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: "{{ .Values.deployments.keycloak.service.name }}"
+  template:
+    metadata:
+      name: "{{ .Values.deployments.keycloak.service.name }}"
+      labels:
+        app: "{{ .Values.deployments.keycloak.service.name }}"
+    spec:
+      containers:
+        - name: "{{ .Values.deployments.keycloak.service.name }}"
+          image: zeta/zeta-guard/keycloak-zeta:latest
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          args: [ "start", "--optimized" ]
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 9000
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 9000
+            initialDelaySeconds: 90
+            periodSeconds: 20
+          envFrom:
+            - secretRef:
+                name: keycloak-secrets
+          env:
+            # Database Configuration
+            - name: KC_DB
+              value: "postgres"
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_DB
+            - name: KC_DB_URL
+              value: "jdbc:postgresql://{{ .Values.deployments.postgres.service.name }}/{{ .Values.deployments.postgres.db.name }}:{{ .Values.deployments.postgres.service.port }}"
+            - name: KC_DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_USER
+            - name: KC_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: POSTGRES_PASSWORD
+
+            # Run behind a reverse-proxy
+            #            - name: KC_PROXY
+            #              value: "edge"
+            - name: KC_HEALTH_ENABLED
+              value: "true"
+            - name: KC_HTTP_ENABLED
+              value: "true"
+            # IMPORTANT: Replace with your domain and port
+            - name: KC_HOSTNAME
+              value: "http://localhost:18080"
+            - name: QUARKUS_DATASOURCE_JDBC_ACQUISTION_TIMEOUT
+              value: "30s"

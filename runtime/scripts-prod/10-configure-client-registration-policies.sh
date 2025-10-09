@@ -1,0 +1,1 @@
+../scripts-repository/10-configure-client-registration-policies.sh

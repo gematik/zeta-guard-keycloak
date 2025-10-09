@@ -1,0 +1,34 @@
+# Persistent Volume for PostgreSQL data
+
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: postgres-pv
+  namespace: zeta-guard
+  labels:
+    type: local
+    app: postgres
+spec:
+  storageClassName: "standard"
+  capacity:
+    storage: 500M
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/data"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: zeta-guard
+  labels:
+    app: postgres
+spec:
+  storageClassName: "standard"
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500M

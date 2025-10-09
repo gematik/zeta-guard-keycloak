@@ -1,0 +1,99 @@
+{
+  "id": "requester-client",
+  "clientId": "requester-client",
+  "name": "requester-client",
+  "description": "This client will perform the token exchange.",
+  "rootUrl": "",
+  "adminUrl": "",
+  "baseUrl": "",
+  "surrogateAuthRequired": false,
+  "enabled": true,
+  "alwaysDisplayInConsole": false,
+  "clientAuthenticatorType": "client-secret",
+  "secret": "qXpy5mlykWglKNSvs65N8sjNXRZDJDwH",
+  "redirectUris": [
+    "*"
+  ],
+  "webOrigins": [],
+  "notBefore": 0,
+  "bearerOnly": false,
+  "consentRequired": false,
+  "standardFlowEnabled": true,
+  "implicitFlowEnabled": false,
+  "directAccessGrantsEnabled": false,
+  "serviceAccountsEnabled": true,
+  "authorizationServicesEnabled": true,
+  "publicClient": false,
+  "frontchannelLogout": true,
+  "protocol": "openid-connect",
+  "attributes": {
+    "realm_client": "false",
+    "oidc.ciba.grant.enabled": "false",
+    "client.secret.creation.time": "1757927628",
+    "backchannel.logout.session.required": "true",
+    "standard.token.exchange.enabled": "true",
+    "oauth2.device.authorization.grant.enabled": "false",
+    "backchannel.logout.revoke.offline.tokens": "false"
+  },
+  "authenticationFlowBindingOverrides": {},
+  "fullScopeAllowed": true,
+  "nodeReRegistrationTimeout": -1,
+  "defaultClientScopes": [
+    "web-origins",
+    "service_account",
+    "acr",
+    "profile",
+    "roles",
+    "basic",
+    "email"
+  ],
+  "optionalClientScopes": [
+    "audience-requester-scope",
+    "audience-target-scope",
+    "address",
+    "phone",
+    "organization",
+    "offline_access",
+    "microprofile-jwt"
+  ],
+  "authorizationSettings": {
+    "allowRemoteResourceManagement": true,
+    "policyEnforcementMode": "ENFORCING",
+    "resources": [
+      {
+        "name": "Default Resource",
+        "type": "urn:requester-client:resources:default",
+        "ownerManagedAccess": false,
+        "attributes": {},
+        "uris": [
+          "/*"
+        ]
+      }
+    ],
+    "policies": [
+      {
+        "name": "Default Policy",
+        "description": "A policy that grants access only for users within this realm",
+        "type": "js",
+        "logic": "POSITIVE",
+        "decisionStrategy": "AFFIRMATIVE",
+        "config": {
+          "code": "// by default, grants any permission associated with this policy\n$evaluation.grant();\n"
+        }
+      },
+      {
+        "name": "Default Permission",
+        "description": "A permission that applies to the default resource type",
+        "type": "resource",
+        "logic": "POSITIVE",
+        "decisionStrategy": "UNANIMOUS",
+        "config": {
+          "defaultResourceType": "urn:requester-client:resources:default",
+          "applyPolicies": "[\"Default Policy\"]"
+        }
+      }
+    ],
+    "scopes": [],
+    "decisionStrategy": "UNANIMOUS"
+  }
+}

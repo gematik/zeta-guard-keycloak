@@ -1,0 +1,90 @@
+name: "zeta-guard"
+
+networks:
+  zeta-guard:
+    name: zeta-guard
+
+services:
+  keycloak-db:
+    image: postgres:17-alpine
+    container_name: zeta-guard-postgres
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: zeta-guard
+      POSTGRES_PASSWORD: geheim
+    networks:
+      - zeta-guard
+    ports:
+      - "15432:5432"
+    healthcheck:
+      test: pg_isready -h localhost -p 5432 -U zeta-guard -d keycloak
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  keycloak:
+    image: zeta/zeta-guard/keycloak-zeta
+    container_name: zeta-guard-keycloak
+    environment:
+      JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:8787" # for remote debugging
+      # Put Keycloak build options in the first build stage of the container image
+      KC_DB: postgres
+      KC_DB_URL: "jdbc:postgresql://keycloak-db:5432/keycloak"
+      KC_DB_USERNAME: zeta-guard
+      KC_DB_PASSWORD: geheim
+      KC_BOOTSTRAP_ADMIN_USERNAME: zeta
+      KC_BOOTSTRAP_ADMIN_PASSWORD: sigma
+      KC_HEALTH_ENABLED: true
+      KC_HOSTNAME: http://localhost:18080
+      KC_HTTP_ENABLED: true
+      # https://www.informatik-aktuell.de/betrieb/sicherheit/token-exchange-mit-keycloak.html
+      KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL: "info"
+      KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL: "warn"
+      # Initial hash for admin events log
+      # TODO: should be generated upon startup
+      GENESIS_HASH: 4841c2142fef441daa6ee6c57db65c011935964b14e94a6c8f5ec0447b83526c
+    ports:
+      - "18787:8787" # debug port
+      - "18080:8080" # api port
+    networks:
+      - zeta-guard
+    healthcheck:
+      # No curl in Keycloak 🙄
+      test: |
+        exec 3<>/dev/tcp/127.0.0.1/9000; printf "GET /health/ready HTTP/1.1\r\nhost: localhost:9000\r\nConnection: close\r\n\r\n" >&3;grep "HTTP/1.1 200 OK" <&3
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      keycloak-db:
+        condition: service_healthy
+    command: start --log="console,file" --optimized --log-level=org.keycloak:DEBUG
+  #
+#--log-level=org.keycloak:DEBUG
+#      --https-certificate-file=/opt/keycloak/certs/server.crt --https-certificate-key-file=/opt/keycloak/certs/server.private.key
+
+  # https://github.com/adorsys/keycloak-config-cli
+  keycloak-config-cli:
+    image: ${IMAGE_KEYCLOAK_CONFIG:-zeta/zeta-guard/keycloak-config-cli}
+    container_name: keycloak-config-cli
+    environment:
+      KEYCLOAK_URL: "http://keycloak:8080"
+      KEYCLOAK_USER: zeta
+      KEYCLOAK_PASSWORD: sigma
+      KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"
+      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 60s
+      IMPORT_FILES: "/config/*"
+      # See https://github.com/adorsys/keycloak-config-cli?tab=readme-ov-file#variable-substitution
+      IMPORT_VARSUBSTITUTION_ENABLED: true
+      # See entrypoint.sh
+      DEBUG_CLI_SCRIPTS: true
+      KC_EVENT_LISTENER: zeta-guard-admin-events
+      ADMIN_EVENT_LOGGING_ENABLED: true
+      ADMIN_EVENT_LOGGING_DETAILS_ENABLED: true
+    networks:
+      - zeta-guard
+    volumes:
+      - ./realms:/config
+      - ./scripts-local:/opt/keycloak/scripts
+      - ./scripts-repository:/opt/keycloak/scripts-repository

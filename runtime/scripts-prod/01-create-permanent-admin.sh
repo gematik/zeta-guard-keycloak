@@ -1,0 +1,1 @@
+../scripts-repository/01-create-permanent-admin.sh

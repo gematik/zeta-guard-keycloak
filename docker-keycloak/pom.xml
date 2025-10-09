@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>de.gematik.zeta.zeta-guard</groupId>
+        <artifactId>keycloak-zeta</artifactId>
+        <version>0.1.3</version>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>docker-keycloak</artifactId>
+    <name>𝝵-Guard :: Create pre-configured Keycloak image</name>
+    <description>Create pre-configured Keycloak image</description>
+
+    <properties>
+        <docker.keycloak.image>quay.io/keycloak/keycloak</docker.keycloak.image>
+        <docker.name>zeta/zeta-guard/keycloak-zeta</docker.name>
+        <docker.tag>latest</docker.tag>
+        <docker.repo/>
+    </properties>
+
+    <build>
+        <resources>
+            <resource>
+                <directory>src/main/docker</directory>
+                <filtering>true</filtering>
+            </resource>
+        </resources>
+
+        <plugins>
+            <plugin>
+                <groupId>org.eclipse.jkube</groupId>
+                <artifactId>kubernetes-maven-plugin</artifactId>
+                <version>1.18.1</version>
+
+                <executions>
+                    <execution>
+                        <id>docker-build</id>
+                        <phase>package</phase>
+
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+
+                <configuration>
+                    <verbose>true</verbose>
+                    <logStdout>true</logStdout>
+                    <buildStrategy>docker</buildStrategy>
+
+                    <images>
+                        <image>
+                            <name>${docker.name}:${docker.tag}</name>
+
+                            <build>
+                                <contextDir>${project.build.outputDirectory}</contextDir>
+                                <dockerFile>${project.build.outputDirectory}/Dockerfile</dockerFile>
+                            </build>
+                        </image>
+                    </images>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+
+                <executions>
+                    <execution>
+                        <id>copy-admin-events</id>
+                        <phase>prepare-package</phase>
+
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/providers</outputDirectory>
+
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>admin-events</artifactId>
+                                    <destFileName>zeta-admin-events.jar</destFileName>
+                                </artifactItem>
+
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>smc-b-token-exchange</artifactId>
+                                    <destFileName>zeta-smcb-token-exchange.jar</destFileName>
+                                </artifactItem>
+
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>commons</artifactId>
+                                </artifactItem>
+
+                                <artifactItem>
+                                    <groupId>org.jetbrains.kotlin</groupId>
+                                    <artifactId>kotlin-stdlib</artifactId>
+                                </artifactItem>
+
+                                <artifactItem>
+                                    <groupId>io.arrow-kt</groupId>
+                                    <artifactId>arrow-core-jvm</artifactId>
+                                </artifactItem>
+                            </artifactItems>
+
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>gitlab</id>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+
+                        <executions>
+                            <execution>
+                                <id>Tag image with repo prefix</id>
+                                <phase>verify</phase>
+
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+
+                                <configuration>
+                                    <target>
+                                        <echo>Tagging image ${docker.name}:${docker.tag} ➡ ${docker.repo}/${docker.name}:${docker.tag}</echo>
+
+                                        <exec executable="docker" failonerror="true">
+                                            <arg value="tag"/>
+                                            <arg value="${docker.name}:${docker.tag}"/>
+                                            <arg value="${docker.repo}/${docker.name}:${docker.tag}"/>
+                                        </exec>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>
