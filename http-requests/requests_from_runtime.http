@@ -1,0 +1,11 @@
+### GET OpenID configuration
+GET {{origin}}/realms/zeta-guard/.well-known/openid-configuration
+
+### GET userinfo
+GET {{origin}}/realms/master/protocol/openid-connect/userinfo
+Authorization: Bearer {{$auth.token("keycloak-admin-auth")}}
+#Authorization: Bearer {{$auth.token("keycloak-user-auth")}}
+
+### GET info for realm 'zeta-guard'
+GET {{origin}}/admin/realms/zeta-guard
+Authorization: Bearer {{$auth.token("keycloak-admin-auth")}}

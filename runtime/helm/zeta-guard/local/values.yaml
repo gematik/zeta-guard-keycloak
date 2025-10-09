@@ -1,0 +1,25 @@
+namespace: zeta-guard
+
+secrets:
+  postgres:
+    admin:
+      name: zeta-guard
+      password: geheim
+  keycloak:
+    admin:
+      name: zeta
+      password: sigma
+
+deployments:
+  postgres:
+    db:
+      name: keycloak
+    service:
+      name: "postgres"
+      port: 5432
+      replicas: 1
+  keycloak:
+    service:
+      name: "keycloak-zeta"
+      port: 8080
+      replicas: 3

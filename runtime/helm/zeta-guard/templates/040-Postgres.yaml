@@ -1,0 +1,71 @@
+# Expose Postgres
+apiVersion: v1
+kind: Service
+metadata:
+  name: "{{.Values.deployments.postgres.service.name}}"
+  namespace: "{{ .Values.namespace }}"
+  labels:
+    app: "{{.Values.deployments.postgres.service.name}}"
+spec:
+  type: ClusterIP
+  selector:
+    app: postgres
+  ports:
+    - port: {{.Values.deployments.postgres.service.port}}
+      name: "{{.Values.deployments.postgres.service.name}}"
+
+---
+# Deployment for PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: "{{.Values.deployments.postgres.service.name}}"
+  namespace: "{{ .Values.namespace }}"
+  labels:
+    app: "{{.Values.deployments.postgres.service.name}}"
+spec:
+  replicas: {{.Values.deployments.postgres.service.replicas}}
+  selector:
+    matchLabels:
+      app: "{{.Values.deployments.postgres.service.name}}"
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      name: "{{.Values.deployments.postgres.service.name}}"
+      labels:
+        app: "{{.Values.deployments.postgres.service.name}}"
+    spec:
+      containers:
+        - name: "{{.Values.deployments.postgres.service.name}}"
+          image: postgres:17-alpine
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - containerPort: 5432
+              name: "{{.Values.deployments.postgres.service.name}}"
+          envFrom:
+            - secretRef:
+                name: postgres-secrets
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ce
+                - exec pg_isready -U "zeta-guard" -h 127.0.0.1 -p 5432 -d keycloak
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -ce
+                - exec pg_isready -U "zeta-guard" -h 127.0.0.1 -p 5432 -d keycloak
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc

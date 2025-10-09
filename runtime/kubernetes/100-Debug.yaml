@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: debug-deployment
+  namespace: zeta-guard
+  labels:
+    app: keycloak-zeta
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: java
+  template:
+    metadata:
+      name: java
+      labels:
+        app: java
+    spec:
+      containers:
+        - name: java
+          image: eclipse-temurin:21-jdk
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "infinity"]
+      restartPolicy: Always
+      

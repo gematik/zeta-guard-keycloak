@@ -1,0 +1,29 @@
+{
+  "id": "audience-requester-scope",
+  "name": "audience-requester-scope",
+  "description": "This scope will add the client \"requester-client\" as an audience to the access token",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "false",
+    "display.on.consent.screen": "true",
+    "gui.order": "",
+    "consent.screen.text": ""
+  },
+  "protocolMappers": [
+    {
+      "id": "requester-client-audience-mapper",
+      "name": "requester-client-audience-mapper",
+      "protocol": "openid-connect",
+      "protocolMapper": "oidc-audience-mapper",
+      "consentRequired": false,
+      "config": {
+        "included.client.audience": "requester-client",
+        "id.token.claim": "false",
+        "lightweight.claim": "false",
+        "introspection.token.claim": "true",
+        "access.token.claim": "true",
+        "userinfo.token.claim": "false"
+      }
+    }
+  ]
+}
