@@ -8,13 +8,19 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>0.1.3</version>
+        <version>0.2.3</version>
     </parent>
 
     <dependencies>
         <dependency>
             <groupId>${project.groupId}</groupId>
-            <artifactId>commons</artifactId>
+            <artifactId>commons-client</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>commons-server</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -43,9 +49,11 @@
                             <execution>
                                 <id>report-aggregate</id>
                                 <phase>verify</phase>
+
                                 <goals>
                                     <goal>report-aggregate</goal>
                                 </goals>
+
                                 <configuration>
                                     <formats>
                                         <format>CSV</format>

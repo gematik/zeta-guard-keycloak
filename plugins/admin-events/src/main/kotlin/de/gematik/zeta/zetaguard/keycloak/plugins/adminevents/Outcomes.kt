@@ -23,27 +23,27 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.adminevents
 
-import de.gematik.zeta.zetaguard.keycloak.commons.GeneralFailure
-import de.gematik.zeta.zetaguard.keycloak.commons.Success
+import de.gematik.zeta.zetaguard.keycloak.commons.server.GeneralFailure
+import de.gematik.zeta.zetaguard.keycloak.commons.server.Success
 
 sealed interface AdminEventLogVerificationSuccess : Success {
-    val message: String
+  val message: String
 }
 
 data object AdminEventLogEmpty : AdminEventLogVerificationSuccess {
-    override val message: String
-        get() = "Chain is empty, which is considered valid."
+  override val message: String
+    get() = "Chain is empty, which is considered valid."
 }
 
 data object AdminEventLogValid : AdminEventLogVerificationSuccess {
-    override val message: String
-        get() = "Chain verification successful."
+  override val message: String
+    get() = "Chain verification successful."
 }
 
 sealed class AdminEventLogVerificationFailure(override val message: String) : GeneralFailure {
-    override fun equals(other: Any?) = javaClass == other?.javaClass
+  override fun equals(other: Any?) = javaClass == other?.javaClass
 
-    override fun hashCode() = javaClass.hashCode()
+  override fun hashCode() = javaClass.hashCode()
 }
 
 class InvalidPreviousHash(message: String = "") : AdminEventLogVerificationFailure(message)

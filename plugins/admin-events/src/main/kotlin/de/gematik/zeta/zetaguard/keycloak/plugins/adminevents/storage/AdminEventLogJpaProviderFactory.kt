@@ -33,14 +33,13 @@ const val ADMIN_EVENTS_JPA_PROVIDER_ID = "zeta-guard-admin-events-jpa"
 
 /** Factory for creating instances of [AdminEventLogJpaProvider]. */
 class AdminEventLogJpaProviderFactory : JpaEntityProviderFactory {
-    override fun create(keycloakSession: KeycloakSession): JpaEntityProvider =
-        AdminEventLogJpaProvider()
+  override fun create(keycloakSession: KeycloakSession): JpaEntityProvider = AdminEventLogJpaProvider()
 
-    override fun init(scope: Config.Scope) {}
+  override fun init(scope: Config.Scope) {}
 
-    override fun postInit(keycloakSessionFactory: KeycloakSessionFactory) {}
+  override fun postInit(keycloakSessionFactory: KeycloakSessionFactory) {}
 
-    override fun close() {}
+  override fun close() {}
 
-    override fun getId() = ADMIN_EVENTS_JPA_PROVIDER_ID
+  override fun getId() = ADMIN_EVENTS_JPA_PROVIDER_ID
 }

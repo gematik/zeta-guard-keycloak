@@ -38,43 +38,41 @@ class HibernatePersistenceUnitInfo(
     private val managedClassNames: Set<String>,
     private val properties: Properties,
 ) : PersistenceUnitInfo {
-    override fun getPersistenceUnitName() = persistenceUnitName
+  override fun getPersistenceUnitName() = persistenceUnitName
 
-    override fun getPersistenceProviderClassName(): String =
-        HibernatePersistenceProvider::class.java.simpleName
+  override fun getPersistenceProviderClassName(): String = HibernatePersistenceProvider::class.java.simpleName
 
-    override fun getTransactionType() = PersistenceUnitTransactionType.RESOURCE_LOCAL
+  override fun getTransactionType() = PersistenceUnitTransactionType.RESOURCE_LOCAL
 
-    override fun getJtaDataSource(): DataSource? = null
+  override fun getJtaDataSource(): DataSource? = null
 
-    override fun getNonJtaDataSource(): DataSource? = null
+  override fun getNonJtaDataSource(): DataSource? = null
 
-    override fun getMappingFileNames() = listOf<String>()
+  override fun getMappingFileNames() = listOf<String>()
 
-    override fun getJarFileUrls() = listOf<URL>()
+  override fun getJarFileUrls() = listOf<URL>()
 
-    override fun getPersistenceUnitRootUrl() = null
+  override fun getPersistenceUnitRootUrl() = null
 
-    override fun getManagedClassNames() = ArrayList(managedClassNames)
+  override fun getManagedClassNames() = ArrayList(managedClassNames)
 
-    override fun excludeUnlistedClasses() = true
+  override fun excludeUnlistedClasses() = true
 
-    override fun getSharedCacheMode() = SharedCacheMode.DISABLE_SELECTIVE
+  override fun getSharedCacheMode() = SharedCacheMode.DISABLE_SELECTIVE
 
-    override fun getValidationMode() = ValidationMode.AUTO
+  override fun getValidationMode() = ValidationMode.AUTO
 
-    override fun getProperties() = properties
+  override fun getProperties() = properties
 
-    override fun getPersistenceXMLSchemaVersion() = jpaVersion
+  override fun getPersistenceXMLSchemaVersion() = jpaVersion
 
-    override fun getClassLoader(): ClassLoader = ClassLoader.getSystemClassLoader()
+  override fun getClassLoader(): ClassLoader = ClassLoader.getSystemClassLoader()
 
-    override fun addTransformer(transformer: ClassTransformer): Unit =
-        throw UnsupportedOperationException()
+  override fun addTransformer(transformer: ClassTransformer): Unit = throw UnsupportedOperationException()
 
-    override fun getNewTempClassLoader() = null
+  override fun getNewTempClassLoader() = null
 
-    companion object {
-        var jpaVersion: String = "2.1"
-    }
+  companion object {
+    var jpaVersion: String = "2.1"
+  }
 }

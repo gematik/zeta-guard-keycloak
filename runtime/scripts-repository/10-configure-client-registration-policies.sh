@@ -1,6 +1,6 @@
 #!/bin/bash
 
-./kcadm.sh get components -r zeta-guard --fields "id,providerId" > components.json
+./kcadm.sh get components -r zeta-guard --fields "id,providerId,parentId" > components.json
 
 # See org.keycloak.services.clientregistration.policy.impl.TrustedHostClientRegistrationPolicyFactory
 TRUSTED_HOST_ID=$(jq -r '.[] | select (.providerId=="trusted-hosts") | .id' < components.json)
@@ -15,13 +15,13 @@ echo Resolved trusted hosts policy id is "$TRUSTED_HOST_ID"
 echo Resolved consent required policy id is "$CONSENT_REQUIRED_ID"
 echo Resolved max clients policy id is "$MAX_CLIENTS_ID"
 
-#./kcadm.sh update components/"$TRUSTED_HOST_ID" -r zeta-guard -s 'config."host-sending-registration-request-must-match"=["false"]'
-
 ./kcadm.sh delete components/"$TRUSTED_HOST_ID" -r zeta-guard
 ./kcadm.sh delete components/"$CONSENT_REQUIRED_ID" -r zeta-guard
+./kcadm.sh delete components/"$MAX_CLIENTS_ID" -r zeta-guard
 
-# A_25748 - PDP Client-Registrierung - Maximale Anzahl von Clients
-# Die Komponente Authorization Server MUSS sicherstellen, dass ein Nutzer maximal 256 Clients registrieren kann. Der Wert muss konfigurierbar sein.
-# TODO: Currently this policy limits the *total* number of clients
-#./kcadm.sh update -r zeta-guard components/"$MAX_CLIENTS_ID" -s 'config."max-clients":["256"]'
+COMPONENT_ID=$(jq -r '.[] | select (.providerId=="allowed-client-templates" and .subType=="anonymous") | .parentId' < components.json)
+echo Client registration component id is "$COMPONENT_ID"
 
+./kcadm.sh create components -r zeta-guard -s name="Setup newly created 𝛇-Guard clients" \
+  -s providerId="zeta-client-registration-policy" -s subType="anonymous"\
+  -s providerType="org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy" \

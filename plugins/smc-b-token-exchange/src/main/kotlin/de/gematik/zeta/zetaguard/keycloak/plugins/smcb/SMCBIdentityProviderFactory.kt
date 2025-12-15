@@ -23,32 +23,34 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.smcb
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SMCB_IDENTITY_PROVIDER_ID
 import org.keycloak.broker.oidc.OIDCIdentityProviderConfig
 import org.keycloak.broker.oidc.OIDCIdentityProviderFactoryWrapper
 import org.keycloak.broker.provider.AbstractIdentityProviderFactory
 import org.keycloak.models.IdentityProviderModel
 import org.keycloak.models.KeycloakSession
 
-const val SMCB_PROVIDER_ID = "zeta-smc-b-oidc"
-
 /**
- * As of version 26.3.4, Keycloak does not implement external-to-internal token exchange in V2.
+ * As of version 26.4.1, Keycloak does not implement external-to-internal token exchange in V2.
  *
- * We try to use as much as possible from the V2 OIDC provider implementation. For details, see
- * https://www.keycloak.org/securing-apps/token-exchange
+ * We try to use as much as possible from the V2 OIDC provider implementation. For details, see https://www.keycloak.org/securing-apps/token-exchange
  */
 class SMCBIdentityProviderFactory : AbstractIdentityProviderFactory<SMCBIdentityProvider>() {
-    override fun getName() = "SMC-B OpenID Connect"
+  override fun getName() = "SMC-B OpenID Connect"
 
-    override fun getId() = SMCB_PROVIDER_ID
+  override fun getId() = SMCB_IDENTITY_PROVIDER_ID
 
-    override fun create(session: KeycloakSession, model: IdentityProviderModel) =
-        SMCBIdentityProvider(session, OIDCIdentityProviderConfig(model))
+  override fun create(session: KeycloakSession, model: IdentityProviderModel) = SMCBIdentityProvider(session, OIDCIdentityProviderConfig(model))
 
-    override fun parseConfig(
-        session: KeycloakSession,
-        config: String,
-    ): MutableMap<String, String?> = OIDCIdentityProviderFactoryWrapper.parseConfig(session, config)
+  override fun parseConfig(session: KeycloakSession, config: String): MutableMap<String, String?> =
+      OIDCIdentityProviderFactoryWrapper.parseConfig(session, config)
 
-    override fun createConfig() = OIDCIdentityProviderConfig()
+  override fun createConfig(): OIDCIdentityProviderConfig {
+    val identityProviderConfig =
+        OIDCIdentityProviderConfig().apply {
+          /** See [org.keycloak.broker.oidc.OIDCIdentityProvider.preprocessFederatedIdentity] */
+          isDisableNonce = true // We will handle this ourselves
+        }
+    return identityProviderConfig
+  }
 }

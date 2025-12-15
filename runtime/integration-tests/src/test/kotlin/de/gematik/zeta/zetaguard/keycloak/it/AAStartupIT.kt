@@ -29,9 +29,9 @@ import io.kotest.core.spec.style.FunSpec
 /** First "test" that starts Docker compose for all consecutive tests */
 @Order(0)
 class AAStartupIT : FunSpec() {
-    init {
-        beforeSpec { Docker.start() }
+  init {
+    beforeSpec { Docker.start() }
 
-        test("Do nothing") {}
-    }
+    test("Do nothing") {}
+  }
 }

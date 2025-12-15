@@ -29,53 +29,53 @@ import io.kotest.matchers.shouldBe
 import java.time.Instant
 
 class AdminEventLoggerTest : AbstractAdminEventLoggerTest() {
-    init {
-        context("AdminEventLogger") {
-            test("basic persistence") {
-                val adminEventLog =
-                    AdminEventLog(
-                        createdAt = Instant.now(),
-                        event = """{"event":"test_event"}""",
-                        previousHash = "previousHash123",
-                        currentHash = "currentHash123",
-                    )
+  init {
+    context("AdminEventLogger") {
+      test("basic persistence") {
+        val adminEventLog =
+            AdminEventLog(
+                createdAt = Instant.now(),
+                event = """{"event":"test_event"}""",
+                previousHash = "previousHash123",
+                currentHash = "currentHash123",
+            )
 
-                adminEventLogStorageService.saveAdminEventLog(adminEventLog)
-                newTransaction()
+        adminEventLogStorageService.saveAdminEventLog(adminEventLog)
+        newTransaction()
 
-                val logs = adminEventLogStorageService.findAll()
+        val logs = adminEventLogStorageService.findAll()
 
-                logs.size shouldBe 1
+        logs.size shouldBe 1
 
-                val log = logs.first()
-                log.currentHash shouldBe "currentHash123"
+        val log = logs.first()
+        log.currentHash shouldBe "currentHash123"
 
-                adminEventLogStorageService.previousHash() shouldBe log.currentHash
-            }
+        adminEventLogStorageService.previousHash() shouldBe log.currentHash
+      }
 
-            test("Hash chain persistence") {
-                adminEventLogStorageService.findAll() shouldBe emptyList()
-                adminEventLogStorageService.previousHash() shouldBe GENESIS_PREVIOUS_HASH
+      test("Hash chain persistence") {
+        adminEventLogStorageService.findAll() shouldBe emptyList()
+        adminEventLogStorageService.previousHash() shouldBe GENESIS_PREVIOUS_HASH
 
-                eventLogger.onEvent(adminEvent1, true)
+        eventLogger.onEvent(adminEvent1, true)
 
-                val logs1 = adminEventLogStorageService.findAll()
-                logs1.size shouldBe 1
+        val logs1 = adminEventLogStorageService.findAll()
+        logs1.size shouldBe 1
 
-                val log1 = logs1.first()
-                log1.previousHash shouldBe GENESIS_PREVIOUS_HASH
+        val log1 = logs1.first()
+        log1.previousHash shouldBe GENESIS_PREVIOUS_HASH
 
-                adminEventLogStorageService.previousHash() shouldBe log1.currentHash
+        adminEventLogStorageService.previousHash() shouldBe log1.currentHash
 
-                eventLogger.onEvent(adminEvent2, true)
+        eventLogger.onEvent(adminEvent2, true)
 
-                val logs2 = adminEventLogStorageService.findAll()
-                logs2.size shouldBe 2
-                logs2.first() shouldBe log1
+        val logs2 = adminEventLogStorageService.findAll()
+        logs2.size shouldBe 2
+        logs2.first() shouldBe log1
 
-                val log2 = logs2.second()
-                log2.previousHash shouldBe log1.currentHash
-            }
-        }
+        val log2 = logs2.second()
+        log2.previousHash shouldBe log1.currentHash
+      }
     }
+  }
 }

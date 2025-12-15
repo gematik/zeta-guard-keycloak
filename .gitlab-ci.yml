@@ -37,7 +37,7 @@ default:
       - .m2/repository
 
   services:
-    - name: docker:24.0.5-dind
+    - name: docker:25.0.5-dind
       variables:
         HEALTHCHECK_TCP_PORT: "2376"
 
@@ -76,7 +76,7 @@ variables:
     -Dhttps.protocols=TLSv1.2
     -Djava.awt.headless=true
 
-  MAVEN_PROFILES: coverage,integration-tests,gitlab
+  MAVEN_PROFILES: coverage,integration-tests,gitlab,sbom
 
   # NOTE: trailing slash is important
   TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX: $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX/
@@ -104,10 +104,24 @@ build:
       coverage_report:
         coverage_format: jacoco
         path: "aggregate-code-coverage/target/site/jacoco-aggregate/jacoco.xml"
+      junit:
+        - "**/target/surefire-reports/*.xml"
+        - "**/target/failsafe-reports/*.xml"
     paths:
       - "**/target/reports/"
       - "**/target/site/"
   coverage: '/^(\d+\.?\d*\%) covered$/'
+
+sbom:
+  stage: build
+  script:
+    - |
+      mvn -P sbom cyclonedx:makeAggregateBom
+  artifacts:
+    when: always
+    paths:
+      - "**/target/bom.xml"
+      - "**/target/bom.json"
 
 mvn-sonar:
   cache:
@@ -119,7 +133,7 @@ mvn-sonar:
     # exclude if $SONAR_HOST_URL not set
     - if: '($SONAR_HOST_URL == null || $SONAR_HOST_URL == "")'
       when: never
-#    - when: on_success
+    #    - when: on_success
     - when: never
   script:
     - >-
@@ -181,3 +195,39 @@ trigger_helm:
   variables:
     KEYCLOAK_IMAGE_TAG: "$CI_COMMIT_REF_SLUG"
     PEPPROXY_IMAGE_TAG: "main"
+
+publish_artifacts:
+  stage: publish
+  rules:
+    - if: $CI_COMMIT_TAG
+      variables:
+        COMMIT_MESSAGE: "$CI_COMMIT_TAG"
+      when: on_success
+    - if: $CI_COMMIT_BRANCH == "staging"
+      variables:
+        COMMIT_MESSAGE: "staging $CI_COMMIT_SHORT_SHA"
+      when: on_success
+    - if: $CI_COMMIT_BRANCH == "release"
+      variables:
+        COMMIT_MESSAGE: "release $CI_COMMIT_SHORT_SHA"
+      when: on_success
+    - when: never
+  needs:
+    - job: build
+      artifacts: true
+    - job: dependency-check-mvn
+      artifacts: true
+    - job: sbom
+      artifacts: true
+  script:
+    - git clone https://zeta-sdk:${REPORTING_TOKEN}@tas-devtools-gitlab.spree.de/zeta/reporting.git
+    - mkdir -p ./reporting/zeta-guard/keycloak-zeta/
+    - find . -path ./reporting -prune -o -name 'jacoco.xml' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
+    - find . -path ./reporting -prune -o -name 'dependency-check-report.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
+    - find . -path ./reporting -prune -o -name 'bom.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
+    - cd reporting
+    - git config user.email "ci@tas-devtools-gitlab.spree.de"
+    - git config  user.name "ci"
+    - git add .
+    - git commit -m "$COMMIT_MESSAGE"
+    - git push

@@ -33,57 +33,49 @@ import org.keycloak.events.admin.AdminEvent
 import org.keycloak.jose.jws.crypto.HashUtils.sha256UrlEncodedHash
 import org.keycloak.util.JsonSerialization
 
-class AdminEventLoggerProvider(private val adminEventLogService: AdminEventLogStorageService) :
-    EventListenerProvider {
-    private val log: Logger = Logger.getLogger(AdminEventLoggerProvider::class.java)
+class AdminEventLoggerProvider(private val adminEventLogService: AdminEventLogStorageService) : EventListenerProvider {
+  private val log: Logger = Logger.getLogger(AdminEventLoggerProvider::class.java)
 
-    override fun onEvent(event: Event) {}
+  override fun onEvent(event: Event) {}
 
-    /** Handles admin events and logs them to the database. */
-    override fun onEvent(adminEvent: AdminEvent, includeRepresentation: Boolean) {
-        log.infof(
-            "Admin Event Occurred: realm=%s, operationType=%s, resourceType=%s, resourcePath=%s",
-            adminEvent.realmName,
-            adminEvent.operationType,
-            adminEvent.resourceType,
-            adminEvent.resourcePath,
-        )
+  /** Handles admin events and logs them to the database. */
+  override fun onEvent(adminEvent: AdminEvent, includeRepresentation: Boolean) {
+    log.infof(
+        "Admin Event Occurred: realm=%s, operationType=%s, resourceType=%s, resourcePath=%s",
+        adminEvent.realmName,
+        adminEvent.operationType,
+        adminEvent.resourceType,
+        adminEvent.resourcePath,
+    )
 
-        if (includeRepresentation) {
-            log.debugf("Admin Event Representation: %s", adminEvent.representation)
-        }
-
-        val json = JsonSerialization.writeValueAsString(adminEvent)
-        val previousHash = adminEventLogService.previousHash()
-        val createdAt = Instant.ofEpochMilli(adminEvent.time)
-        val currentHash = calculateHash(json, createdAt, previousHash)
-
-        adminEventLogService.saveAdminEventLog(
-            AdminEventLog(
-                event = json,
-                createdAt = createdAt,
-                previousHash = previousHash,
-                currentHash = currentHash,
-            )
-        )
+    if (includeRepresentation) {
+      log.debugf("Admin Event Representation: %s", adminEvent.representation)
     }
 
-    override fun close() {
-        // No-op
-    }
+    val json = JsonSerialization.writeValueAsString(adminEvent)
+    val previousHash = adminEventLogService.previousHash()
+    val createdAt = Instant.ofEpochMilli(adminEvent.time)
+    val currentHash = calculateHash(json, createdAt, previousHash)
 
-    companion object {
-        /**
-         * Calculates a SHA-256 hash for the given event data.
-         *
-         * @param json The JSON representation of the event.
-         * @param timestamp The timestamp of the event.
-         * @param previousHash The hash of the previous event log entry.
-         * @return The calculated hash as a URL-encoded string.
-         */
-        fun calculateHash(json: String, timestamp: Instant, previousHash: String): String {
-            val input = "$timestamp|$previousHash|$json"
-            return sha256UrlEncodedHash(input, Charsets.UTF_8)
-        }
+    adminEventLogService.saveAdminEventLog(AdminEventLog(event = json, createdAt = createdAt, previousHash = previousHash, currentHash = currentHash))
+  }
+
+  override fun close() {
+    // No-op
+  }
+
+  companion object {
+    /**
+     * Calculates a SHA-256 hash for the given event data.
+     *
+     * @param json The JSON representation of the event.
+     * @param timestamp The timestamp of the event.
+     * @param previousHash The hash of the previous event log entry.
+     * @return The calculated hash as a URL-encoded string.
+     */
+    fun calculateHash(json: String, timestamp: Instant, previousHash: String): String {
+      val input = "$timestamp|$previousHash|$json"
+      return sha256UrlEncodedHash(input, Charsets.UTF_8)
     }
+  }
 }

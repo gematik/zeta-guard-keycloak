@@ -27,6 +27,6 @@ import org.keycloak.models.KeycloakSession
 
 /** package private in KC 🙄 */
 object OIDCIdentityProviderFactoryWrapper {
-    fun parseConfig(session: KeycloakSession, config: String): MutableMap<String, String?> =
-        OIDCIdentityProviderFactory.parseOIDCConfig(session, config)
+  fun parseConfig(session: KeycloakSession, config: String): MutableMap<String, String?> =
+      OIDCIdentityProviderFactory.parseOIDCConfig(session, config)
 }

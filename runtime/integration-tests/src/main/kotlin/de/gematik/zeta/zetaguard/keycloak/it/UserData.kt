@@ -27,10 +27,4 @@ import java.beans.ConstructorProperties
 
 data class UserData
 @ConstructorProperties("userName", "password", "firstName", "lastName", "email")
-constructor(
-    val userName: String,
-    val password: String,
-    val firstName: String = "",
-    val lastName: String = "",
-    val email: String = "",
-)
+constructor(val userName: String, val password: String, val firstName: String = "", val lastName: String = "", val email: String = "")

@@ -29,66 +29,55 @@ import io.kotest.assertions.arrow.core.shouldBeRight
 import org.hibernate.Session
 
 class AdminEventLogVerificationTest : AbstractAdminEventLoggerTest() {
-    private lateinit var adminEventLogVerificationService: AdminEventLogVerificationService
+  private lateinit var adminEventLogVerificationService: AdminEventLogVerificationService
 
-    init {
-        beforeTest {
-            adminEventLogVerificationService =
-                AdminEventLogVerificationService(adminEventLogStorageService)
+  init {
+    beforeTest { adminEventLogVerificationService = AdminEventLogVerificationService(adminEventLogStorageService) }
+
+    context("AdminEventLog verification") {
+      test("valid chain") {
+        adminEventLogVerificationService.verifyChain() shouldBeRight AdminEventLogEmpty
+
+        storeEvents()
+
+        adminEventLogVerificationService.verifyChain() shouldBeRight AdminEventLogValid
+      }
+
+      test("tampered hash chain") {
+        storeEvents()
+
+        val log2 = adminEventLogStorageService.findAll().second()
+        val session = keycloakSession.entityManager.unwrap(Session::class.java)
+
+        session.doWork { connection ->
+          connection.createStatement().executeUpdate("UPDATE admin_event_log SET previous_hash = 'manipulatedHash' WHERE id = '${log2.id}'")
         }
 
-        context("AdminEventLog verification") {
-            test("valid chain") {
-                adminEventLogVerificationService.verifyChain() shouldBeRight AdminEventLogEmpty
+        newTransaction()
 
-                storeEvents()
+        adminEventLogVerificationService.verifyChain() shouldBeLeft InvalidPreviousHash()
+      }
 
-                adminEventLogVerificationService.verifyChain() shouldBeRight AdminEventLogValid
-            }
+      test("tampered event") {
+        storeEvents()
 
-            test("tampered hash chain") {
-                storeEvents()
+        val log3 = adminEventLogStorageService.findAll().third()
+        val session = keycloakSession.entityManager.unwrap(Session::class.java)
 
-                val log2 = adminEventLogStorageService.findAll().second()
-                val session = keycloakSession.entityManager.unwrap(Session::class.java)
-
-                session.doWork { connection ->
-                    connection
-                        .createStatement()
-                        .executeUpdate(
-                            "UPDATE admin_event_log SET previous_hash = 'manipulatedHash' WHERE id = '${log2.id}'"
-                        )
-                }
-
-                newTransaction()
-
-                adminEventLogVerificationService.verifyChain() shouldBeLeft InvalidPreviousHash()
-            }
-
-            test("tampered event") {
-                storeEvents()
-
-                val log3 = adminEventLogStorageService.findAll().third()
-                val session = keycloakSession.entityManager.unwrap(Session::class.java)
-
-                session.doWork { connection ->
-                    connection
-                        .createStatement()
-                        .executeUpdate(
-                            "UPDATE admin_event_log SET event_data = 'new content' WHERE id = '${log3.id}'"
-                        )
-                }
-
-                newTransaction()
-
-                adminEventLogVerificationService.verifyChain() shouldBeLeft InvalidCurrentHash()
-            }
+        session.doWork { connection ->
+          connection.createStatement().executeUpdate("UPDATE admin_event_log SET event_data = 'new content' WHERE id = '${log3.id}'")
         }
-    }
 
-    private fun storeEvents() {
-        eventLogger.onEvent(adminEvent1, true)
-        eventLogger.onEvent(adminEvent2, true)
-        eventLogger.onEvent(adminEvent3, true)
+        newTransaction()
+
+        adminEventLogVerificationService.verifyChain() shouldBeLeft InvalidCurrentHash()
+      }
     }
+  }
+
+  private fun storeEvents() {
+    eventLogger.onEvent(adminEvent1, true)
+    eventLogger.onEvent(adminEvent2, true)
+    eventLogger.onEvent(adminEvent3, true)
+  }
 }

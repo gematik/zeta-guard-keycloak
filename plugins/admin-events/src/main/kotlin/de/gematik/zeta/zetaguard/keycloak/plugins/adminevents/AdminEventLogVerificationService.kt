@@ -33,46 +33,38 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEvent
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService.Companion.GENESIS_PREVIOUS_HASH
 
 /** Service for verifying the integrity of the admin event log chain. */
-class AdminEventLogVerificationService(
-    private val adminEventLogService: AdminEventLogStorageService
-) {
-    /**
-     * Verifies the integrity of the admin event log chain.
-     *
-     * This method checks that each log entry's previous hash matches the current hash of the
-     * previous entry, and that the current hash is correctly calculated based on the event data and
-     * timestamp.
-     *
-     * @return Either a success or a failure indicating the verification result.
-     */
-    fun verifyChain(): Either<AdminEventLogVerificationFailure, AdminEventLogVerificationSuccess> =
-        either {
-            val logs = adminEventLogService.findAll()
+class AdminEventLogVerificationService(private val adminEventLogService: AdminEventLogStorageService) {
+  /**
+   * Verifies the integrity of the admin event log chain.
+   *
+   * This method checks that each log entry's previous hash matches the current hash of the previous entry, and that the current hash is correctly
+   * calculated based on the event data and timestamp.
+   *
+   * @return Either a success or a failure indicating the verification result.
+   */
+  fun verifyChain(): Either<AdminEventLogVerificationFailure, AdminEventLogVerificationSuccess> = either {
+    val logs = adminEventLogService.findAll()
 
-            if (logs.isEmpty()) {
-                return@either AdminEventLogEmpty
-            }
+    if (logs.isEmpty()) {
+      return@either AdminEventLogEmpty
+    }
 
-            var previousHash = GENESIS_PREVIOUS_HASH
+    var previousHash = GENESIS_PREVIOUS_HASH
 
-            for (log in logs) {
-                ensure(log.previousHash == previousHash) {
-                    InvalidPreviousHash(
-                        "Invalid previous hash@${log.id}: expected $previousHash but found ${log.previousHash}"
-                    )
-                }
+    for (log in logs) {
+      ensure(log.previousHash == previousHash) {
+        InvalidPreviousHash("Invalid previous hash@${log.id}: expected $previousHash but found ${log.previousHash}")
+      }
 
-                val calculatedHash = calculateHash(log.event, log.createdAt, previousHash)
+      val calculatedHash = calculateHash(log.event, log.createdAt, previousHash)
 
-                ensure(log.currentHash == calculatedHash) {
-                    InvalidCurrentHash(
-                        "Invalid current hash@${log.id}: expected $calculatedHash but found ${log.currentHash}"
-                    )
-                }
+      ensure(log.currentHash == calculatedHash) {
+        InvalidCurrentHash("Invalid current hash@${log.id}: expected $calculatedHash but found ${log.currentHash}")
+      }
 
-                previousHash = log.currentHash
-            }
+      previousHash = log.currentHash
+    }
 
-            AdminEventLogValid
-        }
+    AdminEventLogValid
+  }
 }

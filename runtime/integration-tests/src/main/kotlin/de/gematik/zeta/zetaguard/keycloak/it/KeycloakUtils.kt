@@ -33,67 +33,61 @@ import org.keycloak.representations.idm.RoleRepresentation
 import org.keycloak.representations.idm.UserRepresentation
 
 object KeycloakUtils {
-    fun createUser(
-        usersResource: UsersResource,
-        userData: UserData,
-        termsAccepted: Boolean = true,
-    ) {
-        val userRepresentation = createUser(userData)
-        val userResponse = usersResource.create(userRepresentation)
+  fun createUser(usersResource: UsersResource, userData: UserData, termsAccepted: Boolean = true) {
+    val userRepresentation = createUser(userData)
+    val userResponse = usersResource.create(userRepresentation)
 
-        check(userResponse.statusInfo in listOf(CREATED, CONFLICT)) {
-            "Invalid response ${userResponse.statusInfo}"
-        }
+    check(userResponse.statusInfo in listOf(CREATED, CONFLICT)) { "Invalid response ${userResponse.statusInfo}" }
 
-        if (termsAccepted) {
-            // Remove required actions, terms and conditions in particular
-            val userId = usersResource.search(userData.userName)[0].id
-            val userResource = usersResource[userId]
-            userResource.update(createUser(userData).apply { id = userId })
-        }
+    if (termsAccepted) {
+      // Remove required actions, terms and conditions in particular
+      val userId = usersResource.search(userData.userName)[0].id
+      val userResource = usersResource[userId]
+      userResource.update(createUser(userData).apply { id = userId })
     }
+  }
 
-    private fun createUser(userData: UserData) =
-        UserRepresentation().apply {
-            isEnabled = true
-            firstName = userData.firstName.ifEmpty { "Perry" }
-            lastName = userData.lastName.ifEmpty { "Rhodan" }
-            email = userData.email
-            isEmailVerified = true
-            username = userData.userName
-            requiredActions = listOf()
-            attributes = mapOf("terms_and_conditions" to listOf("4711"))
-            credentials =
-                listOf(
-                    CredentialRepresentation().apply {
-                        type = CredentialRepresentation.PASSWORD
-                        value = userData.password
-                    }
-                )
-        }
+  private fun createUser(userData: UserData) =
+      UserRepresentation().apply {
+        isEnabled = true
+        firstName = userData.firstName.ifEmpty { "Perry" }
+        lastName = userData.lastName.ifEmpty { "Rhodan" }
+        email = userData.email
+        isEmailVerified = true
+        username = userData.userName
+        requiredActions = listOf()
+        attributes = mapOf("terms_and_conditions" to listOf("4711"))
+        credentials =
+            listOf(
+                CredentialRepresentation().apply {
+                  type = CredentialRepresentation.PASSWORD
+                  value = userData.password
+                }
+            )
+      }
 
-    fun addRoles(
-        userData: UserData,
-        usersResource: UsersResource,
-        clientId: String,
-        realmRoles: List<RoleRepresentation>,
-        clientRoles: List<RoleRepresentation>,
-    ) {
-        val users = usersResource.search(userData.userName)
+  fun addRoles(
+      userData: UserData,
+      usersResource: UsersResource,
+      clientId: String,
+      realmRoles: List<RoleRepresentation>,
+      clientRoles: List<RoleRepresentation>,
+  ) {
+    val users = usersResource.search(userData.userName)
 
-        if (users.size == 1) {
-            val user = users[0]
-            val userResource = usersResource[user.id]
+    if (users.size == 1) {
+      val user = users[0]
+      val userResource = usersResource[user.id]
 
-            if (realmRoles.isNotEmpty()) {
-                userResource.roles().realmLevel().add(realmRoles)
-            }
+      if (realmRoles.isNotEmpty()) {
+        userResource.roles().realmLevel().add(realmRoles)
+      }
 
-            if (clientRoles.isNotEmpty()) {
-                userResource.roles().clientLevel(clientId).add(clientRoles)
-            }
-        } else {
-            error("User not found ${userData.userName}")
-        }
+      if (clientRoles.isNotEmpty()) {
+        userResource.roles().clientLevel(clientId).add(clientRoles)
+      }
+    } else {
+      error("User not found ${userData.userName}")
     }
+  }
 }

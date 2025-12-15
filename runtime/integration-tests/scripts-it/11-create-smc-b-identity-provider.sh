@@ -1,0 +1,1 @@
+../scripts-repository/11-create-smc-b-identity-provider.sh

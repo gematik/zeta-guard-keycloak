@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.adminevents
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ADMIN_EVENTS_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.DefaultEMCreator
 import org.keycloak.Config
@@ -31,28 +32,26 @@ import org.keycloak.events.EventListenerProviderFactory
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.KeycloakSessionFactory
 
-const val ADMIN_EVENTS_PROVIDER_ID = "zeta-guard-admin-events"
-
 /**
  * Factory for creating instances of [AdminEventLoggerProvider].
  *
  * See META-INF/services/org.keycloak.connections.jpa.entityprovider.JpaEntityProviderFactory
  */
 class AdminEventLoggerProviderFactory : EventListenerProviderFactory {
-    override fun create(session: KeycloakSession): EventListenerProvider =
-        AdminEventLoggerProvider(AdminEventLogStorageService(DefaultEMCreator(session)))
+  override fun create(session: KeycloakSession): EventListenerProvider =
+      AdminEventLoggerProvider(AdminEventLogStorageService(DefaultEMCreator(session)))
 
-    override fun init(config: Config.Scope) {
-        // No-op
-    }
+  override fun init(config: Config.Scope) {
+    // No-op
+  }
 
-    override fun postInit(factory: KeycloakSessionFactory) {
-        // No-op
-    }
+  override fun postInit(factory: KeycloakSessionFactory) {
+    // No-op
+  }
 
-    override fun close() {
-        // No-op
-    }
+  override fun close() {
+    // No-op
+  }
 
-    override fun getId() = ADMIN_EVENTS_PROVIDER_ID
+  override fun getId() = ADMIN_EVENTS_PROVIDER_ID
 }
