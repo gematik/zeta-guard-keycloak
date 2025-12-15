@@ -37,78 +37,75 @@ import org.keycloak.events.admin.ResourceType
 import org.keycloak.models.KeycloakSession
 
 abstract class AbstractAdminEventLoggerTest : FunSpec() {
-    protected lateinit var entityManager: EntityManager
-    protected lateinit var adminEventLogStorageService: AdminEventLogStorageService
-    protected lateinit var eventLogger: AdminEventLoggerProvider
+  protected lateinit var entityManager: EntityManager
+  protected lateinit var adminEventLogStorageService: AdminEventLogStorageService
+  protected lateinit var eventLogger: AdminEventLoggerProvider
 
-    protected val keycloakSession: KeycloakSession = mockk()
-    protected val jpaConnectionProvider: JpaConnectionProvider = mockk()
+  protected val keycloakSession: KeycloakSession = mockk()
+  protected val jpaConnectionProvider: JpaConnectionProvider = mockk()
 
-    protected val adminEvent1 =
-        AdminEvent().apply {
-            realmName = "zetaguard"
-            operationType = OperationType.UPDATE
-            resourceType = ResourceType.ORGANIZATION
-            resourcePath = "/users/123"
-            time = 100000000L
-            representation = """{"userId":"123"}"""
-        }
+  protected val adminEvent1 =
+      AdminEvent().apply {
+        realmName = "zetaguard"
+        operationType = OperationType.UPDATE
+        resourceType = ResourceType.ORGANIZATION
+        resourcePath = "/users/123"
+        time = 100000000L
+        representation = """{"userId":"123"}"""
+      }
 
-    protected val adminEvent2 =
-        AdminEvent().apply {
-            realmName = "zetaguard"
-            operationType = OperationType.ACTION
-            resourceType = ResourceType.CLIENT_SCOPE
-            resourcePath = "/users/4711"
-            time = 100000111L
-            representation = """{"foo":"bar"}"""
-        }
+  protected val adminEvent2 =
+      AdminEvent().apply {
+        realmName = "zetaguard"
+        operationType = OperationType.ACTION
+        resourceType = ResourceType.CLIENT_SCOPE
+        resourcePath = "/users/4711"
+        time = 100000111L
+        representation = """{"foo":"bar"}"""
+      }
 
-    protected val adminEvent3 =
-        AdminEvent().apply {
-            realmName = "zetaguard"
-            operationType = OperationType.ACTION
-            resourceType = ResourceType.AUTH_FLOW
-            resourcePath = "/users/4711"
-            time = 200000111L
-            representation = """{"jens":"hippe"}"""
-        }
+  protected val adminEvent3 =
+      AdminEvent().apply {
+        realmName = "zetaguard"
+        operationType = OperationType.ACTION
+        resourceType = ResourceType.AUTH_FLOW
+        resourcePath = "/users/4711"
+        time = 200000111L
+        representation = """{"jens":"hippe"}"""
+      }
 
-    init {
-        beforeTest {
-            entityManager = entityManagerFactory.createEntityManager().apply { transaction.begin() }
+  init {
+    beforeTest {
+      entityManager = entityManagerFactory.createEntityManager().apply { transaction.begin() }
 
-            every { keycloakSession.getProvider(JpaConnectionProvider::class.java) } returns
-                jpaConnectionProvider
-            every<EntityManager> { jpaConnectionProvider.entityManager } returns entityManager
+      every { keycloakSession.getProvider(JpaConnectionProvider::class.java) } returns jpaConnectionProvider
+      every<EntityManager> { jpaConnectionProvider.entityManager } returns entityManager
 
-            adminEventLogStorageService =
-                AdminEventLogStorageService(DefaultEMCreator(keycloakSession))
-            eventLogger = AdminEventLoggerProvider(adminEventLogStorageService)
-        }
-
-        afterTest {
-            if (entityManager.isOpen) {
-                entityManager.createNativeQuery("TRUNCATE TABLE admin_event_log").executeUpdate()
-                entityManager.transaction.commit()
-                entityManager.close()
-            }
-        }
+      adminEventLogStorageService = AdminEventLogStorageService(DefaultEMCreator(keycloakSession))
+      eventLogger = AdminEventLoggerProvider(adminEventLogStorageService)
     }
 
-    protected fun <T> List<T>.second() = this[1]
-
-    protected fun <T> List<T>.third() = this[2]
-
-    protected fun newTransaction() {
-        entityManager.flush()
+    afterTest {
+      if (entityManager.isOpen) {
+        entityManager.createNativeQuery("TRUNCATE TABLE admin_event_log").executeUpdate()
         entityManager.transaction.commit()
-        entityManager.transaction.begin()
-        entityManager.clear()
+        entityManager.close()
+      }
     }
+  }
 
-    companion object {
-        @JvmStatic
-        internal val entityManagerFactory = Persistence.createEntityManagerFactory("test")
-    }
+  protected fun <T> List<T>.second() = this[1]
+
+  protected fun <T> List<T>.third() = this[2]
+
+  protected fun newTransaction() {
+    entityManager.flush()
+    entityManager.transaction.commit()
+    entityManager.transaction.begin()
+    entityManager.clear()
+  }
+
+  companion object {
+    @JvmStatic internal val entityManagerFactory = Persistence.createEntityManagerFactory("test")
+  }
 }

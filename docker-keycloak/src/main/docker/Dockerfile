@@ -11,7 +11,6 @@ COPY maven/providers/*.jar providers/
 
 RUN /opt/keycloak/bin/kc.sh build
 
-
 FROM ${docker.keycloak.image}:${keycloak.version}
 COPY --from=builder /opt/keycloak/ /opt/keycloak/
 
@@ -20,6 +19,9 @@ ENV TZ=Europe/Berlin
 
 # Set correct time zone
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Use BC provider as default security provider
+COPY maven/java.security /etc/alternatives/jre/conf/security/
 
 USER keycloak
 

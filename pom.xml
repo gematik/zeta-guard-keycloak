@@ -4,7 +4,7 @@
 
     <groupId>de.gematik.zeta.zeta-guard</groupId>
     <artifactId>keycloak-zeta</artifactId>
-    <version>0.1.3</version>
+    <version>0.2.3</version>
     <packaging>pom</packaging>
 
     <name>𝝵-Guard :: Create ZETA-Guard Keycloak</name>
@@ -12,8 +12,11 @@
 
     <properties>
         <kotlin.version>2.2.20</kotlin.version>
-        <keycloak.version>26.3.4</keycloak.version>
-        <keycloak.admin.version>26.0.6</keycloak.admin.version>
+        <arrow.version>2.1.2</arrow.version>
+        <keycloak.version>26.4.5</keycloak.version>
+        <keycloak.admin.version>26.0.7</keycloak.admin.version>
+        <resteasy.version>6.2.12.Final</resteasy.version>
+        <bouncycastle.version>1.81</bouncycastle.version>
         <java.version>21</java.version>
 
         <kotlin.compiler.jvmTarget>${java.version}</kotlin.compiler.jvmTarget>
@@ -23,10 +26,11 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
+        <!-- Upgrade to 6.x causes TestEngine with ID 'junit-jupiter' failed to discover tests -->
         <kotest.version>5.9.1</kotest.version>
         <mockk.version>1.14.5</mockk.version>
         <restassured.version>5.5.6</restassured.version>
-        <testcontainers.version>1.21.3</testcontainers.version>
+        <testcontainers.version>2.0.2</testcontainers.version>
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.4.14</logback.version>
 
@@ -37,7 +41,7 @@
             ${maven.multiModuleProjectDirectory}/aggregate-code-coverage/target/site/jacoco-aggregate/jacoco.xml
         </sonar.coverage.jacoco.xmlReportPaths>
 
-        <spotless.version>2.46.1</spotless.version>
+        <spotless.version>3.0.0</spotless.version>
     </properties>
 
     <dependencyManagement>
@@ -56,6 +60,27 @@
                 <version>${keycloak.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcprov-debug-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcpkix-debug-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.bouncycastle</groupId>
+                <artifactId>bcutil-debug-jdk18on</artifactId>
+                <version>${bouncycastle.version}</version>
+                <scope>provided</scope>
             </dependency>
 
             <dependency>
@@ -82,14 +107,34 @@
             </dependency>
 
             <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-reflect</artifactId>
+                <version>${kotlin.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
                 <groupId>io.arrow-kt</groupId>
                 <artifactId>arrow-core-jvm</artifactId>
-                <version>2.1.2</version>
+                <version>${arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.arrow-kt</groupId>
+                <artifactId>arrow-atomic-jvm</artifactId>
+                <version>${arrow.version}</version>
             </dependency>
 
             <dependency>
                 <groupId>org.keycloak</groupId>
                 <artifactId>keycloak-core</artifactId>
+                <version>${keycloak.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.keycloak</groupId>
+                <artifactId>keycloak-crypto-default</artifactId>
                 <version>${keycloak.version}</version>
                 <scope>provided</scope>
             </dependency>
@@ -130,28 +175,24 @@
             </dependency>
 
             <dependency>
-                <groupId>org.apache.httpcomponents</groupId>
-                <artifactId>httpclient</artifactId>
-                <version>4.5.14</version>
+                <groupId>org.jboss.resteasy</groupId>
+                <artifactId>resteasy-core</artifactId>
+                <version>${resteasy.version}</version>
                 <scope>provided</scope>
             </dependency>
 
             <dependency>
-                <groupId>de.gematik.zeta.zeta-guard</groupId>
-                <artifactId>commons</artifactId>
-                <version>${project.version}</version>
-            </dependency>
+                <groupId>org.apache.httpcomponents</groupId>
+                <artifactId>httpclient</artifactId>
+                <version>4.5.14</version>
+                <scope>provided</scope>
 
-            <dependency>
-                <groupId>de.gematik.zeta.zeta-guard</groupId>
-                <artifactId>admin-events</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>de.gematik.zeta.zeta-guard</groupId>
-                <artifactId>smc-b-token-exchange</artifactId>
-                <version>${project.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <artifactId>commons-logging</artifactId>
+                        <groupId>commons-logging</groupId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
@@ -222,6 +263,64 @@
                 <version>2.3.232</version>
                 <scope>test</scope>
             </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>commons-server</artifactId>
+                <type>test-jar</type>
+                <scope>test</scope>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>commons-client</artifactId>
+                <type>test-jar</type>
+                <scope>test</scope>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>commons-client</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>commons-server</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>admin-events</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>smc-b-token-exchange</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>nonce-management</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>client-registration</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>well-known-provider</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -229,6 +328,11 @@
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-reflect</artifactId>
         </dependency>
     </dependencies>
 
@@ -352,14 +456,18 @@
                 <groupId>com.diffplug.spotless</groupId>
                 <artifactId>spotless-maven-plugin</artifactId>
                 <version>${spotless.version}</version>
+
                 <configuration>
                     <kotlin>
                         <ktfmt>
                             <style>KOTLINLANG</style>
-                            <manageTrailingCommas>true</manageTrailingCommas>
+                            <maxWidth>150</maxWidth>
+                            <blockIndent>2</blockIndent>
+                            <removeUnusedImports>true</removeUnusedImports>
                         </ktfmt>
                     </kotlin>
                 </configuration>
+
                 <executions>
                     <execution>
                         <goals>
@@ -373,6 +481,7 @@
             <plugin>
                 <groupId>org.owasp</groupId>
                 <artifactId>dependency-check-maven</artifactId>
+
                 <configuration>
                     <!--suppress MavenModelInspection -->
                     <nvdApiKey>${env.NVD_API_KEY}</nvdApiKey>
@@ -397,26 +506,86 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.4.2</version>
+
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <version>3.3.1</version>
+
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>jar-no-fork</goal>
+                            <goal>test-jar-no-fork</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
     <modules>
-        <module>commons</module>
+        <module>commons-server</module>
+        <module>commons-client</module>
         <module>plugins/admin-events</module>
         <module>plugins/smc-b-token-exchange</module>
+        <module>plugins/nonce-management</module>
+        <module>plugins/client-registration</module>
+        <module>plugins/well-known</module>
         <module>docker-keycloak</module>
-        <module>aggregate-code-coverage</module>
     </modules>
 
     <profiles>
         <profile>
+            <id>sbom</id>
+
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.cyclonedx</groupId>
+                        <artifactId>cyclonedx-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>makeAggregateBom</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
             <id>coverage</id>
+
+            <modules>
+                <module>aggregate-code-coverage</module>
+            </modules>
 
             <build>
                 <plugins>
                     <plugin>
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
+
                         <executions>
                             <execution>
                                 <id>prepare-agent</id>

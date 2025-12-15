@@ -1,0 +1,12 @@
+{
+  "access_token_ttl": 300,
+  "refresh_token_ttl": 86400,
+  "allowed_scopes": [
+    "audience-target-scope",
+    "test_scope_read",
+    "test_scope_write",
+    "erezept",
+    "vsdservice",
+    "openid"
+  ]
+}

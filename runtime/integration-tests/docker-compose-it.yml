@@ -23,7 +23,12 @@ services:
 
   keycloak:
     image: ${IMAGE_NAME:-zeta/zeta-guard/keycloak-zeta}:${IMAGE_TAG:-latest}
+    # 'container_name' property set for service 'keycloak' but this property is not supported by Testcontainers, consider removing it
     environment:
+      PRINT_ENV: true
+      JAVA_LOCALE: -Duser.timezone=Europe/Berlin
+      JAVA_OPTS_APPEND: -ea
+
       # Put Keycloak build options in the first build stage of the container image
       KC_DB: postgres
       KC_DB_URL: "jdbc:postgresql://keycloak-db:5432/keycloak"
@@ -34,13 +39,23 @@ services:
       KC_HEALTH_ENABLED: true
       KC_HOSTNAME: http://localhost:18080
       KC_HTTP_ENABLED: true
+      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
+      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       # Initial hash for admin events log
       GENESIS_HASH: ${GENESIS_HASH:-4841c2142fef441daa6ee6c57db65c011935964b14e94a6c8f5ec0447b83526c}
+      # Where to find SMC-B certificates and how to read them
+      SMCB_KEYSTORE_LOCATION: /opt/keycloak/conf/smcb-certificates.p12
+      SMCB_KEYSTORE_PASSWORD: "tyqvHpFoHdu68yRE+0F4q/I"
+      SMCB_USER_MAX_CLIENTS: 20
+      CLIENT_REGISTRATION_TTL: "PT4S"
+      CLIENT_REGISTRATION_SCHEDULER_INTERVAL: "PT3S"
     ports:
-      - "18080:8080" # api port
+      - "127.0.0.1:18080:8080" # api port
       - "19000:9000" # mgmt
     networks:
       - zeta-guard
+    volumes:
+      - ../smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
     healthcheck:
       # No curl in Keycloak 🙄
       test: |
@@ -52,7 +67,8 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
-    command: start --log="console,file" --optimized
+    # Do not optimize in order to to load SPI build-time config changes (KC_* env) applied at startup
+    command: start --log="console,file"
 
   keycloak-config-cli:
     image: ${IMAGE_KEYCLOAK_CONFIG:-zeta/zeta-guard/keycloak-config-cli}
@@ -75,3 +91,19 @@ services:
       - ./scripts-it:/opt/keycloak/scripts
       - ./scripts-repository:/opt/keycloak/scripts-repository
 
+  opa:
+    image: openpolicyagent/opa:1.11.0-static
+    command:
+      - run
+      - --server
+      - --log-level=info
+      - --addr=0.0.0.0:8181
+      - --diagnostic-addr=0.0.0.0:8282
+      - /bundle
+    volumes:
+      - ../opa:/bundle:ro
+    ports:
+      - "18181:8181"   # OPA API
+      - "18282:8282"   # OPA diagnostics
+    networks:
+      - zeta-guard

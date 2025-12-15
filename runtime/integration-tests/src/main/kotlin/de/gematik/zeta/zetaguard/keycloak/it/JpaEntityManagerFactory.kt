@@ -38,55 +38,44 @@ import org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl
 import org.hibernate.jpa.boot.internal.PersistenceUnitInfoDescriptor
 
 @Suppress("unused")
-class JpaEntityManagerFactory(host: String, port: Int, vararg entityClasses: Class<*>) :
-    AutoCloseable {
-    private lateinit var entityManagerFactory: EntityManagerFactory
-    private val entityClasses =
-        entityClasses.map<Class<*>, String> { obj: Class<*> -> obj.getName() }.toSet()
-    var debugSQL = false
+class JpaEntityManagerFactory(host: String, port: Int, vararg entityClasses: Class<*>) : AutoCloseable {
+  private lateinit var entityManagerFactory: EntityManagerFactory
+  private val entityClasses = entityClasses.map<Class<*>, String> { obj: Class<*> -> obj.getName() }.toSet()
+  var debugSQL = false
 
-    private val properties: Map<String, String> =
-        mapOf(
-            DIALECT to "org.hibernate.dialect.PostgreSQLDialect",
-            JAKARTA_JDBC_DRIVER to "org.postgresql.Driver",
-            JAKARTA_JDBC_URL to "jdbc:postgresql://$host:$port/keycloak?ssl=false",
-            JAKARTA_JDBC_USER to "zeta-guard",
-            JAKARTA_JDBC_PASSWORD to "geheim",
-            SHOW_SQL to debugSQL.toString(),
-            FORMAT_SQL to debugSQL.toString(),
-            USE_SECOND_LEVEL_CACHE to "false",
-            USE_QUERY_CACHE to "false",
-        )
+  private val properties: Map<String, String> =
+      mapOf(
+          DIALECT to "org.hibernate.dialect.PostgreSQLDialect",
+          JAKARTA_JDBC_DRIVER to "org.postgresql.Driver",
+          JAKARTA_JDBC_URL to "jdbc:postgresql://$host:$port/keycloak?ssl=false",
+          JAKARTA_JDBC_USER to "zeta-guard",
+          JAKARTA_JDBC_PASSWORD to "geheim",
+          SHOW_SQL to debugSQL.toString(),
+          FORMAT_SQL to debugSQL.toString(),
+          USE_SECOND_LEVEL_CACHE to "false",
+          USE_QUERY_CACHE to "false",
+      )
 
-    fun createEntityManager(): EntityManager = getEntityManagerFactory().createEntityManager()
+  fun createEntityManager(): EntityManager = getEntityManagerFactory().createEntityManager()
 
-    fun getEntityManagerFactory(): EntityManagerFactory {
-        if (!this::entityManagerFactory.isInitialized || !entityManagerFactory.isOpen) {
-            val persistenceUnitInfo =
-                HibernatePersistenceUnitInfo(
-                    javaClass.getSimpleName(),
-                    entityClasses,
-                    properties.toProperties(),
-                )
-            val builder =
-                EntityManagerFactoryBuilderImpl(
-                    PersistenceUnitInfoDescriptor(persistenceUnitInfo),
-                    properties,
-                )
+  fun getEntityManagerFactory(): EntityManagerFactory {
+    if (!this::entityManagerFactory.isInitialized || !entityManagerFactory.isOpen) {
+      val persistenceUnitInfo = HibernatePersistenceUnitInfo(javaClass.getSimpleName(), entityClasses, properties.toProperties())
+      val builder = EntityManagerFactoryBuilderImpl(PersistenceUnitInfoDescriptor(persistenceUnitInfo), properties)
 
-            entityManagerFactory = builder.build()
-        }
-
-        return entityManagerFactory
+      entityManagerFactory = builder.build()
     }
 
-    fun shutdown() {
-        if (this::entityManagerFactory.isInitialized && entityManagerFactory.isOpen) {
-            entityManagerFactory.close()
-        }
-    }
+    return entityManagerFactory
+  }
 
-    override fun close() {
-        shutdown()
+  fun shutdown() {
+    if (this::entityManagerFactory.isInitialized && entityManagerFactory.isOpen) {
+      entityManagerFactory.close()
     }
+  }
+
+  override fun close() {
+    shutdown()
+  }
 }

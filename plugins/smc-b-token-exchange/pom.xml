@@ -5,13 +5,13 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>0.1.3</version>
+        <version>0.2.3</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <artifactId>smc-b-token-exchange</artifactId>
-    <name>𝝵-Guard :: Exchange access token from SMC-B</name>
+    <name>𝝵-Guard :: Exchange SMC-B token</name>
     <description>Exchange access token for SMC-B generated token</description>
 
     <dependencies>
@@ -32,8 +32,28 @@
         </dependency>
 
         <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-debug-jdk18on</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcutil-debug-jdk18on</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-debug-jdk18on</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>de.gematik.zeta.zeta-guard</groupId>
-            <artifactId>commons</artifactId>
+            <artifactId>commons-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.gematik.zeta.zeta-guard</groupId>
+            <artifactId>nonce-management</artifactId>
         </dependency>
 
         <dependency>
@@ -55,16 +75,6 @@
             <groupId>io.kotest</groupId>
             <artifactId>kotest-runner-junit5-jvm</artifactId>
             <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.hibernate.orm</groupId>
-            <artifactId>hibernate-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
         </dependency>
 
         <dependency>

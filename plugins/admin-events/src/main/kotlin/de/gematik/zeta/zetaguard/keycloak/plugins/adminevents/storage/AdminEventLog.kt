@@ -43,38 +43,30 @@ import org.apache.commons.lang3.builder.ToStringStyle.NO_FIELD_NAMES_STYLE
  * @property createdAt The timestamp when the log entry was created.
  * @property event The JSON representation of the admin event.
  * @property previousHash The hash of the previous log entry, used for integrity verification.
- * @property currentHash The hash of the current log entry, calculated from the event data and
- *   timestamp.
+ * @property currentHash The hash of the current log entry, calculated from the event data and timestamp.
  */
 @Entity
 @Table(name = "admin_event_log")
 class AdminEventLog(
-    @Id
-    @GeneratedValue
-    @Column(name = "id", nullable = false, updatable = false)
-    val id: UUID? = null,
+    @Id @GeneratedValue @Column(name = "id", nullable = false, updatable = false) val id: UUID? = null,
     @Column(name = "created_at", nullable = false) val createdAt: Instant,
     @Lob @Column(name = "event_data", nullable = false) val event: String,
-    @Column(name = "previous_hash", nullable = false, length = 64, unique = true)
-    val previousHash: String,
-    @Column(name = "current_hash", nullable = false, length = 64, unique = true)
-    val currentHash: String,
+    @Column(name = "previous_hash", nullable = false, length = 64, unique = true) val previousHash: String,
+    @Column(name = "current_hash", nullable = false, length = 64, unique = true) val currentHash: String,
 ) {
-    // JPA requires a no-arg constructor for entity classes
-    @Suppress("unused")
-    private constructor() :
-        this(null, Instant.now(), "", GENESIS_PREVIOUS_HASH, GENESIS_PREVIOUS_HASH)
+  // JPA requires a no-arg constructor for entity classes
+  @Suppress("unused") private constructor() : this(null, Instant.now(), "", GENESIS_PREVIOUS_HASH, GENESIS_PREVIOUS_HASH)
 
-    override fun equals(other: Any?): Boolean =
-        when {
-            this === other -> true
+  override fun equals(other: Any?): Boolean =
+      when {
+        this === other -> true
 
-            other?.javaClass != this.javaClass -> false
+        other?.javaClass != this.javaClass -> false
 
-            else -> this.currentHash == (other as AdminEventLog).currentHash
-        }
+        else -> this.currentHash == (other as AdminEventLog).currentHash
+      }
 
-    override fun hashCode(): Int = Objects.hashCode(currentHash) + javaClass.hashCode()
+  override fun hashCode(): Int = Objects.hashCode(currentHash) + javaClass.hashCode()
 
-    override fun toString(): String = ToStringBuilder.reflectionToString(this, NO_FIELD_NAMES_STYLE)
+  override fun toString(): String = ToStringBuilder.reflectionToString(this, NO_FIELD_NAMES_STYLE)
 }

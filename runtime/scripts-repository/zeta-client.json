@@ -9,7 +9,8 @@
   "surrogateAuthRequired": false,
   "enabled": true,
   "alwaysDisplayInConsole": false,
-  "clientAuthenticatorType": "client-secret",
+  "clientAuthenticatorType": "client-jwt",
+  "publicClient": false,
   "redirectUris": [
     "*"
   ],
@@ -21,7 +22,6 @@
   "implicitFlowEnabled": false,
   "directAccessGrantsEnabled": false,
   "serviceAccountsEnabled": false,
-  "publicClient": true,
   "frontchannelLogout": true,
   "protocol": "openid-connect",
   "attributes": {
@@ -29,9 +29,13 @@
     "oidc.ciba.grant.enabled": "false",
     "backchannel.logout.session.required": "true",
     "standard.token.exchange.enabled": "true",
-    "standard.token.exchange.enableRefreshRequestedTokenType": "true",
+    "dpop.bound.access.tokens": "true",
+    "standard.token.exchange.enableRefreshRequestedTokenType": "SAME_SESSION",
     "oauth2.device.authorization.grant.enabled": "false",
-    "backchannel.logout.revoke.offline.tokens": "false"
+    "backchannel.logout.revoke.offline.tokens": "false",
+    "jwt.credential.certificate": "MIIBhTCCASugAwIBAgIIJYeZrjYFMjwwCgYIKoZIzj0EAwIwFjEUMBIGA1UEAwwLemV0YS1jbGllbnQwHhcNMjUxMTEyMTMxODA5WhcNMzAxMTExMTMxODA5WjAWMRQwEgYDVQQDDAt6ZXRhLWNsaWVudDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGTNHQYjYArg4W7RI36QCsFvZ1spE8M+LdNcG0/JLe6qe54Ysa5vYKWTqbAyyJV/IE+h39EvDcYW9GxQt7X5C1SjYzBhMB0GA1UdDgQWBBQEMVq8EZWM+iqIF5ZjW5MxiYrCTjAfBgNVHSMEGDAWgBQEMVq8EZWM+iqIF5ZjW5MxiYrCTjAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAgNIADBFAiEAhmDEJ4Ibwy+elyh8gEiZEL4kdB1ms6qFRkapZaniPEcCIFqzmqBod4tom3adyY/77zkwyzvIz1lNOB9Vp30rVwN8",
+    "token.endpoint.auth.signing.alg": "ES256",
+    "zeta-guard.client.attestation_state": "validated_attestation"
   },
   "authenticationFlowBindingOverrides": {},
   "fullScopeAllowed": true,

@@ -26,7 +26,12 @@ services:
     image: zeta/zeta-guard/keycloak-zeta
     container_name: zeta-guard-keycloak
     environment:
-      JAVA_OPTS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:8787" # for remote debugging
+      PRINT_ENV: true
+      JAVA_LOCALE: -Duser.timezone=Europe/Berlin
+      JAVA_OPTS_APPEND: -ea
+      KC_DEBUG: true
+      KC_DEBUG_PORT: "*:8787"
+
       # Put Keycloak build options in the first build stage of the container image
       KC_DB: postgres
       KC_DB_URL: "jdbc:postgresql://keycloak-db:5432/keycloak"
@@ -40,14 +45,21 @@ services:
       # https://www.informatik-aktuell.de/betrieb/sicherheit/token-exchange-mit-keycloak.html
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL: "info"
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL: "warn"
+      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
+      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       # Initial hash for admin events log
       # TODO: should be generated upon startup
       GENESIS_HASH: 4841c2142fef441daa6ee6c57db65c011935964b14e94a6c8f5ec0447b83526c
+      # Where to find SMC-B certificates and how to read them
+      SMCB_KEYSTORE_LOCATION: /opt/keycloak/conf/smcb-certificates.p12
+      SMCB_KEYSTORE_PASSWORD: "tyqvHpFoHdu68yRE+0F4q/I"
     ports:
-      - "18787:8787" # debug port
-      - "18080:8080" # api port
+      - "127.0.0.1:18787:8787" # debug port
+      - "127.0.0.1:18080:8080" # api port
     networks:
       - zeta-guard
+    volumes:
+      - ./smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
     healthcheck:
       # No curl in Keycloak 🙄
       test: |
@@ -59,10 +71,10 @@ services:
     depends_on:
       keycloak-db:
         condition: service_healthy
-    command: start --log="console,file" --optimized --log-level=org.keycloak:DEBUG
+    # Do not optimize in order to to load SPI build-time config changes (KC_* env) applied at startup
+    command: start --log="console,file"
   #
-#--log-level=org.keycloak:DEBUG
-#      --https-certificate-file=/opt/keycloak/certs/server.crt --https-certificate-key-file=/opt/keycloak/certs/server.private.key
+  #--log-level=org.keycloak:DEBUG
 
   # https://github.com/adorsys/keycloak-config-cli
   keycloak-config-cli:
@@ -88,3 +100,21 @@ services:
       - ./realms:/config
       - ./scripts-local:/opt/keycloak/scripts
       - ./scripts-repository:/opt/keycloak/scripts-repository
+
+  opa:
+    image: openpolicyagent/opa:1.11.0-static
+    container_name: zeta-guard-opa
+    command:
+      - run
+      - --server
+      - --log-level=info
+      - --addr=0.0.0.0:8181
+      - --diagnostic-addr=0.0.0.0:8282
+      - /bundle
+    volumes:
+      - ./opa-bundle:/bundle:ro
+    ports:
+      - "18181:8181"   # OPA API
+      - "18282:8282"   # OPA diagnostics
+    networks:
+      - zeta-guard

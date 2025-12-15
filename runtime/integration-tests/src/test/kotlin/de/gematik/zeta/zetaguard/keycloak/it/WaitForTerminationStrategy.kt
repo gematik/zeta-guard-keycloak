@@ -33,13 +33,11 @@ import org.testcontainers.containers.wait.strategy.AbstractWaitStrategy
 
 /** Wait strategy that waits for the container to terminate. */
 object WaitForTerminationStrategy : AbstractWaitStrategy() {
-    override fun waitUntilReady() {
-        try {
-            Unreliables.retryUntilTrue(startupTimeout.seconds.toInt(), TimeUnit.SECONDS) {
-                !waitStrategyTarget.isRunning
-            }
-        } catch (_: TimeoutException) {
-            throw ContainerLaunchException("Timed out waiting for container to terminate.")
-        }
+  override fun waitUntilReady() {
+    try {
+      Unreliables.retryUntilTrue(startupTimeout.seconds.toInt(), TimeUnit.SECONDS) { !waitStrategyTarget.isRunning }
+    } catch (_: TimeoutException) {
+      throw ContainerLaunchException("Timed out waiting for container to terminate.")
     }
+  }
 }

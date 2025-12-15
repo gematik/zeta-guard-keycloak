@@ -1,1 +1,0 @@
-../scripts-repository/04-create-zeta-client.sh

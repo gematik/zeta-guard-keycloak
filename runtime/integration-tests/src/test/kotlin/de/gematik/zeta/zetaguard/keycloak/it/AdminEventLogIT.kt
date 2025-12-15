@@ -23,9 +23,10 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
+import com.fasterxml.jackson.databind.DeserializationFeature
 import de.gematik.zeta.zetaguard.keycloak.commons.ADMIN_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakAdminClient
-import de.gematik.zeta.zetaguard.keycloak.commons.ZETA_REALM
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbhost
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbport
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.jdbcUrl
@@ -45,57 +46,59 @@ import org.keycloak.events.admin.AdminEvent
 import org.keycloak.events.admin.OperationType
 import org.keycloak.events.admin.ResourceType
 import org.keycloak.representations.idm.UserRepresentation
+import org.keycloak.util.JsonSerialization.mapper
 import org.keycloak.util.JsonSerialization.readValue
 
-/** Test hash chain logging of admin events */
+/**
+ * Test hash chain logging of admin events
+ *
+ * Should be first after [AAStartupIT], because it refers to testcontainer's host/ports
+ */
 @Order(1)
 class AdminEventLogIT : FunSpec() {
-    init {
-        test("Check Keycloak setup") {
-            KeycloakAdminClient(kchost, kcport).withKeycloak(clientId = ADMIN_CLIENT) {
-                realm(ZETA_REALM).toRepresentation().displayName shouldBe "\uD835\uDF75-Guard"
-            }
-        }
+  init {
+    beforeSpec { mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false) }
 
-        test("Check DB connection") {
-            DriverManager.getConnection(jdbcUrl).use { it.isValid(1) shouldBe true }
-        }
-
-        test("Admin events are logged") {
-            JpaEntityManagerFactory(dbhost, dbport, AdminEventLog::class.java).use {
-                val adminEventLogStorageService = AdminEventLogStorageService {
-                    it.createEntityManager()
-                }
-                val verificationService =
-                    AdminEventLogVerificationService(adminEventLogStorageService)
-                val initialNumber = adminEventLogStorageService.findAll().size
-
-                initialNumber shouldBeGreaterThan 3
-                val user2 = createUser(kchost, kcport)
-                val logs = adminEventLogStorageService.findAll()
-                logs.size shouldBe initialNumber + 2
-
-                val adminEvent = readValue(logs.last().event, AdminEvent::class.java)
-                adminEvent.realmName shouldBe ZETA_REALM
-                adminEvent.operationType shouldBe OperationType.UPDATE
-                adminEvent.resourceType shouldBe ResourceType.USER
-                adminEvent.resourcePath shouldBe "users/${user2.id}"
-
-                verificationService.verifyChain() shouldBeRight AdminEventLogValid
-            }
-        }
+    test("Check Keycloak setup") {
+      KeycloakAdminClient(kchost, kcport).withKeycloak(clientId = ADMIN_CLIENT) {
+        realm(ZETA_REALM).toRepresentation().displayName shouldBe "\uD835\uDF75-Guard"
+      }
     }
 
-    private fun createUser(kchost: String, kcport: Int): UserRepresentation =
-        KeycloakAdminClient(kchost, kcport).withKeycloak(clientId = ADMIN_CLIENT) {
-            val userData2 = UserData("user2", "geheim", "Jens", "Lehmann", "foo@bar.com")
-            val realmResource = realm(ZETA_REALM)
-            val usersResource = realmResource.users()
+    test("Check DB connection") { DriverManager.getConnection(jdbcUrl).use { it.isValid(1) shouldBe true } }
 
-            usersResource.count() shouldBe 1
-            KeycloakUtils.createUser(usersResource, userData2)
-            usersResource.count() shouldBe 2
-            val users = usersResource.list().groupBy { it.username }
-            users["user2"]?.get(0)!!
-        }
+    test("Admin events are logged") {
+      JpaEntityManagerFactory(dbhost, dbport, AdminEventLog::class.java).use {
+        val adminEventLogStorageService = AdminEventLogStorageService { it.createEntityManager() }
+        val verificationService = AdminEventLogVerificationService(adminEventLogStorageService)
+        val initialNumber = adminEventLogStorageService.findAll().size
+
+        initialNumber shouldBeGreaterThan 3
+        val user2 = createUser(kchost, kcport)
+        val logs = adminEventLogStorageService.findAll()
+        logs.size shouldBe initialNumber + 2
+
+        val adminEvent = readValue(logs.last().event, AdminEvent::class.java)
+        adminEvent.realmName shouldBe ZETA_REALM
+        adminEvent.operationType shouldBe OperationType.UPDATE
+        adminEvent.resourceType shouldBe ResourceType.USER
+        adminEvent.resourcePath shouldBe "users/${user2.id}"
+
+        verificationService.verifyChain() shouldBeRight AdminEventLogValid
+      }
+    }
+  }
+
+  private fun createUser(kchost: String, kcport: Int): UserRepresentation =
+      KeycloakAdminClient(kchost, kcport).withKeycloak(clientId = ADMIN_CLIENT) {
+        val userData2 = UserData("user2", "geheim", "Jens", "Lehmann", "foo@bar.com")
+        val realmResource = realm(ZETA_REALM)
+        val usersResource = realmResource.users()
+
+        usersResource.count() shouldBe 1
+        KeycloakUtils.createUser(usersResource, userData2)
+        usersResource.count() shouldBe 2
+        val users = usersResource.list().groupBy { it.username }
+        users["user2"]?.get(0)!!
+      }
 }

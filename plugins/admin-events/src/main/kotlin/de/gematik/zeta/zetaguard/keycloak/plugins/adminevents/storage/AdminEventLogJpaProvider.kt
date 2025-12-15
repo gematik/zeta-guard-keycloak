@@ -32,11 +32,11 @@ import org.keycloak.connections.jpa.entityprovider.JpaEntityProvider
  * It is used to store and retrieve admin event logs in the Keycloak database.
  */
 class AdminEventLogJpaProvider : JpaEntityProvider {
-    override fun getEntities(): List<Class<*>> = listOf(AdminEventLog::class.java)
+  override fun getEntities(): List<Class<*>> = listOf(AdminEventLog::class.java)
 
-    override fun getChangelogLocation() = "META-INF/jpa-changelog.26.3.2.xml"
+  override fun getChangelogLocation() = "META-INF/jpa-changelog.26.3.2.xml"
 
-    override fun getFactoryId() = ADMIN_EVENTS_JPA_PROVIDER_ID
+  override fun getFactoryId() = ADMIN_EVENTS_JPA_PROVIDER_ID
 
-    override fun close() {}
+  override fun close() {}
 }

@@ -1,0 +1,44 @@
+# Create client via Dynamic Client Registration
+POST {{origin}}/realms/zeta-guard/clients-registrations/openid-connect
+Content-Type: application/json
+
+{
+  "token_endpoint_auth_method": "private_key_jwt",
+  "grant_types": [
+    "urn:ietf:params:oauth:grant-type:token-exchange",
+    "refresh_token"
+  ],
+  "response_types": [
+    "token"
+  ],
+  "client_name": "𝛇-Guard client",
+  "jwks": {
+    "keys": [
+      {
+        "kid": "1zd6tdaRyUBwzhu-hDVxINiKy5WeP2dkQAqkDCU0lJk",
+        "kty": "RSA",
+        "alg": "RS256",
+        "use": "sig",
+        "n": "pNz0_u5aA8Vd-vN3hwcVX7_PIrZNnAK7Jv5cxoXCzyuBvtrIfxRDLdjN8ot0vdSpLaSdXZEkRDj_uCrYOMsRq_2PQy7IjW6gMFgS6c2XbVIUmFHWhfQpbddz1gymfnqqHh3N_gRLcdvyiwqp82HxXqDM1WnSjRJP2GCOqNQ145qBlNocB60nelilOWB2iby0H4BpF5sU-DEMwPgFiAsaRAGTUdG4i_vOW3clU1_z0rrEAXUj1zVoCVS5gZ1k0PnxqIvRvJSxu1xSEgykKkeqKbdf-GQZ-uM7zyqkHNemC5B5ekZLwsPbuV3reo6gmoT7g6qPYXl8fQz7jwDO1hce8Q",
+        "e": "AQAB"
+      }
+    ]
+  }
+}
+
+> {%
+    client.global.set("registration_client_id", response.body.client_id);
+    client.global.set("registration_access_token", response.body.registration_access_token);
+%}
+
+### Token Exchange with JWS
+#POST {{origin}}/realms/zeta-guard/protocol/openid-connect/token
+#Content-Type: application/x-www-form-urlencoded
+#
+#grant_type=urn:ietf:params:oauth:grant-type:token-exchange&
+#client_id= {{registration_client_id}}&
+#subject_token={{someAccessToken}}&
+#subject_token_type=urn:ietf:params:oauth:token-type:jwt&
+#requested_token_type=urn:ietf:params:oauth:token-type:access_token&
+#client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&
+#client_assertion=eyJhbGciOiJSUzI1NiIsInR5cCIgOiAiSldUIiwia2lkIiA6ICJ3eUZWWlktVnEtZ1FIWTNmUEx3bDdLREFHbXNJOWdFOThyQkRrSWVLSEQwIn0.eyJleHAiOjE3NjA5MTU2NDAsImlhdCI6MTc2MDYxNTY0MCwianRpIjoiOWY0YTAwNzMtYjlmZS0wNjhlLTRmNzItZGJmOTJhMjQyYzkxIiwiaXNzIjoiY2IyMjYzNTQtYmFiMy00NmM4LTlhOTUtODk2OTc0M2NjZjU3IiwiYXVkIjoiaHR0cDovL2xvY2FsaG9zdDoxODA4MC9yZWFsbXMvemV0YS1ndWFyZCIsInN1YiI6ImNiMjI2MzU0LWJhYjMtNDZjOC05YTk1LTg5Njk3NDNjY2Y1NyIsInR5cCI6IkJlYXJlciIsImF6cCI6ImNiMjI2MzU0LWJhYjMtNDZjOC05YTk1LTg5Njk3NDNjY2Y1NyJ9.b5Qh2JzTx6qB96ru5YmSD6jwQOy47kaJ4u6SdnX29ylR_qQHQX0qRXYfBOuDIp62_IGPddn70wn6je_eWX-SgMNOspuADAqXaPylAJ5ROlb3b4mgkTpCloGfl439HmUaCvoPe7qheyGnzaAQRek9T2PWYj1fnvOBCd9n91s5hykxpVb0bQNqhDaivv9v5zvub4aKigR9UiIyFPPm00HZSOMknRf4X2Yf4vDfnERVeKVZF6a-ExpGZts-tm86yZsz41KJvwO35eGFoW3ggZ_QT6aB4UKq6jUy1rlhertjS8D1uWBxlmTh46aEZSEX2uozT_BR8eRo2sYbqRvxSfHHnA

@@ -27,9 +27,9 @@ import io.kotest.core.spec.style.FunSpec
 
 /** Last "test" shuts Docker compose down */
 class ZZShutdownIT : FunSpec() {
-    init {
-        afterSpec { Docker.stop() }
+  init {
+    afterSpec { Docker.stop() }
 
-        test("Just there to be run") {}
-    }
+    test("Just there to be run") {}
+  }
 }

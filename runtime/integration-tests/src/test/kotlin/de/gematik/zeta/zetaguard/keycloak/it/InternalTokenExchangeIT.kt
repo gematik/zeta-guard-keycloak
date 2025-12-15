@@ -30,7 +30,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SECRET
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_C_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
-import de.gematik.zeta.zetaguard.keycloak.commons.ZETA_REALM
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
@@ -40,64 +40,64 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import org.keycloak.OAuth2Constants.ACCESS_TOKEN_TYPE
 import org.keycloak.util.TokenUtil.TOKEN_TYPE_BEARER
 
 @Order(1)
 class InternalTokenExchangeIT : FunSpec() {
-    init {
-        test("Internal token exchange with explicit client scopes/audiences") {
-            val keycloakWebClient = KeycloakWebClient()
-            val accessTokenResponse =
-                keycloakWebClient
-                    .login(client = CLIENT_A_ID, requestedClientScope = CLIENT_A_SCOPE)
-                    .shouldBeRight()
-                    .reponseObject
+  init {
+    test("Internal token exchange with explicit client scopes/audiences") {
+      val keycloakWebClient = KeycloakWebClient()
+      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = CLIENT_A_SCOPE).shouldBeRight().reponseObject
 
-            accessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
+      accessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
 
-            val accessToken = accessTokenResponse.token.toAccessToken()
+      val accessToken = accessTokenResponse.token.toAccessToken()
 
-            accessToken.email shouldBe "user1@foo.bar.com"
-            accessToken.audience shouldContain CLIENT_B_ID
+      accessToken.email shouldBe "user1@foo.bar.com"
+      accessToken.audience shouldContain CLIENT_B_ID
 
-            val newAccessTokenResponse =
-                keycloakWebClient
-                    .tokenExchange(
-                        accessTokenResponse.token,
-                        CLIENT_B_ID,
-                        clientSecret = CLIENT_B_SECRET,
-                        requestedClientScope = CLIENT_B_SCOPE,
-                    )
-                    .shouldBeRight()
-                    .reponseObject
-            newAccessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
-            val newAccessToken = newAccessTokenResponse.token.toAccessToken()
+      val newAccessTokenResponse =
+          keycloakWebClient
+              .tokenExchange(
+                  CLIENT_B_ID,
+                  accessTokenResponse.token,
+                  clientSecret = CLIENT_B_SECRET,
+                  requestedClientScope = CLIENT_B_SCOPE,
+                  subjectTokenType = ACCESS_TOKEN_TYPE,
+                  requestedTokenType = ACCESS_TOKEN_TYPE,
+              )
+              .shouldBeRight()
+              .reponseObject
+      newAccessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
+      val newAccessToken = newAccessTokenResponse.token.toAccessToken()
 
-            newAccessToken.email shouldBe "user1@foo.bar.com"
-            newAccessToken.audience shouldContain CLIENT_C_ID
+      newAccessToken.email shouldBe "user1@foo.bar.com"
+      newAccessToken.audience shouldContain CLIENT_C_ID
 
-            keycloakWebClient.logout(ZETA_REALM)
-        }
-
-        test("Token exchange without client scopes/audiences") {
-            val keycloakWebClient = KeycloakWebClient()
-            val accessTokenResponse =
-                keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().reponseObject
-            val accessToken = accessTokenResponse.token.toAccessToken()
-
-            accessToken.email shouldBe "user1@foo.bar.com"
-            accessToken.audience shouldNotContain CLIENT_B_ID
-
-            keycloakWebClient
-                .tokenExchange(
-                    accessTokenResponse.token,
-                    CLIENT_B_ID,
-                    clientSecret = CLIENT_B_SECRET,
-                    requestedClientScope = CLIENT_B_SCOPE,
-                )
-                .shouldBeLeft()
-                .errorDescription shouldContain "Client is not within the token audience"
-            keycloakWebClient.logout(ZETA_REALM)
-        }
+      keycloakWebClient.logout(ZETA_REALM)
     }
+
+    test("Token exchange without client scopes/audiences") {
+      val keycloakWebClient = KeycloakWebClient()
+      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().reponseObject
+      val accessToken = accessTokenResponse.token.toAccessToken()
+
+      accessToken.email shouldBe "user1@foo.bar.com"
+      accessToken.audience shouldNotContain CLIENT_B_ID
+
+      keycloakWebClient
+          .tokenExchange(
+              CLIENT_B_ID,
+              accessTokenResponse.token,
+              clientSecret = CLIENT_B_SECRET,
+              requestedClientScope = CLIENT_B_SCOPE,
+              subjectTokenType = ACCESS_TOKEN_TYPE,
+              requestedTokenType = ACCESS_TOKEN_TYPE,
+          )
+          .shouldBeLeft()
+          .errorDescription shouldContain "Client is not within the token audience"
+      keycloakWebClient.logout(ZETA_REALM)
+    }
+  }
 }
