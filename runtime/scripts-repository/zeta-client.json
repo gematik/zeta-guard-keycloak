@@ -46,7 +46,8 @@
     "profile",
     "roles",
     "basic",
-    "email"
+    "email",
+    "zeta-guard-scope"
   ],
   "optionalClientScopes": [
     "address",

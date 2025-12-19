@@ -30,6 +30,7 @@ import org.keycloak.OAuth2Constants.REFRESH_TOKEN
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
 
 const val ATTRIBUTE_SMCB_CONTEXT = "zetaguard.smcbContext"
+const val ATTRIBUTE_CLIENT_ASSESSMENT_DATA = "zetaguard.clientData"
 
 const val ATTRIBUTE_SMCBUSER_CLIENT_IDS = "zetaguard.smcbuser.client_ids"
 const val ATTRIBUTE_SMCBUSER_TELEMATIK_ID = "zetaguard.smcbuser.telematik_id"
@@ -39,6 +40,9 @@ const val ATTRIBUTE_SMCBUSER_ORGANISATION = "zetaguard.smcbuser.organisation"
 
 const val ATTRIBUTE_ATTESTATION_STATE = "zeta-guard.client.attestation_state"
 const val ATTRIBUTE_CREATED_AT = "zeta-guard.client.created_at"
+
+const val CLAIM_CLIENT_SELF_ASSESSMENT = "urn:telematik:client-self-assessment"
+const val CLAIM_ACCESS_TOKEN_CLIENT_DATA = "cdat"
 
 const val ZETA_REALM = "zeta-guard"
 const val ZETA_CLIENT = "zeta-client"
@@ -54,8 +58,7 @@ const val USERINFO_PATH = "/realms/{realm-name}/protocol/openid-connect/userinfo
 
 const val KEYCLOAK_REALM_PATH = "/realms/{realm-name}"
 
-const val SMCB_USER_PROVIDER_ID = "smcb-user-provider"
-const val SMCB_TOKEN_EXCHANGE_PROVIDER_ID = "zeta-smc-b-token-exchange"
+const val ZETAGUARD_TOKEN_EXCHANGE_PROVIDER_ID = "zeta-smc-b-token-exchange"
 const val SMCB_IDENTITY_PROVIDER_ID = "zeta-smc-b-oidc"
 
 const val ENV_SMCB_KEYSTORE_LOCATION = "SMCB_KEYSTORE_LOCATION"
@@ -80,6 +83,8 @@ const val ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL = "CLIENT_REGISTRATION_SCHE
 
 const val ATTESTATION_STATE_PENDING = "pending_attestation"
 const val ATTESTATION_STATE_VALID = "validated_attestation"
+
+const val ACCESSTOKEN_MAPPERPROVIDER_ID = "zeta-guard-accesstoken-mapper"
 
 //  https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_27799
 val VALID_GRANT_TYPES = listOf(REFRESH_TOKEN, TOKEN_EXCHANGE_GRANT_TYPE)

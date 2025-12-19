@@ -112,7 +112,7 @@ services:
       - --diagnostic-addr=0.0.0.0:8282
       - /bundle
     volumes:
-      - ./opa-bundle:/bundle:ro
+      - ./opa:/bundle:ro
     ports:
       - "18181:8181"   # OPA API
       - "18282:8282"   # OPA diagnostics

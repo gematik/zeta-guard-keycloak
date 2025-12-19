@@ -4,16 +4,16 @@
 
     <groupId>de.gematik.zeta.zeta-guard</groupId>
     <artifactId>keycloak-zeta</artifactId>
-    <version>0.2.3</version>
+    <version>0.2.4</version>
     <packaging>pom</packaging>
 
     <name>𝝵-Guard :: Create ZETA-Guard Keycloak</name>
     <description>Collection of Keycloak plugins and extensions for 𝝵-Guard</description>
 
     <properties>
-        <kotlin.version>2.2.20</kotlin.version>
+        <kotlin.version>2.2.21</kotlin.version>
         <arrow.version>2.1.2</arrow.version>
-        <keycloak.version>26.4.5</keycloak.version>
+        <keycloak.version>26.4.7</keycloak.version>
         <keycloak.admin.version>26.0.7</keycloak.admin.version>
         <resteasy.version>6.2.12.Final</resteasy.version>
         <bouncycastle.version>1.81</bouncycastle.version>
@@ -300,6 +300,12 @@
 
             <dependency>
                 <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>access-token-mapper</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
                 <artifactId>smc-b-token-exchange</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -375,6 +381,53 @@
                             <version>${kotlin.version}</version>
                         </dependency>
                     </dependencies>
+                </plugin>
+
+                <plugin>
+                    <groupId>com.diffplug.spotless</groupId>
+                    <artifactId>spotless-maven-plugin</artifactId>
+                    <version>${spotless.version}</version>
+                    <configuration>
+                        <kotlin>
+                            <!-- These are the defaults, you can override if you want -->
+                            <includes>
+                                <include>src/main/kotlin/**/*.kt</include>
+                                <include>src/test/kotlin/**/*.kt</include>
+                            </includes>
+
+                            <licenseHeader>
+                                <content>/*-
+ * #%L
+ * keycloak-zeta
+ * %%
+ * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH
+ * %%
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * *******
+ *
+ * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
+ * #L%
+ */</content>  <!-- or <file>${project.basedir}/license-header</file> -->
+                            </licenseHeader>
+                        </kotlin>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>license-headers</id>
+                            <phase>generate-sources</phase>
+                        </execution>
+                    </executions>
                 </plugin>
 
                 <plugin>
@@ -547,6 +600,7 @@
         <module>plugins/smc-b-token-exchange</module>
         <module>plugins/nonce-management</module>
         <module>plugins/client-registration</module>
+        <module>plugins/access-token-mapper</module>
         <module>plugins/well-known</module>
         <module>docker-keycloak</module>
     </modules>

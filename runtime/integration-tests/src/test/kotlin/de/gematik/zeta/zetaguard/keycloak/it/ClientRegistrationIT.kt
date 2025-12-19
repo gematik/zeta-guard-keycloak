@@ -261,6 +261,9 @@ class ClientRegistrationIT : FunSpec() {
       val newClientId = KeycloakModelUtils.generateId()
       val keycloakClientResponse = keycloakWebClient.createClientKeycloak(initialAccessToken, newClientId).shouldBeRight().reponseObject
       val registrationAccessToken = keycloakClientResponse.registrationAccessToken.toAccessToken()
+      val clientId = keycloakClientResponse.clientId
+      val audiences2 = registrationAccessToken.audience.toList()
+      val jws = jwsTokenGenerator.generateClientAssertion(clientId, audiences2)
 
       smbcToken =
           smcbTokenGenerator.generateSMCBToken(
@@ -274,7 +277,7 @@ class ClientRegistrationIT : FunSpec() {
       registrationAccessToken.type shouldBe TYPE_REGISTRATION_ACCESS_TOKEN
       registrationAccessToken.issuer shouldContain ZETA_REALM
 
-      keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientAssertion = null, clientId = newClientId)
+      keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientAssertion = jws, clientId = newClientId)
     }
   }
 

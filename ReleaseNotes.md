@@ -2,6 +2,15 @@
 
 # Release Notes ZETA PDP
 
+## Release 0.2.4
+
+### added:
+- mapping userdata and clientdata into access token
+- more consistent license headers via maven plugin
+
+### changed:
+- minor updates and improvements
+
 ## Release 0.2.3
 
 ### changed:

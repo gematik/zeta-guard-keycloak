@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>0.2.3</version>
+        <version>0.2.4</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -69,7 +69,7 @@
 
                 <executions>
                     <execution>
-                        <id>copy-admin-events</id>
+                        <id>copy-plugins</id>
                         <phase>prepare-package</phase>
 
                         <goals>
@@ -108,6 +108,12 @@
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>well-known-provider</artifactId>
                                     <destFileName>well-known-provider.jar</destFileName>
+                                </artifactItem>
+
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>access-token-mapper</artifactId>
+                                    <destFileName>access-token-mapper.jar</destFileName>
                                 </artifactItem>
 
                                 <artifactItem>

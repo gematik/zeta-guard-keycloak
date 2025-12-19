@@ -1,8 +1,8 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
- * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH, 2025, licensed for gematik GmbH
+ * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ object CertificateGenerator {
     //        "https://gemspec.gematik.de/downloads/gemSpec/gemSpec_OID",
     //        DirectoryString("gematik GmbH"),
     //      )
-    val professionInfo = ProfessionInfo(null, arrayOf(DirectoryString(BETRIEBSSTAETTE_ARZT)), arrayOf(betriebsstaetteArzt), VALID_TELEMATIK_ID, null)
+    val professionInfo = ProfessionInfo(null, arrayOf(DirectoryString(BETRIEBSSTAETTE_ARZT)), arrayOf(betriebsstaetteArzt), TELEMATIK_ID, null)
 
     // Per RFC 5755, admissionAuthority in AdmissionSyntax and Admissions
     // MUST NOT be present simultaneously. We will set it in the top-level

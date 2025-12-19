@@ -1,0 +1,1 @@
+../scripts-repository/12-create-zeta-guard-scope.sh

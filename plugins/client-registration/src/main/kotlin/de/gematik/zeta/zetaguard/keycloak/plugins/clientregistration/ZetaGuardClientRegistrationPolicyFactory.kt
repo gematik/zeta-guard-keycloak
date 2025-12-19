@@ -58,6 +58,8 @@ private val CLIENT_REGISTRATION_INTERVAL = System.getenv(ENV_CLIENT_REGISTRATION
  * Expired, i.e., unused client registrations will be deleted after a configurable amount of time.
  *
  * For details, see https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#5.5.2.4
+ *
+ * Realm configuration in 10-configure-client-registration-policies.sh
  */
 class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory {
   override fun create(session: KeycloakSession, model: ComponentModel) = ZetaGuardClientRegistrationPolicy()
@@ -68,7 +70,7 @@ class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory
     val interval = Duration.parse(CLIENT_REGISTRATION_INTERVAL)
     val timerProviderFactory = factory.getProviderFactory(TimerProvider::class.java) as TimerProviderFactory
 
-    logger.debug("Checking for outdated client registrations every $interval")
+    logger.info("Checking for outdated client registrations every $interval")
 
     timerProviderFactory
         .create(factory.create())
@@ -98,7 +100,7 @@ class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory
 
   private fun runExpiration(session: KeycloakSession): Either<Throwable, Success> =
       Either.catch {
-        logger.info("Checking for outdated client registrations")
+        logger.debug("Checking for outdated client registrations")
         val realm = session.realms().getRealmByName(ZETA_REALM)
 
         if (realm != null) { // May happen at startup
@@ -120,7 +122,7 @@ class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory
                   .map { it.id }
                   .toList()
 
-          logger.info("Outdated client registrations: $outdatedClients")
+          logger.debug("Outdated client registrations: $outdatedClients")
 
           outdatedClients.forEach { clients.removeClient(realm, it) }
         }

@@ -25,7 +25,7 @@ package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
-import de.gematik.zeta.zetaguard.keycloak.commons.VALID_TELEMATIK_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.TELEMATIK_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CRT_GEMATIK_LEAF_NAME
@@ -54,19 +54,25 @@ class SMCBUserDataIT : FunSpec() {
     val realmUrl = keycloakWebClient.uriBuilder().realmUrl().toString()
     val nonce = keycloakWebClient.getNonce().shouldBeRight().reponseObject
     val jwt = jwsTokenGenerator.generateClientAssertion(ZETA_CLIENT, listOf(realmUrl))
-    val smcbToken = smcbTokenGenerator.generateSMCBToken(nonceString = nonce, audiences = listOf(baseUri), certificateChain = listOf(leafCertificate))
+    val smcbToken =
+        smcbTokenGenerator.generateSMCBToken(
+            subject = TELEMATIK_ID,
+            nonceString = nonce,
+            audiences = listOf(baseUri),
+            certificateChain = listOf(leafCertificate),
+        )
 
     test("Check stored user data") {
       keycloakWebClient.testExchangeToken(smcbToken, requestedClientScope = CLIENT_B_SCOPE, clientAssertion = jwt)
 
-      val user = lookupUser(VALID_TELEMATIK_ID)
+      val user = lookupUser(TELEMATIK_ID)
 
       user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_NAME }.value shouldBe CRT_GEMATIK_LEAF_NAME
       user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_PROFESSION_OID }.value shouldBe betriebsstaetteArzt.id
     }
   }
 
-  private fun lookupUser(@Suppress("SameParameterValue") userId: String): UserEntity {
+  private fun lookupUser(@Suppress("SameParameterValue") userName: String): UserEntity {
     val entityClasses =
         arrayOf(
             UserEntity::class.java,
@@ -79,8 +85,8 @@ class SMCBUserDataIT : FunSpec() {
     return JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
       val userEntity =
           it.createEntityManager()
-              .createQuery("SELECT u FROM UserEntity u WHERE u.id = :userId") //
-              .setParameter("userId", userId)
+              .createQuery("SELECT u FROM UserEntity u WHERE u.username = :userName") //
+              .setParameter("userName", userName)
               .singleResult as UserEntity
 
       userEntity.also { user -> Hibernate.initialize(user.attributes) } // Avoid LazyInitializationException
