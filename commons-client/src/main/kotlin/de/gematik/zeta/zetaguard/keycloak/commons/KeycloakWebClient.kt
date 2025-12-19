@@ -30,6 +30,7 @@ import arrow.core.left
 import arrow.core.merge
 import arrow.core.right
 import com.fasterxml.jackson.databind.ObjectMapper
+import de.gematik.zeta.zetaguard.keycloak.commons.EncodingUtil.toJSON
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTESTATION_STATE_VALID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_ATTESTATION_STATE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError

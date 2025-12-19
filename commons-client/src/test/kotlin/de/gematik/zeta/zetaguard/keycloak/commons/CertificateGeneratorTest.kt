@@ -1,8 +1,8 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
- * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH, 2025, licensed for gematik GmbH
+ * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,6 +34,9 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CRT_GEMATIK_ROOT_DN
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.betriebsstaetteArzt
 import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
+import de.gematik.zeta.zetaguard.keycloak.commons.server.firstAdmission
+import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfession
+import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfessionInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.server.isRoot
 import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectCommonName
 import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectOrganisationName
@@ -101,6 +104,14 @@ class CertificateGeneratorTest : FunSpec() {
       leaf.subjectCommonName() shouldBe CRT_GEMATIK_LEAF_NAME
       leaf.subjectOrganisationName() shouldBe CRT_GEMATIK_LEAF_ORGANISATION
 
+      val professionInfo = leaf.extractExtension<AdmissionSyntax>(admission)?.firstAdmission()?.firstProfessionInfo()!!
+      val professionIdentifier = professionInfo.firstProfession()!!
+      val professionOID = professionIdentifier.id
+      val telematikID = professionInfo.registrationNumber
+
+      professionOID shouldBe betriebsstaetteArzt.id
+      telematikID shouldBe TELEMATIK_ID
+
       validateCertificateChain(certificate, leaf).shouldBeRight()
     }
 
@@ -129,7 +140,7 @@ class CertificateGeneratorTest : FunSpec() {
       val admissions = admissionSyntax?.contentsOfAdmissions[0]
       admissions?.professionInfos?.shouldHaveSize(1)
       val professionInfo = admissions?.professionInfos[0]
-      professionInfo?.registrationNumber shouldBe VALID_TELEMATIK_ID
+      professionInfo?.registrationNumber shouldBe TELEMATIK_ID
       professionInfo?.professionOIDs.shouldContainExactly(betriebsstaetteArzt)
     }
   }

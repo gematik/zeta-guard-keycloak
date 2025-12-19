@@ -1,8 +1,8 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
- * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH, 2025, licensed for gematik GmbH
+ * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,11 +27,15 @@ package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CertificateGenerator.buildCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.PKIUtil.generateECKeyPair
+import de.gematik.zeta.zetaguard.keycloak.commons.client_assertion.LinuxZetaPlatformProductId
+import de.gematik.zeta.zetaguard.keycloak.commons.client_assertion.ZetaGuardClientInstanceData
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_SELF_ASSESSMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import jakarta.ws.rs.HttpMethod
 import java.net.URI
 import java.security.KeyPair
 import java.security.cert.X509Certificate
+import java.time.Duration
 import java.util.UUID
 import org.keycloak.OAuth2Constants
 import org.keycloak.OAuth2Constants.DPOP_DEFAULT_ALGORITHM
@@ -62,8 +66,8 @@ class SMCBTokenGenerator(issuerKeypair: KeyPair = generateECKeyPair(), val subje
     return generateClientAssertion(clientId, audiences)
   }
 
-  fun generateClientAssertion(clientId: String, audiences: List<String>): String =
-      generateSMCBToken(issuer = clientId, subject = clientId, audiences = audiences, certificateChain = listOf())
+  fun generateClientAssertion(clientId: String, audiences: List<String>, otherClaims: Map<String, Any> = createOtherClaims(clientId)): String =
+      generateSMCBToken(issuer = clientId, subject = clientId, audiences = audiences, certificateChain = listOf(), otherClaims = otherClaims)
 
   /**
    * Generate DPoP, see https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#5.5.2.5.1
@@ -92,11 +96,12 @@ class SMCBTokenGenerator(issuerKeypair: KeyPair = generateECKeyPair(), val subje
    */
   fun generateSMCBToken(
       issuer: String = ZETA_CLIENT,
-      subject: String = VALID_TELEMATIK_ID, // Special case for SMC-B
+      subject: String = TELEMATIK_ID,
       nonceString: String = "noncence",
       issuedFor: String = CLIENT_C_ID, // target client
       audiences: List<String> = listOf(ZETA_CLIENT),
       certificateChain: List<X509Certificate> = listOf(certificate),
+      otherClaims: Map<String, Any> = createOtherClaims(issuer),
   ): String {
     val signer = subjectKeyPair.createSignerContext()
 
@@ -111,11 +116,26 @@ class SMCBTokenGenerator(issuerKeypair: KeyPair = generateECKeyPair(), val subje
               issuedFor(issuedFor)
               subject(subject)
               audience(*audiences.toTypedArray())
-              exp(currentTime() + 300000L)
+              expirationDate(Duration.ofDays(10))
               issuedNow()
+              otherClaims.forEach { setOtherClaims(it.key, it.value) }
               nonce = nonceString
             }
         )
         .sign(signer)
   }
 }
+
+// Implement https://ey-fp-dev.atlassian.net/browse/ZETAP-774
+fun createClientData(clientId: String, mail: String = "info@acme.de") =
+    ZetaGuardClientInstanceData(
+        "name",
+        clientId,
+        "acme-id",
+        "Acme Inc.",
+        mail,
+        System.currentTimeMillis() / 1000,
+        LinuxZetaPlatformProductId("packaging", "app-id"),
+    )
+
+fun createOtherClaims(clientId: String) = mapOf(CLAIM_CLIENT_SELF_ASSESSMENT to createClientData(clientId))

@@ -1,1 +1,0 @@
-../scripts-repository/02-create-test-client-scopes.sh

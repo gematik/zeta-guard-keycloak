@@ -1,8 +1,8 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
- * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH, 2025, licensed for gematik GmbH
+ * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,17 +21,25 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
-@file:Suppress("unused")
-
 package de.gematik.zeta.zetaguard.keycloak.commons
 
-import com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.MapperFeature
+import com.fasterxml.jackson.databind.SerializationFeature
+import org.keycloak.util.JsonSerialization
 
-val plainObjectMapper: ObjectMapper = ObjectMapper().setSerializationInclusion(NON_NULL)
+object EncodingUtil {
+  init {
+    JsonSerialization.mapper.configure(SerializationFeature.WRITE_DURATIONS_AS_TIMESTAMPS, false)
+    @Suppress("DEPRECATION") //
+    JsonSerialization.mapper.enable(MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS)
+  }
 
-fun Any.toJSON(): String = plainObjectMapper.writeValueAsString(this)
+  fun Any.toJSON(): String = JsonSerialization.writeValueAsString(this)
 
-inline fun <reified T> String.toObject(): T = plainObjectMapper.readValue(this, T::class.java)
+  @Suppress("UNCHECKED_CAST") //
+  fun Any.asMap(): Map<String, Any> = JsonSerialization.mapper.convertValue(this, Map::class.java) as Map<String, Any>
 
-inline fun <reified T> T.copy(): T = this!!.toJSON().toObject()
+  inline fun <reified T> String.toObject(): T = JsonSerialization.readValue(this, T::class.java)
+
+  inline fun <reified T> Map<String, Any>.toObject(): T = JsonSerialization.mapper.convertValue(this, T::class.java)
+}

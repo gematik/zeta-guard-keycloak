@@ -31,6 +31,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_PROF
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_TELEMATIK_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_MAX_CLIENTS
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
+import de.gematik.zeta.zetaguard.keycloak.plugins.token.getSMCBContext
 import org.keycloak.broker.oidc.OIDCIdentityProvider
 import org.keycloak.broker.oidc.OIDCIdentityProviderConfig
 import org.keycloak.broker.provider.BrokeredIdentityContext
@@ -44,9 +45,11 @@ import org.keycloak.services.clientregistration.ClientRegistrationException
 private val MAX_CLIENTS = System.getenv(ENV_MAX_CLIENTS) ?: "256"
 
 /**
- * As of version 26.4.5, Keycloak does not implement external-to-internal token exchange in V2.
+ * As of version 26.4.7, Keycloak does not implement external-to-internal token exchange in V2.
  *
  * We try to use as much as possible from the V2 OIDC provider implementation. For details, see https://www.keycloak.org/securing-apps/token-exchange
+ *
+ * Realm configuration in 11-create-smc-b-identity-provider.sh
  */
 open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityProviderConfig) : OIDCIdentityProvider(session, config) {
   private fun profile(subject: String, email: String, name: String, preferredUsername: String, givenName: String, familyName: String) =

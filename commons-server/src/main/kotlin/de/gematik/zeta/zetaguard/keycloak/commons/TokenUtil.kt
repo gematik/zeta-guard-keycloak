@@ -1,8 +1,8 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
- * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH, 2025, licensed for gematik GmbH
+ * (C) akquinet tech@Spree GmbH, 2025, licensed for gematik GmbH
  * %%
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
@@ -41,6 +42,8 @@ fun String.toAccessToken(): AccessToken = TokenVerifier.create(this, AccessToken
 
 fun String.toRefreshToken(): RefreshToken = TokenVerifier.create(this, RefreshToken::class.java).token
 
+fun String.toJsonWebToken(): JsonWebToken = TokenVerifier.create(this, JsonWebToken::class.java).token
+
 fun String.toIDTokenInfo(verifer: SignatureVerifierContext? = null): IDTokenInfo {
   val tokenVerifier =
       TokenVerifier.create(this, IDToken::class.java).also {
@@ -54,10 +57,16 @@ fun String.toIDTokenInfo(verifer: SignatureVerifierContext? = null): IDTokenInfo
 
 // https://stackoverflow.com/questions/39926104/what-format-is-the-exp-expiration-time-claim-in-a-jwt
 // exp is Time in SECONDS since "Epoch"
-fun JsonWebToken.expirationDate(): LocalDateTime = (exp * 1000).toLocalDateTime()
+fun JsonWebToken.expirationDate(): LocalDateTime = exp.secondsToLocalDateTime()
 
-fun JsonWebToken.issuedAt(): LocalDateTime = (iat * 1000).toLocalDateTime()
+fun JsonWebToken.expirationDate(ttl: Duration) {
+  exp(now().plus(ttl).atZone(ZoneId.systemDefault()).toEpochSecond())
+}
 
-fun Long.toLocalDateTime(): LocalDateTime = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDateTime()
+fun JsonWebToken.issuedAt(): LocalDateTime = iat.secondsToLocalDateTime()
+
+// fun Long.toLocalDateTime(): LocalDateTime = Instant.ofEpochMilli(this).atZone(ZoneId.systemDefault()).toLocalDateTime()
+
+fun Long.secondsToLocalDateTime(): LocalDateTime = Instant.ofEpochSecond(this).atZone(ZoneId.systemDefault()).toLocalDateTime()
 
 fun now(): LocalDateTime = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)

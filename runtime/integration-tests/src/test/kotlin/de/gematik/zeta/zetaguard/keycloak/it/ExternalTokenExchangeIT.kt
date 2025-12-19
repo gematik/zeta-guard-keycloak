@@ -27,15 +27,20 @@ package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_C_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.EncodingUtil.toObject
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.PKIUtil.generateECKeys
+import de.gematik.zeta.zetaguard.keycloak.commons.TELEMATIK_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.TELEMATIK_ID2
-import de.gematik.zeta.zetaguard.keycloak.commons.VALID_TELEMATIK_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.client_assertion.ZetaGuardClientInstanceData
+import de.gematik.zeta.zetaguard.keycloak.commons.client_assertion.ZetaProductPlatform
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_ACCESS_TOKEN_CLIENT_DATA
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.setupBouncyCastle
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
+import de.gematik.zeta.zetaguard.keycloak.commons.toRefreshToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.jwsTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.it.SMCBTokenHelper.leafCertificate
 import de.gematik.zeta.zetaguard.keycloak.it.SMCBTokenHelper.smcbTokenGenerator
@@ -43,6 +48,7 @@ import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.core.spec.Order
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import org.apache.http.HttpStatus.SC_BAD_REQUEST
@@ -86,13 +92,7 @@ class ExternalTokenExchangeIT : FunSpec() {
       }
     }
 
-    test("Token exchange with two different Telematik IDs") {
-      val nonce1 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
-      val jwt1 = jwsTokenGenerator.generateClientAssertion(ZETA_CLIENT, listOf(realmUrl))
-      val smcbToken1 = createSMCBToken(nonce1)
-
-      keycloakWebClient.testExchangeToken(smcbToken1, requestedClientScope = CLIENT_B_SCOPE, clientAssertion = jwt1)
-
+    test("Telematik ID mismatch") {
       val nonce2 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
       val jwt2 = jwsTokenGenerator.generateClientAssertion(ZETA_CLIENT, listOf(realmUrl))
       val smcbToken2 =
@@ -103,7 +103,11 @@ class ExternalTokenExchangeIT : FunSpec() {
               certificateChain = listOf(leafCertificate),
           )
 
-      keycloakWebClient.testExchangeToken(smcbToken2, requestedClientScope = CLIENT_B_SCOPE, clientAssertion = jwt2)
+      keycloakWebClient.testExchangeToken(smcbToken2, requestedClientScope = CLIENT_B_SCOPE, clientAssertion = jwt2) {
+        it.error shouldBe INVALID_TOKEN
+        it.errorDescription shouldContain "Invalid subject"
+        it.statusCode shouldBe SC_BAD_REQUEST
+      }
     }
 
     test("External token exchange fails without DPoP token") {
@@ -206,10 +210,12 @@ fun KeycloakWebClient.testExchangeToken(
   if (expectedError != null) {
     either.isLeft() shouldBe true
     either.onLeft { expectedError(it) }
+
     return AccessTokenResponse()
   } else {
     val newAccessTokenResponse = either.shouldBeRight().reponseObject
     val newAccessToken = newAccessTokenResponse.token.toAccessToken()
+    val newRefreshToken = newAccessTokenResponse.refreshToken.toRefreshToken()
 
     if (useDPoP) {
       newAccessTokenResponse.tokenType shouldBe TOKEN_TYPE_DPOP
@@ -221,11 +227,21 @@ fun KeycloakWebClient.testExchangeToken(
 
     newAccessToken.issuer shouldContain ZETA_REALM
     newAccessToken.issuedFor shouldBe clientId
-    listOf(VALID_TELEMATIK_ID, TELEMATIK_ID2) shouldContain newAccessToken.subject
+
+    newAccessToken.subject shouldBe TELEMATIK_ID
+    @Suppress("UNCHECKED_CAST") // https://ey-fp-dev.atlassian.net/browse/ZETAP-774
+    val clientDataMap = newAccessToken.otherClaims[CLAIM_ACCESS_TOKEN_CLIENT_DATA].shouldNotBeNull() as Map<String, Any>
+
+    val (_, clientId1, _, _, _, _, platformProductId) = clientDataMap.toObject<ZetaGuardClientInstanceData>()
+
+    clientId1 shouldBe clientId
+    platformProductId.productPlatform shouldBe ZetaProductPlatform.LINUX
 
     if (requestedClientScope == CLIENT_B_SCOPE) {
       newAccessToken.audience shouldContain CLIENT_C_ID
     }
+
+    newRefreshToken.subject shouldBe TELEMATIK_ID
 
     return newAccessTokenResponse
   }

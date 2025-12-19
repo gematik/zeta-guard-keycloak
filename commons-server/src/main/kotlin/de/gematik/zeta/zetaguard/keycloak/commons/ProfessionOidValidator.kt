@@ -23,6 +23,11 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+/**
+ * Check for valid profession OID format
+ *
+ * Check for valid profession OIDS for SMC-B
+ */
 object ProfessionOidValidator {
   // https://gemspec.gematik.de/downloads/gemSpec/gemSpec_OID/gemSpec_OID_V3.12.3_Aend.html
   // At least 5 numbers with 1-3 digits each, separated by dots, Root-OID 1.2.276.0.76

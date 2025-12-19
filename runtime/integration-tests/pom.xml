@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>0.2.3</version>
+        <version>0.2.4</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 

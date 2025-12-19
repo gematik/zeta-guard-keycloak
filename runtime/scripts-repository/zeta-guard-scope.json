@@ -1,0 +1,24 @@
+{
+  "id": "zeta-guard-scope",
+  "name": "zeta-guard-scope",
+  "description": "Map SMC-B based values into generated token claims",
+  "protocol": "openid-connect",
+  "attributes": {
+    "include.in.token.scope": "false",
+    "display.on.consent.screen": "false"
+  },
+  "protocolMappers": [
+    {
+      "id": "zeta-guard-scope-mapper",
+      "name": "zeta-guard-mapper",
+      "protocol": "openid-connect",
+      "protocolMapper": "zeta-guard-accesstoken-mapper",
+      "consentRequired": false,
+      "config": {
+        "access.tokenResponse.claim": "true",
+        "access.token.claim": "true",
+        "id.token.claim": "true"
+      }
+    }
+  ]
+}

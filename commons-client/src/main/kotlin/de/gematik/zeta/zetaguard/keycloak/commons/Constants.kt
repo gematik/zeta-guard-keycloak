@@ -51,5 +51,5 @@ const val CLIENT_C_SECRET = "jnG1UuQzWgQROtjhU1ku9YlsRsupzL5o"
 const val ZETA = "\uD835\uDEC7"
 const val ZETA_GUARD_CLIENT_NAME = "$ZETA-Guard client"
 
-const val VALID_TELEMATIK_ID = "1-10.3.9876540000.10.246"
+const val TELEMATIK_ID = "1-10.3.9876540000.10.246"
 const val TELEMATIK_ID2 = "1-10.3.9876541000.10.249"
