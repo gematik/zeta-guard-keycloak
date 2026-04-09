@@ -4,3 +4,10 @@
 # - Keep the expiry 1 week before the next planned release
 # - If it is determined that we are unaffected please make use of vulnerabilites.openvex.json
 ###############################################
+
+# io.netty:netty-codec-http 4.1.130.Final
+CVE-2026-33870 exp:2026-04-21
+# io.netty:netty-codec-http2 4.1.130.Final
+CVE-2026-33871 exp:2026-04-21
+# glibc, glibc-common, glibc-langpack-en
+CVE-2026-4046 exp:2026-04-21

@@ -50,6 +50,8 @@ services:
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_SIMULATION_BASE_URL: "http://opa-simulation:8181"
+      # https://www.keycloak.org/docs/latest/upgrading/#maximum-length-of-the-parameters-in-the-oidc-token-endpoint
+      KC_SPI_LOGIN_PROTOCOL_OPENID_CONNECT_REQ_PARAMS_DEFAULT_MAX_SIZE: 10000
       # Initial hash for admin events log
       GENESIS_HASH: ${GENESIS_HASH:-4841c2142fef441daa6ee6c57db65c011935964b14e94a6c8f5ec0447b83526c}
       SMCB_HASHING_PEPPER: ${SMCB_HASHING_PEPPER:-085c1245-dc0d-4d39-95b4-97496bec6182}

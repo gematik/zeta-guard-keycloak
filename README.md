@@ -11,6 +11,23 @@ Collection of Keycloak plugins and extensions for 𝝵-Guard
 * [ktfmt](https://plugins.jetbrains.com/plugin/14912-ktfmt) (IntelliJ IDEA plugin)
 * `SonarQube for IDE` (IntelliJ IDEA plugin)
 
+# Prerequisites
+
+## java-hsm-proxy-provider (temporary)
+
+`hsm-proxy-provider` depends on `java-hsm-proxy-provider`, which is not yet published to Maven
+Central. Until then, build and install it locally once before building this project.
+
+Check which version is required in the root `pom.xml` (`java-hsm-proxy-provider.version` property),
+then clone the repository and install that version:
+
+```shell
+git clone https://github.com/gematik/zeta-guard-java-hsm-proxy-provider.git
+cd zeta-guard-java-hsm-proxy-provider
+# optionally check out a specific release tag, e.g.: git checkout 0.1.0
+mvn clean install -DskipTests
+```
+
 # How to build Keycloak
 
 To build the project, run:

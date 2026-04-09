@@ -24,7 +24,7 @@ include:
   - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-scanning@v0.4.1
     inputs:
       analyzer-image: $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX/aquasec/trivy:0.69.3@sha256:7228e304ae0f610a1fad937baa463598cadac0c2ac4027cc68f3a8b997115689
-      cs-image: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$CI_COMMIT_REF_SLUG"
+      cs-image: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$SCAN_IMAGE_TAG"
       git-strategy: fetch
       job-dependencies: [ deploy ]
       job-stage: systemtest
@@ -76,6 +76,7 @@ variables:
   DOCKER_TLS_VERIFY: "1"
   IMAGE_NAME: $CI_REGISTRY_IMAGE
   IMAGE_TAG: $CI_COMMIT_REF_SLUG
+  HSM_SIM_IMAGE: $CI_REGISTRY/zeta/zeta-guard/ngx_pep/hsm_sim
 
   # see also: https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Maven.gitlab-ci.yml
   # NOTE: we use --settings ci_settings.xml for all commands, because we want to use the
@@ -105,12 +106,22 @@ variables:
 workflow:
   rules:
     - if: $CI_COMMIT_TAG
+      variables:
+        SCAN_IMAGE_TAG: $CI_COMMIT_TAG
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      variables:
+        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      variables:
+        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
+      variables:
+        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - if: '$CI_PIPELINE_SOURCE == "pipeline"'
+      variables:
+        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - when: never
 
 build:

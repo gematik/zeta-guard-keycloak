@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>de.gematik.zeta.zeta-guard</groupId>
+        <artifactId>keycloak-zeta</artifactId>
+        <version>0.5.1</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>hsm-proxy-provider</artifactId>
+    <name>𝝵-Guard :: HSM Proxy Security Provider Plugin</name>
+    <description>
+        Keycloak plugin that registers the java-hsm-proxy-provider java.security.Provider at Keycloak startup.
+        Delegates TLS private-key operations to the remote HSM Proxy via gRPC — no key material ever leaves the HSM.
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-server-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-server-spi-private</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-core</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>de.gematik.zeta.zeta-guard</groupId>
+            <artifactId>java-hsm-proxy-provider</artifactId>
+            <version>${java-hsm-proxy-provider.version}</version>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>io.kotest</groupId>
+            <artifactId>kotest-runner-junit5-jvm</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.kotest</groupId>
+            <artifactId>kotest-assertions-core-jvm</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.mockk</groupId>
+            <artifactId>mockk-jvm</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+                Shade plugin produces a self-contained fat JAR that bundles java-hsm-proxy-provider
+                and its full gRPC/guava/protobuf transitive runtime dependency tree.
+                docker-keycloak only needs to copy this single JAR into providers/.
+                Keycloak's own classes (keycloak-*, quarkus, jakarta) are excluded because
+                they are already on the Keycloak classloader.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <!--
+                                shadedArtifactAttached=true keeps the original (unshaded) JAR as
+                                the main artifact so JaCoCo report-aggregate resolves only this
+                                module's own classes. The fat JAR is attached with the classifier
+                                below and is what docker-keycloak copies into providers/.
+                            -->
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>fat</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <artifactSet>
+                                <excludes>
+                                    <exclude>org.keycloak:*</exclude>
+                                    <exclude>io.quarkus:*</exclude>
+                                    <exclude>jakarta.*:*</exclude>
+                                </excludes>
+                            </artifactSet>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+        </plugins>
+    </build>
+</project>

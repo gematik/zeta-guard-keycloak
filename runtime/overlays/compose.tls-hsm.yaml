@@ -1,0 +1,23 @@
+# Overlay: enables pod-level TLS using the HSMPROXY KeyStore (key + cert from hsm-sim via gRPC).
+# Must be combined with overlays/compose.hsm.yaml (which provides hsm-sim and HSM_PROXY_* vars).
+#
+# Scenario 3 — TLS from HSM:
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.tls-hsm.yaml up
+#
+# startup.sh generates /opt/keycloak/conf/hsm-keystore.properties from HSM_PROXY_ENDPOINT + HSM_PROXY_KEY_ID.
+# HsmProxyProvider is registered via security.provider.14 in the baked-in java.security file
+# (before Quarkus TLS init) — no extra JAVA_OPTS needed.
+
+name: "zeta-guard"
+
+services:
+  keycloak:
+    environment:
+      KC_HOSTNAME: https://localhost:18443
+      # HSMPROXY KeyStore: key lives in hsm-sim, cert fetched via GetCertificate gRPC call.
+      # File is generated at container startup by startup.sh from HSM_PROXY_* env vars.
+      KC_HTTPS_KEY_STORE_TYPE: HSMPROXY
+      KC_HTTPS_KEY_STORE_FILE: /opt/keycloak/conf/hsm-keystore.properties
+      KC_HTTPS_KEY_STORE_ALIAS: tls
+    ports:
+      - "127.0.0.1:18443:8443" # https api port (HSM-backed TLS)
