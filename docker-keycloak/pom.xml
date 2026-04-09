@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>0.4.1</version>
+        <version>0.5.1</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -154,6 +154,18 @@
                                 <artifactItem>
                                     <groupId>io.arrow-kt</groupId>
                                     <artifactId>arrow-atomic-jvm</artifactId>
+                                </artifactItem>
+
+                                <!--
+                                    HSM Proxy Provider — fat JAR produced by hsm-proxy-provider.
+                                    Bundles java-hsm-proxy-provider and all gRPC/protobuf runtime deps.
+                                    Keycloak classes are excluded (already on the Keycloak classloader).
+                                -->
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>hsm-proxy-provider</artifactId>
+                                    <classifier>fat</classifier>
+                                    <destFileName>zeta-hsm-proxy-provider.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
 

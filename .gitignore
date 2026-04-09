@@ -20,6 +20,10 @@ buildNumber.properties
 .idea
 http-requests/http-client.env.json
 
+# Local environment overrides (secrets, personal config)
+*.local
+.env
+
 .jenkins
 .githubignore
 

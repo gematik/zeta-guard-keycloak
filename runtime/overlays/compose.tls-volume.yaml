@@ -1,0 +1,22 @@
+# Overlay: enables pod-level TLS using a PEM cert + key file mounted from the host.
+# No HSM required.
+#
+# Scenario 4 — TLS from volume:
+#   Prerequisites: run conf/tls/gen-cert.sh once to generate tls.crt + tls.key
+#   docker compose -f compose.yaml -f overlays/compose.tls-volume.yaml up
+
+name: "zeta-guard"
+
+services:
+  keycloak:
+    environment:
+      KC_HOSTNAME: https://localhost:18443
+      # Plain PEM cert + PKCS8 private key — no HSM, no custom KeyStore type.
+      KC_HTTPS_CERTIFICATE_FILE: /opt/keycloak/conf/tls/tls.crt
+      KC_HTTPS_CERTIFICATE_KEY_FILE: /opt/keycloak/conf/tls/tls.key
+    ports:
+      - "127.0.0.1:18443:8443" # https api port
+    volumes:
+      # Paths are relative to the project directory (runtime/), not this overlay file.
+      # Docker Compose v2 resolves relative paths in override files relative to the project dir.
+      - ./conf/tls:/opt/keycloak/conf/tls:ro

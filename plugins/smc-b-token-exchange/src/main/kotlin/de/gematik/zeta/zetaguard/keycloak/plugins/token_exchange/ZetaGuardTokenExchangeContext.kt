@@ -31,8 +31,11 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.Success
 import de.gematik.zeta.zetaguard.keycloak.commons.server.fromBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toThumbprint
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
+import de.gematik.zeta.zetaguard.keycloak.commons.toForwardedHeader
 import de.gematik.zeta.zetaguard.keycloak.commons.toIDTokenInfo
+import de.gematik.zeta.zetaguard.keycloak.commons.toIPAddress
 import de.gematik.zeta.zetaguard.keycloak.commons.toJsonWebToken
+import de.gematik.zeta.zetaguard.keycloak.commons.toXForwardedForHeader
 import java.security.PublicKey
 import java.security.cert.X509Certificate
 import java.time.Duration
@@ -84,9 +87,9 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
 
   val clientIP: String // A_28828
     get() =
-      httpHeader("Forwarded")
-        ?: httpHeader("X-Forwarded-For")
-        ?: httpHeader("X-Real-IP")
+      httpHeader("Forwarded")?.toForwardedHeader() // RFC 7239
+        ?: httpHeader("X-Forwarded-For")?.toXForwardedForHeader()
+        ?: httpHeader("X-Real-IP")?.toIPAddress()
         ?: context.clientConnection.remoteAddr
         ?: error("IP address could not be determined")
 
@@ -112,5 +115,6 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
    */
   val data: ZetaGuardTokenExchangeData
     get() =
-      ZetaGuardTokenExchangeData(telematikID, professionOID, subjectOrganisation, subjectCommonName, clientIP, accessTokenTTLSeconds, refreshTokenTTLSeconds)
+      ZetaGuardTokenExchangeData(
+        telematikID, professionOID, subjectOrganisation, subjectCommonName, clientIP, accessTokenTTLSeconds, refreshTokenTTLSeconds)
 }

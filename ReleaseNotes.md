@@ -2,14 +2,26 @@
 
 # Release Notes ZETA PDP
 
+## Release 0.5.1
+
+### added:
+- Integration of `java-hsm-proxy-provider` (`hsm-proxy-provider` plugin)
+- TLS via HSM support (Quarkus/Keycloak configuration)
+
+### changed:
+- Keycloak upgraded to 26.5.7
+
+## Release 0.5.0
+
+### changed:
+- Parse Forwarded headers for impossible travel detection
+
 ## Release 0.4.1
 
 ### changed:
 - Keycloak upgraded to 26.5.6
 - Improved OPA decision client logging and error handling
 - Improve certificate lookup performance
-
-## removed
 
 ## Release 0.4.0
 

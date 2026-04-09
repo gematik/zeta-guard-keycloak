@@ -1,0 +1,26 @@
+# Overlay: adds hsm-sim and wires HSM_PROXY_* env vars into keycloak.
+#
+# Scenario 2 — no-TLS, with HSM warm-up:
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml up
+#
+# Required by overlays/compose.tls-hsm.yaml (scenario 3).
+
+name: "zeta-guard"
+
+services:
+  hsm-sim:
+    image: ${HSM_SIM_IMAGE:-zeta/zeta-guard/ngx_pep/hsm_sim}:${HSM_SIM_TAG:-main}
+    container_name: zeta-guard-hsm-sim
+    command: ["--listen", "0.0.0.0:50051", "--keys-dir", "/etc/hsm_sim/keys"]
+    networks:
+      - zeta-guard
+
+  keycloak:
+    environment:
+      # HsmProxyKeycloakFactory reads these to warm up the gRPC channel at startup.
+      # startup.sh also uses them to generate hsm-keystore.properties when KC_HTTPS_KEY_STORE_* is set.
+      HSM_PROXY_ENDPOINT: "hsm-sim:50051"
+      HSM_PROXY_KEY_ID: "zeta-guard-keycloak-tls-es256-v1.p256"
+    depends_on:
+      hsm-sim:
+        condition: service_started

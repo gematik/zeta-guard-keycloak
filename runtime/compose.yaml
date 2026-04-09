@@ -1,5 +1,26 @@
 name: "zeta-guard"
 
+# ── Scenario overlays ──────────────────────────────────────────────────────────
+#
+# Scenario 1 — no-TLS, no HSM (this file alone):
+#   docker compose up
+#
+# Scenario 2 — no-TLS, with HSM warm-up (proves gRPC channel works):
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml up
+#
+# Scenario 3 — TLS from HSM (key + cert via gRPC):
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.tls-hsm.yaml up
+#
+# Scenario 4 — TLS from volume (PEM cert + key file, no HSM):
+#   First: cd conf/tls && ./gen-cert.sh
+#   docker compose -f compose.yaml -f overlays/compose.tls-volume.yaml up
+#
+# Scenario 5 — TLS from volume (PEM cert + key file) + HSM warm-up:
+#   First: cd conf/tls && ./gen-cert.sh
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.tls-volume.yaml up
+
+# ──────────────────────────────────────────────────────────────────────────────
+
 networks:
   zeta-guard:
     name: zeta-guard
@@ -48,6 +69,9 @@ services:
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_SIMULATION_BASE_URL: "http://opa-simulation:8181"
+      # https://www.keycloak.org/docs/latest/upgrading/#maximum-length-of-the-parameters-in-the-oidc-token-endpoint
+      KC_SPI_LOGIN_PROTOCOL_OPENID_CONNECT_REQ_PARAMS_DEFAULT_MAX_SIZE: 10000
+
       # Initial hash for admin events log
       GENESIS_HASH: ${GENESIS_HASH:-4841c2142fef441daa6ee6c57db65c011935964b14e94a6c8f5ec0447b83526c}
       SMCB_HASHING_PEPPER: ${SMCB_HASHING_PEPPER:-085c1245-dc0d-4d39-95b4-97496bec6182}
@@ -67,7 +91,7 @@ services:
     healthcheck:
       # No curl in Keycloak 🙄
       test: |
-        exec 3<>/dev/tcp/127.0.0.1/9000; printf "GET /health/ready HTTP/1.1\r\nhost: localhost:9000\r\nConnection: close\r\n\r\n" >&3;grep "HTTP/1.1 200 OK" <&3
+        exec 3<>/dev/tcp/127.0.0.1/8080; printf "GET /realms/master HTTP/1.1\r\nhost: localhost\r\nConnection: close\r\n\r\n" >&3;grep -m1 "HTTP/1.1 200" <&3
       interval: 30s
       timeout: 10s
       retries: 3
