@@ -100,7 +100,9 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
         keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = jws)
 
       accessTokenResponse.token.shouldNotBeNull()
+      accessTokenResponse.token.checkTokenHeader()
       accessTokenResponse.refreshToken.shouldNotBeNull()
+      accessTokenResponse.refreshToken.checkTokenHeader()
 
       keycloakWebClient.checkAttestationState(oidcClientResponse.clientId, ATTESTATION_STATE_VALID)
     }

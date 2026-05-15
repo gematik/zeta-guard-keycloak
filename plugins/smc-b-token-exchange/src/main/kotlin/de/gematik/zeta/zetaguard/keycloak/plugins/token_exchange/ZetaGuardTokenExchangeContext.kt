@@ -109,7 +109,7 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
     }
 
   /**
-   * Note, that this will raise an exception if the values have not been initialized upon usage time.
+   * Note that this will raise an exception if the values have not been initialized upon usage time.
    *
    * However, at this point of time previous checks should have prevented this case from happening anyway.
    */

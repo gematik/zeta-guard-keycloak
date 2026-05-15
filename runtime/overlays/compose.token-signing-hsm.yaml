@@ -1,0 +1,27 @@
+# Overlay: enables HSM-backed JWT token signing.
+# Must be combined with overlays/compose.hsm.yaml (which provides hsm-sim and HSM_PROXY_ENDPOINT).
+#
+# Scenario — HSM token signing (no TLS, with HSM):
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.token-signing-hsm.yaml up
+#
+# Scenario — HSM token signing + TLS from HSM:
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.tls-hsm.yaml -f overlays/compose.token-signing-hsm.yaml up
+#
+# HSM_PROXY_TOKEN_KEY_ID tells the hsm-token-signing plugin which key to use.
+# keycloak-config-cli registers the HSM KeyProvider component in each realm and
+# removes software signing keys via 20-configure-hsm-token-signing.sh.
+# hsm-sim derives the key deterministically from the key ID (HKDF-SHA256) —
+# no pre-provisioning needed.
+
+name: "zeta-guard"
+
+services:
+  keycloak:
+    environment:
+      HSM_PROXY_TOKEN_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
+
+  keycloak-config-cli:
+    environment:
+      HSM_TOKEN_SIGNING_ENABLED: "true"
+      HSM_TOKEN_SIGNING_ENDPOINT: "hsm-sim:50051"
+      HSM_TOKEN_SIGNING_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"

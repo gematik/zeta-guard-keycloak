@@ -198,9 +198,9 @@ open class ZetaGuardTokenExchangeProvider(
   override fun getVersion(): Int = 2
 
   /**
-   * The overridden code is not feasible, because is does not just check audiences.
+   * The overridden code is not feasible because it does not just check audiences.
    *
-   * It also disallows public clients, i.e. clients without a client secret. Since we use client_assertion, this not correct
+   * It also disallows public clients, i.e., clients without a client secret. Since we use client_assertion, this is not correct.
    */
   override fun validateAudience(token: AccessToken?, disallowOnHolderOfTokenMismatch: Boolean, targetAudienceClients: List<ClientModel>) {
     val disabledTargetAudienceClient = targetAudienceClients.firstOrNull { !it.isEnabled }
@@ -285,7 +285,7 @@ open class ZetaGuardTokenExchangeProvider(
     ensure(verifier.header.algorithm.name == Algorithm.ES256) { invalidToken("Invalid algorithm: »${verifier.header.algorithm.name}«") }
     ensure(verifier.header.type == JWT) { invalidToken("Invalid token type: »${verifier.header.type}«") }
 
-    val token = createToken(verifier).bind()
+    val token = createToken(verifier, context).bind()
 
     ensure(token.issuer == client.clientId) { invalidToken("Issuer does not match client id") }
     ensure(token.isActive(2) && token.iat >= realm.notBefore) { invalidToken("Identity token expired") }
@@ -359,11 +359,22 @@ open class ZetaGuardTokenExchangeProvider(
 
     val httpClient = session.getProvider(HttpClientProvider::class.java)?.httpClient
     val grantType = formParams.getFirst(OAuth2Constants.GRANT_TYPE)
-    val scopes = formParams.getFirst("scope")?.split(' ')?.filter { it.isNotBlank() } ?: emptyList()
+    val scopes = formParams.getFirst(OAuth2Constants.SCOPE)?.split(' ')?.filter { it.isNotBlank() } ?: emptyList()
     val audiences = resolveAudiences(formParams, context)
     val ipAddress = session.context.connection?.remoteAddr
     val professionOid = context.professionOID
-    val input = OpaGateInput(grantType = grantType, scopes = scopes, audiences = audiences, ipAddress = ipAddress, professionOid = professionOid)
+    val productID = context.clientStatementData.posture.productId
+    val productVersion = context.clientStatementData.posture.productVersion
+
+    val input = OpaGateInput(
+        grantType = grantType,
+        scopes = scopes,
+        audiences = audiences,
+        ipAddress = ipAddress,
+        professionOid = professionOid,
+        productID = productID,
+        productVersion = productVersion
+    )
 
     when (val outcome = OpaGateEnforcer.enforce(httpClient, input, opaConfig, logger)) {
       is OpaGateEnforcer.Outcome.Skip -> {

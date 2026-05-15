@@ -25,6 +25,12 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import jakarta.ws.rs.core.Response
+import java.util.concurrent.Executor
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import org.apache.http.impl.client.CloseableHttpClient
 import org.jboss.logging.Logger
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
@@ -54,18 +60,39 @@ object OpaGateEnforcer {
     val decision = OpaDecisionClient.evaluate(httpClient, opaConfig, payloadJson, log)
     val outcome = mapDecisionToOutcome(decision, opaConfig, log)
 
-    if (opaConfig.simulationBaseUrl.isNotBlank()) runSimulation(httpClient, opaConfig, payloadJson, log)
+    if (opaConfig.simulationBaseUrl.isNotBlank()) submitSimulation(httpClient, opaConfig, payloadJson, log)
 
     return outcome
+  }
+
+  // Fire-and-forget pool for simulation calls — must never block the active OPA decision path. Bounded queue +
+  // DiscardOldest sheds load by dropping stale payloads if the simulation engine falls behind.
+  internal var simulationExecutor: Executor = createDefaultSimulationExecutor()
+
+  private fun createDefaultSimulationExecutor(): Executor {
+    val threadCounter = AtomicLong()
+    return ThreadPoolExecutor(
+        1,
+        2,
+        60L,
+        TimeUnit.SECONDS,
+        LinkedBlockingQueue(16),
+        { runnable -> Thread(runnable, "opa-simulation-${threadCounter.incrementAndGet()}").apply { isDaemon = true } },
+        ThreadPoolExecutor.DiscardOldestPolicy(),
+    )
+  }
+
+  private fun submitSimulation(httpClient: CloseableHttpClient, opaConfig: OPAConfig, payloadJson: String, log: Logger) {
+    try {
+      simulationExecutor.execute { runSimulation(httpClient, opaConfig, payloadJson, log) }
+    } catch (e: RejectedExecutionException) {
+      log.warnf("🔮 OPA-Sim TokenPolicy submission rejected: %s", e.message)
+    }
   }
 
   private fun policyDenied() = KeycloakError(Errors.ACCESS_DENIED, "policy_denied", Response.Status.FORBIDDEN)
 
   private fun temporarilyUnavailable() = KeycloakError("temporarily_unavailable", "policy_unavailable", Response.Status.SERVICE_UNAVAILABLE)
-
-  // HINT: Temporary defaults for fields not yet wired
-  private const val FALLBACK_PRODUCT_ID: String = "ZETA-Test-Client"
-  private const val FALLBACK_PRODUCT_VERSION: String = "1.0.0"
 
   private fun isTokenExchangeGrant(grantType: String?) = TOKEN_EXCHANGE_GRANT_TYPE.equals(grantType, ignoreCase = true)
 
@@ -82,8 +109,8 @@ object OpaGateEnforcer {
               grantType = input.grantType,
               ipAddress = input.ipAddress,
               professionOid = input.professionOid,
-              productId = FALLBACK_PRODUCT_ID,
-              productVersion = FALLBACK_PRODUCT_VERSION,
+              productId = input.productID,
+              productVersion = input.productVersion
           )
       )
 
@@ -124,16 +151,16 @@ object OpaGateEnforcer {
   private fun logSimDecision(decision: Decision, log: Logger) =
       when (decision) {
         is Decision.Allow ->
-            log.infof(
-                "🔮 OPA-Sim TokenPolicy result=true -> ALLOW (access_ttl=%s, refresh_ttl=%s)",
-                decision.accessTokenTtl,
-                decision.refreshTokenTtl,
-            )
+          log.infof(
+              "🔮 OPA-Sim TokenPolicy result=true -> ALLOW (access_ttl=%s, refresh_ttl=%s)",
+              decision.accessTokenTtl,
+              decision.refreshTokenTtl,
+          )
         is Decision.Deny ->
-            log.infof(
-                "🔮 OPA-Sim TokenPolicy result=false -> DENY reasons=%s",
-                formatReasons(decision.reasons),
-            )
+          log.infof(
+              "🔮 OPA-Sim TokenPolicy result=false -> DENY reasons=%s",
+              formatReasons(decision.reasons),
+          )
         is Decision.Error -> log.warnf("🔮 OPA-Sim TokenPolicy error getting decision")
       }
 

@@ -1,0 +1,1 @@
+../scripts-repository/20-configure-hsm-token-signing.sh

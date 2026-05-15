@@ -12,6 +12,7 @@ stages:
   - test
   - release
   - publish
+  - harden
   - systemtest
   - publish_reports
 
@@ -21,12 +22,12 @@ include:
       image: "$CI_REGISTRY/zeta/devops/ci-images/maven:3.9-eclipse-temurin-21-zeta-0"
       cache-key: keycloak-zeta
 
-  - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-scanning@v0.4.1
+  - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-scanning@v0.4.2
     inputs:
       analyzer-image: $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX/aquasec/trivy:0.69.3@sha256:7228e304ae0f610a1fad937baa463598cadac0c2ac4027cc68f3a8b997115689
-      cs-image: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$SCAN_IMAGE_TAG"
+      cs-image: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$CUSTOM_IMAGE_TAG"
       git-strategy: fetch
-      job-dependencies: [ deploy ]
+      job-dependencies: [ harden ]
       job-stage: systemtest
       openvex-file: "vulnerabilites.openvex.json"
       severity: UNKNOWN,HIGH,CRITICAL
@@ -107,21 +108,21 @@ workflow:
   rules:
     - if: $CI_COMMIT_TAG
       variables:
-        SCAN_IMAGE_TAG: $CI_COMMIT_TAG
+        CUSTOM_IMAGE_TAG: $CI_COMMIT_TAG
     - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       variables:
-        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
+        CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       variables:
-        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
+        CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH != $CI_DEFAULT_BRANCH'
       variables:
-        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
+        CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - if: '$CI_PIPELINE_SOURCE == "pipeline"'
       variables:
-        SCAN_IMAGE_TAG: $CI_COMMIT_REF_SLUG
+        CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - when: never
 
 build:
@@ -227,10 +228,26 @@ release:
   rules:
     - !reference [ .rules_tags, rules ]
 
+harden:
+  stage: harden
+  needs:
+    - job: deploy
+      optional: true
+    - job: release
+      optional: true
+  script: |
+    # -Ddocker.tag=$CUSTOM_IMAGE_TAG wird genutzt, weil der Job auch bei dem Pushen eines Tags läuft. In dem Fall 
+    # würde bei der Verwendung von $IMAGE_TAG würde das falsche Tag (v1-2-3 anstatt v1.2.3) genutzt werden
+    mvn $MAVEN_CLI_OPTS -Ddocker.tag=$CUSTOM_IMAGE_TAG -pl docker-keycloak-harden -P gitlab package
+    docker push "$IMAGE_NAME:$CUSTOM_IMAGE_TAG"
+  rules:
+    - !reference [ .rules_tags, rules ]
+    - !reference [ .rules_mr_default, rules ]
+
 trigger_helm:
   stage: systemtest
   needs:
-    - job: deploy
+    - job: harden
       optional: true
   rules:
     - if: $CI_COMMIT_TAG

@@ -67,8 +67,9 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
 
       accessTokenResponse1 = keycloakWebClient.testExchangeToken(smcbToken1, clientAssertion = jwt1)
 
-      accessTokenResponse1.token.shouldNotBeNull()
-      accessTokenResponse1.refreshToken.shouldNotBeNull()
+      accessTokenResponse1.token.shouldNotBeNull().checkTokenHeader()
+      accessTokenResponse1.refreshToken.shouldNotBeNull().checkTokenHeader()
+
       accessToken1 = accessTokenResponse1.token.toAccessToken()
       refreshToken1 = accessTokenResponse1.refreshToken.toRefreshToken()
 
@@ -90,7 +91,7 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
       val dPoPToken2 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken2)
       val accessTokenResponse2 = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().reponseObject
 
-      accessTokenResponse2.refreshToken.shouldNotBeNull()
+      accessTokenResponse2.refreshToken.shouldNotBeNull().checkTokenHeader()
 
       val refreshToken2 = accessTokenResponse2.refreshToken.toRefreshToken()
       refreshToken2.expirationDate() shouldBeAfter refreshToken1.expirationDate()
@@ -120,7 +121,9 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
         smcbTokenGenerator.generateSMCBToken(nonceString = nonce2, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
       val jwt2 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce2)
       val dPoPToken2 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken2)
-      keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().reponseObject
+      val accessTokenResponse = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().reponseObject
+
+      accessTokenResponse.refreshToken.shouldNotBeNull().checkTokenHeader()
 
       val nonce3 = createNonce()
       val smcbToken3 =

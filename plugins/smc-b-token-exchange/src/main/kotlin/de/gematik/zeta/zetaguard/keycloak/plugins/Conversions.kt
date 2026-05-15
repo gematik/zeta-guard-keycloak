@@ -27,6 +27,8 @@ import arrow.core.Either
 import arrow.core.Either.Companion.catch
 import arrow.core.raise.either
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
+import de.gematik.zeta.zetaguard.keycloak.commons.server.AttackDetectionLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics
 import de.gematik.zeta.zetaguard.keycloak.commons.server.baseUrl
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toJWKS
@@ -68,10 +70,11 @@ internal fun readCertificate(context: ZetaGuardTokenExchangeContext): Either<Key
     }
     .mapLeft { invalidToken(it.message ?: "Invalid certificate") }
 
-internal fun createToken(verifier: TokenVerifier<IDToken>): Either<KeycloakValidationError, IDToken> =
+internal fun createToken(verifier: TokenVerifier<IDToken>, context: ZetaGuardTokenExchangeContext): Either<KeycloakValidationError, IDToken> =
   catch { verifier.verify().getToken() }
     .mapLeft {
       logger.warn("Failed to verify identity token", it)
+      AttackDetectionLogger.warnWithMDC(it, CapecAttackMechanics.AUTHENTICATION_BYPASS, context.clientIP)
       invalidToken(it.message ?: "Token validation failed")
     }
 

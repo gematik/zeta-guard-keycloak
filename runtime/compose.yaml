@@ -5,7 +5,7 @@ name: "zeta-guard"
 # Scenario 1 — no-TLS, no HSM (this file alone):
 #   docker compose up
 #
-# Scenario 2 — no-TLS, with HSM warm-up (proves gRPC channel works):
+# Scenario 2 — no-TLS, with HSM (gRPC channel registered at startup):
 #   docker compose -f compose.yaml -f overlays/compose.hsm.yaml up
 #
 # Scenario 3 — TLS from HSM (key + cert via gRPC):
@@ -15,9 +15,15 @@ name: "zeta-guard"
 #   First: cd conf/tls && ./gen-cert.sh
 #   docker compose -f compose.yaml -f overlays/compose.tls-volume.yaml up
 #
-# Scenario 5 — TLS from volume (PEM cert + key file) + HSM warm-up:
+# Scenario 5 — TLS from volume + HSM:
 #   First: cd conf/tls && ./gen-cert.sh
 #   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.tls-volume.yaml up
+#
+# Scenario 6 — HSM token signing (no TLS):
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.token-signing-hsm.yaml up
+#
+# Scenario 7 — HSM token signing + TLS from HSM:
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml -f overlays/compose.tls-hsm.yaml -f overlays/compose.token-signing-hsm.yaml up
 
 # ──────────────────────────────────────────────────────────────────────────────
 

@@ -1,4 +1,153 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <suppressions xmlns="https://jeremylong.github.io/DependencyCheck/dependency-suppression.1.3.xsd">
     <!-- See https://dependency-check.github.io/DependencyCheck/general/suppression.html -->
+
+    <!-- grpc -->
+    <suppress>
+        <notes>
+            Betroffen sind nur gRPC-Go Server.
+            Da in diesem Projekt Java/Kotlin verwendet wird, ist dieses nicht von der Schwachstelle betroffen.
+        </notes>
+        <gav regex="true">io\.grpc:grpc.*</gav>
+        <cve>CVE-2026-33186</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen sind nur gRPC-C-C++ Server.
+            Da in diesem Projekt Java/Kotlin verwendet wird, ist dieses nicht von der Schwachstelle betroffen.
+        </notes>
+        <gav regex="true">io\.grpc:grpc.*</gav>
+        <cve>CVE-2024-11407</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen ist das Projekt, welches in C++ geschrieben ist: https://github.com/grpc/grpc. Der CPE lautet "cpe:2.3:a:grpc:grpc:*:*:*:*:*:-:*:*".
+            Das in Java implementierte Maven-Paket io.grpc:grpc-api ist nicht betroffen.
+        </notes>
+        <gav regex="true">io\.grpc:grpc.*</gav>
+        <cve>CVE-2024-7246</cve>
+    </suppress>
+
+    <!-- keycloak-admin-client -->
+    <suppress>
+        <notes>
+            Von der Schwachstelle ist das Paket org.keycloak:keycloak-services betroffen, nicht org.keycloak:keycloak-admin-client.
+        </notes>
+        <gav regex="true">org\.keycloak:keycloak-admin-client:.*</gav>
+        <cve>CVE-2026-0871</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Von der Schwachstelle ist das Paket org.keycloak:keycloak-services betroffen, nicht org.keycloak:keycloak-client-common-synced.
+        </notes>
+        <gav regex="true">org\.keycloak:keycloak-client-common-synced:.*</gav>
+        <cve>CVE-2026-0871</cve>
+    </suppress>
+
+    <!-- netty -->
+    <!-- maven-dependency-check findet bei diversen netty-Abhängigkeiten die Schwachstellen CVE-2026-33870, CVE-2026-33871, CVE-2025-67735, CVE-2025-55163, CVE-2025-58056, CVE-2025-58057. Betroffen ist sind allerdings nur ein
+        Bruchteil der von maven-dependency-check gefundenen Abhängigkeiten. Zu Übersichtlichkeit wird hier ein Regex genutzt, um die gefundenen Schwachstellen in allen netty-Abhängigkeiten zu ignorieren. Die betroffenen Pakete
+        io.netty:netty-codec, io.netty:netty-codec-http, io.netty:netty-codec-http2 werden durch das Keycloak-Image provided. Daher muss das Paket direkt im Image überschrieben werden. Das betroffene Paket io.netty:netty-codec-compression befindet sich nicht im Abhängigkeitsbaum. -->
+    <suppress>
+        <notes>
+            Betroffen ist nur io.netty:netty-codec-http2. Dieses wird durch das Keycloak-Image provided. Daher muss das Paket direkt im Image überschrieben werden. (https://github.com/netty/netty/security/advisories/GHSA-w9fj-cfpg-grvv)
+        </notes>
+        <gav regex="true">io\.netty:netty-.*</gav>
+        <cve>CVE-2026-33871</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen ist nur io.netty:netty-codec-http. Dieses wird durch das Keycloak-Image provided. Daher muss das Paket direkt im Image überschrieben werden. (https://github.com/netty/netty/security/advisories/GHSA-pwqr-wmgm-9rr8)
+        </notes>
+        <gav regex="true">io\.netty:netty-.*</gav>
+        <cve>CVE-2026-33870</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen ist nur io.netty:netty-codec-http. Dieses wird durch das Keycloak-Image provided. Daher muss das Paket direkt im Image überschrieben werden. (https://github.com/netty/netty/security/advisories/GHSA-84h7-rjj3-6jx4)
+        </notes>
+        <gav regex="true">io\.netty:netty-.*</gav>
+        <cve>CVE-2025-67735</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen ist nur io.netty:netty-codec-http2. Dieses wird durch das Keycloak-Image provided. Daher muss das Paket direkt im Image überschrieben werden. (https://github.com/netty/netty/security/advisories/GHSA-prj3-ccx8-p6x4)
+        </notes>
+        <gav regex="true">io\.netty:netty-.*</gav>
+        <cve>CVE-2025-55163</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen ist nur das io.netty:netty-codec und io.netty:netty-codec-compression. io.netty:netty-codec wird durch das Keycloak-Image provided. Daher muss das Paket direkt im Image überschrieben werden. io.netty:netty-codec-compression wird weder direkt noch transitiv verwendet. (https://github.com/netty/netty/security/advisories/GHSA-3p8m-j85q-pgmj)
+        </notes>
+        <gav regex="true">io\.netty:netty-.*</gav>
+        <cve>CVE-2025-58057</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen ist nur das Paket io.netty:netty-codec-http. Dieses wird durch das Keycloak-Image provided. Daher muss das Paket direkt im Image überschrieben werden. (https://github.com/netty/netty/security/advisories/GHSA-fghv-69vj-qj49)
+        </notes>
+        <gav regex="true">io\.netty:netty-.*</gav>
+        <cve>CVE-2025-58056</cve>
+    </suppress>
+
+    <!-- opentelemetry-semconv -->
+    <suppress>
+        <notes>
+            Betroffen von dieser Schwachstelle ist nur das Go-Paket (https://github.com/open-telemetry/opentelemetry-go/security/advisories/GHSA-hfvc-g4fc-pqhx)
+        </notes>
+        <gav regex="true">io\.opentelemetry\.semconv:opentelemetry-semconv.*</gav>
+        <cve>CVE-2026-39883</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Betroffen von dieser Schwachstelle ist nur das Go-Paket (https://github.com/open-telemetry/opentelemetry-go/security/advisories/GHSA-w8rr-5gcm-pp58)
+        </notes>
+        <gav regex="true">io\.opentelemetry\.semconv:opentelemetry-semconv.*</gav>
+        <cve>CVE-2026-39882</cve>
+    </suppress>
+
+    <!-- protobuf-java -->
+    <suppress>
+        <notes>
+            Betroffen ist google.protobuf.json_format.ParseDict() in Python.
+            Da in diesem Projekt Java/Kotlin verwendet wird, ist dieses nicht von der Schwachstelle betroffen.
+        </notes>
+        <gav regex="true">com\.google\.protobuf:protobuf-java:.*</gav>
+        <cve>CVE-2026-0994</cve>
+    </suppress>
+    <suppress>
+        <notes>
+            Das Paket protobuf-java wird im Keycloak-Image in einer gefixten Version provided.
+        </notes>
+        <gav regex="true">com\.google\.protobuf:protobuf-java:.*</gav>
+        <cve>CVE-2024-7254</cve>
+    </suppress>
+
+    <!-- vertx -->
+    <suppress>
+        <notes>
+            Das Paket vertx-core wird im Keycloak-Image in einer gefixten Version provided.
+        </notes>
+        <gav regex="true">io\.vertx:vertx-core:.*</gav>
+        <cve>CVE-2024-7254</cve>
+    </suppress>
+
+    <!-- commons-lang3 -->
+    <suppress>
+        <notes>
+            Das Paket commons-lang3 wird im Keycloak-Image in einer gefixten Version provided.
+        </notes>
+        <gav regex="true">org\.apache\.commons:commons-lang3:.*</gav>
+        <cve>CVE-2025-48924</cve>
+    </suppress>
+
+    <!-- commons-io -->
+    <suppress>
+        <notes>
+            Das Paket commons-io wird im Keycloak-Image in einer gefixten Version provided.
+        </notes>
+        <gav regex="true">commons-io:commons-io:.*</gav>
+        <cve>CVE-2024-47554</cve>
+    </suppress>
 </suppressions>

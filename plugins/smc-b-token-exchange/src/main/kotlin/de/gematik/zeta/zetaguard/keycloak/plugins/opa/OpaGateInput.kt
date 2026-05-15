@@ -29,4 +29,6 @@ data class OpaGateInput(
     val audiences: List<String>?,
     val ipAddress: String?,
     val professionOid: String?,
+    val productID: String?,
+    val productVersion: String?
 )

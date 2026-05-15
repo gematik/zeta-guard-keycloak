@@ -5,62 +5,25 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>0.5.1</version>
+        <version>1.0.1</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <artifactId>hsm-proxy-provider</artifactId>
-    <name>𝝵-Guard :: HSM Proxy Security Provider Plugin</name>
+    <name>𝝵-Guard :: HSM Proxy Security Provider (fat JAR)</name>
     <description>
-        Keycloak plugin that registers the java-hsm-proxy-provider java.security.Provider at Keycloak startup.
-        Delegates TLS private-key operations to the remote HSM Proxy via gRPC — no key material ever leaves the HSM.
+        Fat JAR packaging of java-hsm-proxy-provider and its gRPC/guava/protobuf dependencies.
+        Not a Keycloak SPI plugin — just a dependency JAR placed in providers/ for classloading.
+        The JCA provider is registered via java.security (security.provider.1) in the Docker image.
     </description>
 
     <dependencies>
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-server-spi</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-server-spi-private</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.keycloak</groupId>
-            <artifactId>keycloak-core</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
         <dependency>
             <groupId>de.gematik.zeta.zeta-guard</groupId>
             <artifactId>java-hsm-proxy-provider</artifactId>
             <version>${java-hsm-proxy-provider.version}</version>
         </dependency>
-
-        <!-- Test -->
-        <dependency>
-            <groupId>io.kotest</groupId>
-            <artifactId>kotest-runner-junit5-jvm</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.kotest</groupId>
-            <artifactId>kotest-assertions-core-jvm</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.mockk</groupId>
-            <artifactId>mockk-jvm</artifactId>
-            <scope>test</scope>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -92,6 +55,13 @@
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>fat</shadedClassifierName>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <!-- Merge META-INF/services files instead of overwriting.
+                                     Without this, gRPC loses its NameResolverProvider (DNS)
+                                     and LoadBalancerProvider (pick_first) when multiple gRPC
+                                     JARs are shaded into the fat JAR. -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
                             <artifactSet>
                                 <excludes>
                                     <exclude>org.keycloak:*</exclude>
