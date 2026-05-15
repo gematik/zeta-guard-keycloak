@@ -4,7 +4,7 @@
 
     <groupId>de.gematik.zeta.zeta-guard</groupId>
     <artifactId>keycloak-zeta</artifactId>
-    <version>0.5.1</version>
+    <version>1.0.1</version>
     <packaging>pom</packaging>
 
     <name>𝝵-Guard :: Create ZETA-Guard Keycloak</name>
@@ -17,7 +17,7 @@
         <quarkus.version>3.30.5</quarkus.version>
         <keycloak.admin.version>26.0.7</keycloak.admin.version>
         <resteasy.version>6.2.12.Final</resteasy.version>
-        <bouncycastle.version>1.82</bouncycastle.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
         <bytebuddy.version>1.17.6</bytebuddy.version>
         <jacoco.version>0.8.14</jacoco.version>
         <java.version>21</java.version>
@@ -51,7 +51,7 @@
 
         <spotless.version>3.0.0</spotless.version>
 
-        <java-hsm-proxy-provider.version>0.1.0</java-hsm-proxy-provider.version>
+        <java-hsm-proxy-provider.version>1.0.0</java-hsm-proxy-provider.version>
     </properties>
 
     <dependencyManagement>
@@ -370,6 +370,12 @@
                 <artifactId>hsm-proxy-provider</artifactId>
                 <version>${project.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>de.gematik.zeta.zeta-guard</groupId>
+                <artifactId>hsm-token-signing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -660,7 +666,9 @@
         <module>plugins/access-token-mapper</module>
         <module>plugins/well-known-provider</module>
         <module>plugins/hsm-proxy-provider</module>
+        <module>plugins/hsm-token-signing</module>
         <module>docker-keycloak</module>
+        <module>docker-keycloak-harden</module>
     </modules>
 
     <profiles>

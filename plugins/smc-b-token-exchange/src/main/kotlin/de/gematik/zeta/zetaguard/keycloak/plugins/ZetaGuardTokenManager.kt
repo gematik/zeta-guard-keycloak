@@ -23,6 +23,11 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins
 
+import com.fasterxml.jackson.annotation.JacksonInject
+import com.fasterxml.jackson.annotation.JsonCreator
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObjectWithCreator
+import org.keycloak.TokenCategory
 import org.keycloak.events.EventBuilder
 import org.keycloak.models.AuthenticatedClientSessionModel
 import org.keycloak.models.ClientModel
@@ -61,15 +66,25 @@ class ZetaGuardTokenManager : TokenManager() {
 
     override fun generateRefreshToken(): AccessTokenResponseBuilder {
       super.generateRefreshToken()
+      refreshToken(createZetaGuardRefreshToken(refreshToken))
       transformRefreshToken()
       return this
     }
 
     override fun generateRefreshToken(oldRefreshToken: RefreshToken, clientSession: AuthenticatedClientSessionModel): AccessTokenResponseBuilder {
       super.generateRefreshToken(oldRefreshToken, clientSession)
+      refreshToken(createZetaGuardRefreshToken(refreshToken))
       transformRefreshToken()
       return this
     }
+
+    /**
+     * Create ZetaGuardRefreshToken from RefreshToken by serializing and deserializing the original token.
+     *
+     * This way all relevant fields are copied.
+     */
+    private fun createZetaGuardRefreshToken(refreshToken: RefreshToken) =
+      refreshToken.toJSON().toObjectWithCreator<ZetaGuardRefreshToken>(mapOf(PARAM_REFRESH_TOKEN to refreshToken))
 
     /**
      * Apply transformations to refresh token.
@@ -86,4 +101,17 @@ class ZetaGuardTokenManager : TokenManager() {
         }
     }
   }
+}
+
+private const val PARAM_REFRESH_TOKEN = "refresh_token"
+
+class ZetaGuardRefreshToken @JsonCreator constructor(@JacksonInject(PARAM_REFRESH_TOKEN) token: RefreshToken) : RefreshToken(token) {
+  /**
+   * See https://ey-fp-dev.atlassian.net/browse/ZETAP-959
+   *
+   * Override default value INTERNAL, causing the refresh token to be signed with the hard-coded "HS512" algorithm. Effectively, this makes the
+   * algorithm configurable via the client's ID token configuration parameter
+   * [org.keycloak.protocol.oidc.OIDCConfigAttributes.ID_TOKEN_SIGNED_RESPONSE_ALG].
+   */
+  override fun getCategory(): TokenCategory = TokenCategory.ID
 }

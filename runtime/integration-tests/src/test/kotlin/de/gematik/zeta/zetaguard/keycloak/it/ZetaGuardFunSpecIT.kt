@@ -21,6 +21,8 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
+@file:Suppress("DEPRECATION")
+
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
@@ -30,9 +32,12 @@ import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.smcbTokenGener
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
 import de.gematik.zeta.zetaguard.keycloak.commons.createOtherClaims
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
+import de.gematik.zeta.zetaguard.keycloak.commons.toIDTokenInfo
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeRight
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import org.keycloak.jose.jws.Algorithm
 
 abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
   protected val keycloakWebClient = KeycloakWebClient()
@@ -67,4 +72,10 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
       it.errorDescription shouldContain "Attestation challenge does not match"
     }
   }
+}
+
+fun String.checkTokenHeader() {
+    val (_, header) = toIDTokenInfo()
+    header.type shouldBe "JWT"
+    header.algorithm shouldBe Algorithm.ES256
 }

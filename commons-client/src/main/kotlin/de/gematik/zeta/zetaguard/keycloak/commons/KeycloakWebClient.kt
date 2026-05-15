@@ -104,6 +104,7 @@ typealias KeycloakResponse<T> = Either<KeycloakError, KeycloakSuccessResponse<T>
  */
 // class KeycloakWebClient(hostname: String = KC_HOST, port: Int = KC_PORT) : KeycloakAdminClient("zeta-dev.westeurope.cloudapp.azure.com", 443,
 // "https", path = "/auth") {
+// class KeycloakWebClient(hostname: String = KC_HOST, port: Int = KC_PORT) : KeycloakAdminClient("zeta-kind.local", 443, "https", path = "/auth") {
 class KeycloakWebClient(hostname: String = KC_HOST, port: Int = KC_PORT) : KeycloakAdminClient(hostname, port, "http") {
   private var currentBody: String? = null
 

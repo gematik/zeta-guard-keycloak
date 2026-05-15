@@ -28,9 +28,10 @@ import org.keycloak.protocol.oidc.grants.OAuth2GrantType
 import org.keycloak.protocol.oidc.grants.RefreshTokenGrantType
 
 class ZetaGuardRefreshTokenGrantType : RefreshTokenGrantType() {
-    override fun setContext(context: OAuth2GrantType.Context?) {
-        super.setContext(context)
-        // Override value, in order to implement org.keycloak.protocol.oidc.mappers.OIDCRefreshTokenMapper feature
-        tokenManager = ZetaGuardTokenManager()
-    }
+  override fun setContext(context: OAuth2GrantType.Context) {
+    super.setContext(context)
+    // Override value, in order to implement org.keycloak.protocol.oidc.mappers.OIDCRefreshTokenMapper feature
+    // and to use ZetaGuardRefreshToken
+    tokenManager = ZetaGuardTokenManager()
+  }
 }

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>de.gematik.zeta.zeta-guard</groupId>
+        <artifactId>keycloak-zeta</artifactId>
+        <version>1.0.1</version>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>docker-keycloak-harden</artifactId>
+    <packaging>pom</packaging>
+    <name>𝝵-Guard :: Harden Keycloak image by overriding vulnerable JARs</name>
+    <description>Downloads patch JARs used to replace vulnerable dependencies in the Keycloak image during the CI harden stage.</description>
+
+    <properties>
+        <docker.name>zeta/zeta-guard/keycloak-zeta</docker.name>
+        <docker.tag>latest</docker.tag>
+        <docker.repo/>
+        <docker.image>${docker.name}:${docker.tag}</docker.image>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+
+                <executions>
+                    <execution>
+                        <id>copy-patch-jars</id>
+                        <phase>prepare-package</phase>
+
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+
+                        <configuration>
+                            <outputDirectory>${project.build.outputDirectory}/jars</outputDirectory>
+                            <overWriteReleases>true</overWriteReleases>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+
+                            <artifactItems>
+                                <!-- CVE-2026-33870, CVE-2026-33871, CVE-2026-42583, CVE-2026-42579, CVE-2026-42584, CVE-2026-42587:
+                                     override netty-code, netty-codec-dns, netty-codec-http and netty-codec-http2
+                                     can be deleted when keycloak image ships netty >= 4.1.133.Final -->
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-codec-http</artifactId>
+                                    <version>4.1.133.Final</version>
+                                    <destFileName>netty-codec-http-4.1.133.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-codec-http2</artifactId>
+                                    <version>4.1.133.Final</version>
+                                    <destFileName>netty-codec-http2-4.1.133.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-codec</artifactId>
+                                    <version>4.1.133.Final</version>
+                                    <destFileName>netty-codec-4.1.133.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-codec-dns</artifactId>
+                                    <version>4.1.133.Final</version>
+                                    <destFileName>netty-codec-dns-4.1.133.Final.jar</destFileName>
+                                </artifactItem>
+
+                                <!-- CVE-2026-5598: override bouncycastle 1.82 with 1.84
+                                     can be deleted when keycloak image ships bouncycastle >= 1.84
+                                     This is a false negative: Trivy has not found this vulnerability -->
+                                <artifactItem>
+                                    <groupId>org.bouncycastle</groupId>
+                                    <artifactId>bcpkix-jdk18on</artifactId>
+                                    <version>1.84</version>
+                                    <destFileName>bcpkix-jdk18on-1.84.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.bouncycastle</groupId>
+                                    <artifactId>bcprov-jdk18on</artifactId>
+                                    <version>1.84</version>
+                                    <destFileName>bcprov-jdk18on-1.84.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.bouncycastle</groupId>
+                                    <artifactId>bcutil-jdk18on</artifactId>
+                                    <version>1.84</version>
+                                    <destFileName>bcutil-jdk18on-1.84.jar</destFileName>
+                                </artifactItem>
+
+                                <!-- io.quarkus:quarkus-vertx-http@3.27.3 is vulnerable to CVE-2026-39852,
+                                    this override can be deleted when this package is updated in the keycloak image to version >=3.27.3.1 oder >=3.33.1.1 oder >=3.35.1.1 -->
+                                <artifactItem>
+                                    <groupId>io.quarkus</groupId>
+                                    <artifactId>quarkus-vertx-http</artifactId>
+                                    <version>3.27.3.1</version>
+                                    <type>jar</type>
+                                    <outputDirectory>${project.build.outputDirectory}/jars</outputDirectory>
+                                    <destFileName>quarkus-vertx-http-3.27.3.1.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.eclipse.jkube</groupId>
+                <artifactId>kubernetes-maven-plugin</artifactId>
+                <version>1.18.1</version>
+
+                <executions>
+                    <execution>
+                        <id>docker-build</id>
+                        <phase>package</phase>
+
+                        <goals>
+                            <goal>build</goal>
+                        </goals>
+                    </execution>
+                </executions>
+
+                <configuration>
+                    <verbose>true</verbose>
+                    <logStdout>true</logStdout>
+                    <buildStrategy>docker</buildStrategy>
+
+                    <images>
+                        <image>
+                            <name>${docker.image}</name>
+
+                            <build>
+                                <contextDir>${project.build.outputDirectory}</contextDir>
+                                <dockerFile>${project.basedir}/Dockerfile</dockerFile>
+                            </build>
+                        </image>
+                    </images>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+    <profiles>
+        <profile>
+            <id>gitlab</id>
+            <properties>
+                <docker.image>${docker.repo}/${docker.name}:${docker.tag}</docker.image>
+            </properties>
+        </profile>
+    </profiles>
+
+</project>

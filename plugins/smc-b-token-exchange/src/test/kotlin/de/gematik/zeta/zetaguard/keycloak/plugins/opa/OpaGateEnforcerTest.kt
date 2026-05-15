@@ -30,17 +30,26 @@ import io.mockk.mockk
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
+import java.util.concurrent.Executor
 import org.apache.http.impl.client.CloseableHttpClient
 import org.jboss.logging.Logger
 import org.junit.jupiter.api.Assertions.assertEquals
 
 class OpaGateEnforcerTest :
-    StringSpec({
-      val log: Logger = Logger.getLogger("test")
-      val cfg = OPAConfig()
+  StringSpec({
+    val log: Logger = Logger.getLogger("test")
+    val cfg = OPAConfig()
 
       "returns Skip for non token-exchange grant type" {
-        val input = OpaGateInput(grantType = "client_credentials", scopes = emptyList(), audiences = null, ipAddress = null, professionOid = null)
+        val input = OpaGateInput(
+            grantType = "client_credentials",
+            scopes = emptyList(),
+            audiences = null,
+            ipAddress = null,
+            professionOid = null,
+            productID = null,
+            productVersion = null
+        )
         val res = OpaGateEnforcer.enforce(null, input, cfg, log)
         res.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Skip>()
       }
@@ -53,6 +62,8 @@ class OpaGateEnforcerTest :
                 audiences = null,
                 ipAddress = null,
                 professionOid = null,
+                productID = null,
+                productVersion = null
             )
         val fc = cfg.copy(failClosed = true)
         val res = OpaGateEnforcer.enforce(null, input, fc, log)
@@ -67,6 +78,8 @@ class OpaGateEnforcerTest :
                 audiences = null,
                 ipAddress = null,
                 professionOid = null,
+                productID = null,
+                productVersion = null
             )
         val fo = cfg.copy(failClosed = false)
         val res = OpaGateEnforcer.enforce(null, input, fo, log)
@@ -82,6 +95,8 @@ class OpaGateEnforcerTest :
                 audiences = listOf("aud1"),
                 ipAddress = "127.0.0.1",
                 professionOid = "1.2.3",
+                productID = "ZETA-Test-Client",
+                productVersion = "1.0.0"
             )
         mockkObject(OpaDecisionClient)
         try {
@@ -102,6 +117,8 @@ class OpaGateEnforcerTest :
                 audiences = listOf("aud1"),
                 ipAddress = "127.0.0.1",
                 professionOid = "1.2.3",
+                productID = "ZETA-Test-Client",
+                productVersion = "1.0.0"
             )
         mockkObject(OpaDecisionClient)
         try {
@@ -122,20 +139,22 @@ class OpaGateEnforcerTest :
                 audiences = listOf("aud1"),
                 ipAddress = "127.0.0.1",
                 professionOid = "1.2.3",
+                productID = "ZETA-Test-Client",
+                productVersion = "1.0.0"
             )
         mockkObject(OpaDecisionClient)
         try {
           every { OpaDecisionClient.evaluate(any(), any(), any(), any()) } returns Decision.Error()
 
-          val resClosed = OpaGateEnforcer.enforce(httpClient, input, cfg.copy(failClosed = true), log)
-          resClosed.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Error>()
+        val resClosed = OpaGateEnforcer.enforce(httpClient, input, cfg.copy(failClosed = true), log)
+        resClosed.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Error>()
 
-          val resOpen = OpaGateEnforcer.enforce(httpClient, input, cfg.copy(failClosed = false), log)
-          resOpen.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Allow>()
-        } finally {
-          unmockkObject(OpaDecisionClient)
-        }
+        val resOpen = OpaGateEnforcer.enforce(httpClient, input, cfg.copy(failClosed = false), log)
+        resOpen.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Allow>()
+      } finally {
+        unmockkObject(OpaDecisionClient)
       }
+    }
 
       "simulation is called but does not change outcome" {
         val httpClient = mockk<CloseableHttpClient>(relaxed = true)
@@ -146,22 +165,90 @@ class OpaGateEnforcerTest :
                 audiences = listOf("aud1"),
                 ipAddress = "127.0.0.1",
                 professionOid = "1.2.3",
+                productID = "ZETA-Test-Client",
+                productVersion = "1.0.0"
             )
         mockkObject(OpaDecisionClient)
+        val originalExecutor = OpaGateEnforcer.simulationExecutor
+        OpaGateEnforcer.simulationExecutor = Executor { it.run() }
         try {
           // main OPA allows, simulation denies — outcome must still be Allow
           every { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa:8181" }, any(), any()) } returns Decision.Allow()
           every { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa-simulation:8181" }, any(), any()) } returns Decision.Deny(listOf("sim-reason"))
 
-          val simCfg = cfg.copy(simulationBaseUrl = "http://opa-simulation:8181")
-          val res = OpaGateEnforcer.enforce(httpClient, input, simCfg, log)
-          res.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Allow>()
-          verify(exactly = 1) { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa:8181" }, any(), any()) }
-          verify(exactly = 1) { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa-simulation:8181" }, any(), any()) }
-        } finally {
-          unmockkObject(OpaDecisionClient)
-        }
+        val simCfg = cfg.copy(simulationBaseUrl = "http://opa-simulation:8181")
+        val res = OpaGateEnforcer.enforce(httpClient, input, simCfg, log)
+        res.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Allow>()
+        verify(exactly = 1) { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa:8181" }, any(), any()) }
+        verify(exactly = 1) { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa-simulation:8181" }, any(), any()) }
+      } finally {
+        OpaGateEnforcer.simulationExecutor = originalExecutor
+        unmockkObject(OpaDecisionClient)
       }
+    }
+
+    "simulation is non-blocking and slow simulation does not delay outcome" {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val input =
+          OpaGateInput(
+              grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
+              scopes = listOf("s1"),
+              audiences = listOf("aud1"),
+              ipAddress = "127.0.0.1",
+              professionOid = "1.2.3",
+              productID = "ZETA-Test-Client",
+              productVersion = "1.0.0"
+          )
+      mockkObject(OpaDecisionClient)
+      try {
+        every { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa:8181" }, any(), any()) } returns Decision.Allow()
+        every { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa-simulation:8181" }, any(), any()) } answers
+            {
+              Thread.sleep(2_000)
+              Decision.Allow()
+            }
+
+        val simCfg = cfg.copy(simulationBaseUrl = "http://opa-simulation:8181")
+        val start = System.currentTimeMillis()
+        val res = OpaGateEnforcer.enforce(httpClient, input, simCfg, log)
+        val elapsed = System.currentTimeMillis() - start
+
+        res.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Allow>()
+        // Active OPA returned immediately; simulation is fire-and-forget so enforce() should not wait 2s.
+        assert(elapsed < 1_000) { "enforce() took ${elapsed}ms — simulation is blocking the request thread" }
+      } finally {
+        unmockkObject(OpaDecisionClient)
+      }
+    }
+
+    "simulation failure does not affect outcome" {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val input =
+          OpaGateInput(
+              grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
+              scopes = listOf("s1"),
+              audiences = listOf("aud1"),
+              ipAddress = "127.0.0.1",
+              professionOid = "1.2.3",
+              productID = "ZETA-Test-Client",
+              productVersion = "1.0.0"
+          )
+      mockkObject(OpaDecisionClient)
+      val originalExecutor = OpaGateEnforcer.simulationExecutor
+      OpaGateEnforcer.simulationExecutor = Executor { it.run() }
+      try {
+        every { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa:8181" }, any(), any()) } returns Decision.Allow()
+        every { OpaDecisionClient.evaluate(any(), match { it.opaBaseUrl == "http://opa-simulation:8181" }, any(), any()) } throws
+            RuntimeException("sim engine on fire")
+
+        val simCfg = cfg.copy(simulationBaseUrl = "http://opa-simulation:8181")
+        val res = OpaGateEnforcer.enforce(httpClient, input, simCfg, log)
+        res.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Allow>()
+      } finally {
+        OpaGateEnforcer.simulationExecutor = originalExecutor
+        unmockkObject(OpaDecisionClient)
+      }
+    }
 
       "Decision.Allow with TTL maps TTLs to Outcome.Allow" {
         val httpClient = mockk<CloseableHttpClient>(relaxed = true)
@@ -172,6 +259,8 @@ class OpaGateEnforcerTest :
                 audiences = listOf("aud1"),
                 ipAddress = "127.0.0.1",
                 professionOid = "1.2.3",
+                productID = "ZETA-Test-Client",
+                productVersion = "1.0.0"
             )
         mockkObject(OpaDecisionClient)
         try {

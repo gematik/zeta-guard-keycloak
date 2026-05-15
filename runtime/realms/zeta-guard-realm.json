@@ -2,7 +2,7 @@
   "realm": "zeta-guard",
   "displayName": "\uD835\uDF75-Guard",
   "notBefore": 0,
-  "defaultSignatureAlgorithm": "RS256",
+  "defaultSignatureAlgorithm": "ES256",
   "revokeRefreshToken": true,
   "refreshTokenMaxReuse": 0,
   "accessTokenLifespan": 300,
@@ -993,16 +993,6 @@
           ],
           "algorithm": [
             "HS512"
-          ]
-        }
-      },
-      {
-        "name": "rsa-generated",
-        "providerId": "rsa-generated",
-        "subComponents": {},
-        "config": {
-          "priority": [
-            "100"
           ]
         }
       },

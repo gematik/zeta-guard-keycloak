@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import com.fasterxml.jackson.databind.InjectableValues
 import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.SerializationFeature
 import org.keycloak.util.JsonSerialization
@@ -40,6 +41,27 @@ object JsonUtil {
   fun Any.asMap(): Map<String, Any> = JsonSerialization.mapper.convertValue(this, Map::class.java) as Map<String, Any>
 
   inline fun <reified T> String.toObject(): T = JsonSerialization.readValue(this, T::class.java)
+
+  /**
+   * Requires a constructor annotated with @JsonCreator and @JacksonInject annotated parameters
+   *
+   * Used to copy/deserialize objects.
+   */
+  inline fun <reified T> String.toObjectWithCreator(map: Map<String, Any>): T {
+    val mapper =
+      JsonSerialization.mapper.copy().apply {
+        val injectables = InjectableValues.Std()
+
+        for (entry in map.entries) {
+          injectables.addValue(entry.value.javaClass, entry.value)
+          injectables.addValue(entry.key, entry.value)
+        }
+
+        setInjectableValues(injectables)
+      }
+
+    return mapper.readValue(this, T::class.java)
+  }
 
   inline fun <reified T> Map<String, Any>.toObject(): T = JsonSerialization.mapper.convertValue(this, T::class.java)
 }

@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>0.5.1</version>
+        <version>1.0.1</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -167,6 +167,17 @@
                                     <classifier>fat</classifier>
                                     <destFileName>zeta-hsm-proxy-provider.jar</destFileName>
                                 </artifactItem>
+
+                                <!--
+                                    HSM Token Signing — thin JAR; gRPC deps are already on the
+                                    classpath via zeta-hsm-proxy-provider.jar above.
+                                -->
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>hsm-token-signing</artifactId>
+                                    <destFileName>zeta-hsm-token-signing.jar</destFileName>
+                                </artifactItem>
+
                             </artifactItems>
 
                             <overWriteReleases>true</overWriteReleases>

@@ -57,6 +57,7 @@ services:
       CLIENT_REGISTRATION_SCHEDULER_INTERVAL: "PT3S"
       HSM_PROXY_ENDPOINT: "hsm-sim:50051"
       HSM_PROXY_KEY_ID: "zeta-guard-keycloak-tls-es256-v1.p256"
+      HSM_PROXY_TOKEN_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
     ports:
       - "127.0.0.1:18080:8080" # api port
       - "19000:9000" # mgmt
@@ -98,6 +99,10 @@ services:
       KC_EVENT_LISTENER: zeta-guard-admin-events
       ADMIN_EVENT_LOGGING_ENABLED: true
       ADMIN_EVENT_LOGGING_DETAILS_ENABLED: true
+      # HSM token signing — registers KeyProvider and removes software signing keys
+      HSM_TOKEN_SIGNING_ENABLED: "true"
+      HSM_TOKEN_SIGNING_ENDPOINT: "hsm-sim:50051"
+      HSM_TOKEN_SIGNING_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
     networks:
       - zeta-guard
     volumes:

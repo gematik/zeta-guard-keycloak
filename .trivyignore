@@ -5,9 +5,38 @@
 # - If it is determined that we are unaffected please make use of vulnerabilites.openvex.json
 ###############################################
 
-# io.netty:netty-codec-http 4.1.130.Final
-CVE-2026-33870 exp:2026-04-21
-# io.netty:netty-codec-http2 4.1.130.Final
-CVE-2026-33871 exp:2026-04-21
-# glibc, glibc-common, glibc-langpack-en
-CVE-2026-4046 exp:2026-04-21
+# under_investigation: coreutils-single — coreutils: Heap Buffer Under-Read in GNU Coreutils sort via Key Specification
+CVE-2025-5278 exp:2026-05-20
+
+# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Denial of Service via iconv() function with specific character sets...
+CVE-2026-4046 exp:2026-05-20
+
+# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Incorrect DNS response parsing via crafted DNS server response
+CVE-2026-4437 exp:2026-05-20
+
+# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Heap Buffer Overflow in `scanf` with `%mc` format specifier and...
+CVE-2026-5450 exp:2026-05-20
+
+# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Information disclosure or denial of service via ungetwc function with...
+CVE-2026-5928 exp:2026-05-20
+
+# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Out-of-bounds write via TSIG record processing
+CVE-2026-5435 exp:2026-05-20
+
+# under_investigation: java-21-openjdk-headless - openjdk: OpenJDK: Enhance certificate chain validation (Oracle CPU 2026-04)
+CVE-2026-22021 exp:2026-05-20
+
+# under_investigation: java-21-openjdk-headless - freetype: Freetype: Information disclosure or denial of service via specially crafted font...
+CVE-2026-23865 exp:2026-05-20
+
+# under_investigation: java-21-openjdk-headless - Little CMS: lcms2: mm2/Little-CMS: Little CMS: Information disclosure or denial of service...
+CVE-2026-41254 exp:2026-05-20
+
+# under_investigation: p11-kit-trust - p11-kit: NULL dereference via C_DeriveKey with specific NULL parameters
+CVE-2026-2100 exp:2026-05-20
+
+# affected: org.keycloak:keycloak-services - keycloak: org.keycloak.authorization: Keycloak: Unauthorized modification due to improper access control
+CVE-2026-4628 exp:2026-05-20
+
+# affected: io.vertx:vertx-core - Vert.x has a DoS via unbounded server-side SNI SslContext cache growth
+CVE-2026-6860 exp:2026-05-20

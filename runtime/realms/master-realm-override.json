@@ -1,0 +1,5 @@
+{
+  "realm": "master",
+  "sslRequired": "NONE",
+  "defaultSignatureAlgorithm": "ES256"
+}

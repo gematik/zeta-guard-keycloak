@@ -2,6 +2,25 @@
 
 # Release Notes ZETA PDP
 
+## Release 1.0.1
+
+### added:
+- security hotfixes and CVE tracking
+
+### changed:
+- improved CI structure for security hotfixes
+
+
+## Release 1.0.0
+
+### added:
+- HSM-backed token signing (`hsm-token-signing` plugin) — access tokens, ID tokens, and refresh tokens signed with ES256 via HSM
+- HSM KeyProvider configurable via Admin UI (Realm Settings → Keys → Providers → zeta-hsm-token-signing)
+- `productID` and `productVersion` from the client attestation are now forwarded to OPA and verified against the `allowed_products` policy data
+
+### changed:
+- OPA simulation calls run asynchronously (bounded fire-and-forget executor) — shadow evaluations no longer block the active OPA decision path
+
 ## Release 0.5.1
 
 ### added:

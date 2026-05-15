@@ -87,7 +87,586 @@
       "status_notes": "Wird von Keycloak verwendet. Allerding wird die verwundbare async Api nicht verwendet. Die verwendete sync Api ist nicht verwundbar.",
       "justification": "vulnerable_code_not_in_execute_path",
       "timestamp": "2026-03-17T08:26:52.598916253Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-2603"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-server-spi-private@26.5.7"
+        },
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services@26.5.7"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "ZETA does not configure or use SAML Identity Providers. The only Identity Provider is the custom zeta-smc-b-oidc (OIDC-based SMC-B token exchange). The SAML protocol mappers and client scopes present in the realm JSON are Keycloak defaults and do not constitute a SAML IdP. The vulnerability (unauthorized authentication via a disabled SAML IdP) cannot be exploited without a SAML IdP being configured.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-04-23T14:45:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33870"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http@4.1.130.Final"
+        },
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http2@4.1.130.Final"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-04-24T15:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33871"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http@4.1.130.Final"
+        },
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http2@4.1.130.Final"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-04-24T15:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-28164"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat wird der betroffene Code in den headless-Varianten nicht ausgeführt (https://access.redhat.com/security/cve/cve-2025-28164)",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-64505"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek libsplashscreen.so in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2025-64505)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-64506"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek libsplashscreen.so in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2025-64506)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22693"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek HarfBuzz in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2026-22693)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4046"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4437"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5450"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5928"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22021"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-23865"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41254"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-2100"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/p11-kit-trust"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5435"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "under_investigation",
+      "timestamp": "2026-05-05T09:39:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42198"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.postgresql/postgresql"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die Schwachstelle ist nur ausnutzbar, wenn ein Angreifer die verwendete Datenbank des Clients (hier Keycloak-Server) kontrollieren kann. Da die Datenbank hier nicht durch Nutzer konfigurierbar ist, müsste entweder die Postgres-Instanz übernommen werden oder ein MITM-Angriff durchgeführt werden. Beides ist innerhalb des Cluster äußerst unwahrscheinlich.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-06T10:40:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42583"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-04T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42579"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-dns"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-04T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42584"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-04T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42587"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        },
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http2"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-04T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42577"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-transport-native-epoll@4.1.130.Final"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Betroffen sind nur die Version 4.2.x",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-05-04T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22016"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Keycloak-Image (quay.io/keycloak/keycloak) installiert. Da bisher keine Version des Images mit nicht betroffener Version von java-21-openjdk-headless veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22020"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-34282"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Keycloak-Image (quay.io/keycloak/keycloak) installiert. Da bisher keine Version des Images mit nicht betroffener Version von java-21-openjdk-headless veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4878"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/libcap"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Basis-Image (registry.access.redhat.com/ubi9-micro) des Keycloak-Images installiert. Da bisher keine Version des Images mit nicht betroffener Version von libcap2 veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-39852"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.quarkus/quarkus-vertx-http"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-08T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41417"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42580"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42581 "
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42581"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42585"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-6860"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.vertx/vertx-core"
+        }
+      ],
+      "status": "affected",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-7500"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Im ZETA-Keycloak wird die Account REST API nicht deaktiviert. Insofern besteht kein Risiko, dass diese nicht vollständig deaktiviert werden könnte (https://github.com/keycloak/keycloak/issues/48709).",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22013"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). (https://www.oracle.com/security-alerts/cpuapr2026.html#AppendixJAVA, NOTE 1)",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22695"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22801"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33416"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33636"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-34757"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4628"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "affected",
+      "timestamp": "2026-05-11T11:15:00Z"
     }
   ],
-  "timestamp": "2026-03-23T10:50:00Z"
+  "timestamp": "2026-05-11T11:15:00Z"
 }
