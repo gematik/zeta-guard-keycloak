@@ -33,7 +33,7 @@ mvn clean install -DskipTests
 To build the project, run:
 
 ```shell
-    ./mvnw clean install
+    ./mvnw clean install -P integration-tests
 ```
 
 # How to run Keycloak
@@ -61,6 +61,12 @@ For a build including the integration tests, use:
 ```shell
     ./mvnw clean install -P integration-tests
 ```
+
+If you want to run individual integration test cases, you
+need to manually start Keycloak beforehand.
+See [How to run Keycloak](#how-to-run-keycloak). There are
+different test setups available for manual integration
+testing. See [runbook.md](runtime/runbook.md).
 
 ## Generate code coverage data
 

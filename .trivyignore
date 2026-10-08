@@ -2,41 +2,28 @@
 # Please only temporary ignores in this file
 # - also create an entry in the vulnerabilites.openvex.json as under_investigation
 # - Keep the expiry 1 week before the next planned release
-# - If it is determined that we are unaffected please make use of vulnerabilites.openvex.json
+# - If it is determined that we are unaffected please make use of .vex/vulnerabilites.openvex.json
 ###############################################
 
-# under_investigation: coreutils-single — coreutils: Heap Buffer Under-Read in GNU Coreutils sort via Key Specification
-CVE-2025-5278 exp:2026-05-20
+# medium, affected: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Heap Buffer Overflow in `scanf` with `%mc` format specifier and...
+CVE-2026-5450 exp:2026-09-15
 
-# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Denial of Service via iconv() function with specific character sets...
-CVE-2026-4046 exp:2026-05-20
+# low (Bewertung durch tech@spree, offiziell medium), affected: org.postgresql/postgresql - Silent channel-binding authentication downgrade via unsupported certificate algorithms
+# Dieses ignore muss erhalten bleiben, bis org.postgresql/postgresql im Keycloak-Image in jeder gescannter Version auf 42.7.12 hochgezogen ist
+CVE-2026-54291
 
-# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Incorrect DNS response parsing via crafted DNS server response
-CVE-2026-4437 exp:2026-05-20
+# high, blocking Release 1.3.1
+CVE-2026-11822 exp:2026-09-15
+CVE-2026-11824 exp:2026-09-15
 
-# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Heap Buffer Overflow in `scanf` with `%mc` format specifier and...
-CVE-2026-5450 exp:2026-05-20
+# critical, affected: io.netty.netty-handler-4.1.135.Final.jar
+CVE-2026-75595 exp:2026-09-20
 
-# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Information disclosure or denial of service via ungetwc function with...
-CVE-2026-5928 exp:2026-05-20
 
-# under_investigation: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Out-of-bounds write via TSIG record processing
-CVE-2026-5435 exp:2026-05-20
+# low (Bewertung durch tech@spree, offiziell critical), affected: Bouncy Castle, Stapled OCSP response accepted without binding to the checked certificate
+# Dieses ignore muss erhalten bleiben, bis pkg:maven/org.bouncycastle/bcprov-jdk18on im Keycloak-Image in jeder gescannter Version auf 1.85 hochgezogen ist
+CVE-2026-58062
 
-# under_investigation: java-21-openjdk-headless - openjdk: OpenJDK: Enhance certificate chain validation (Oracle CPU 2026-04)
-CVE-2026-22021 exp:2026-05-20
-
-# under_investigation: java-21-openjdk-headless - freetype: Freetype: Information disclosure or denial of service via specially crafted font...
-CVE-2026-23865 exp:2026-05-20
-
-# under_investigation: java-21-openjdk-headless - Little CMS: lcms2: mm2/Little-CMS: Little CMS: Information disclosure or denial of service...
-CVE-2026-41254 exp:2026-05-20
-
-# under_investigation: p11-kit-trust - p11-kit: NULL dereference via C_DeriveKey with specific NULL parameters
-CVE-2026-2100 exp:2026-05-20
-
-# affected: org.keycloak:keycloak-services - keycloak: org.keycloak.authorization: Keycloak: Unauthorized modification due to improper access control
-CVE-2026-4628 exp:2026-05-20
-
-# affected: io.vertx:vertx-core - Vert.x has a DoS via unbounded server-side SNI SslContext cache growth
-CVE-2026-6860 exp:2026-05-20
+# low (Bewertung durch tech@spree, offiziell critical), affected: Bouncy Castle, Name Constraints bypass via trailing dot in rfc822Name and URI
+# Dieses ignore muss erhalten bleiben, bis pkg:maven/org.bouncycastle/bcprov-jdk18on im Keycloak-Image in jeder gescannter Version auf 1.85 hochgezogen ist
+CVE-2026-8763

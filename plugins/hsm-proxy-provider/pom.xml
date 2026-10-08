@@ -5,17 +5,18 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>1.0.1</version>
+        <version>1.3.2</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <artifactId>hsm-proxy-provider</artifactId>
-    <name>𝝵-Guard :: HSM Proxy Security Provider (fat JAR)</name>
+    <name>𝝵-Guard :: HSM Proxy Security Provider (shaded JAR)</name>
     <description>
-        Fat JAR packaging of java-hsm-proxy-provider and its gRPC/guava/protobuf dependencies.
-        Not a Keycloak SPI plugin — just a dependency JAR placed in providers/ for classloading.
-        The JCA provider is registered via java.security (security.provider.1) in the Docker image.
+        Shaded fat JAR of java-hsm-proxy-provider + gRPC/guava/protobuf/SLF4J, relocated to
+        de.gematik.zetaguard.shaded.* to coexist with Keycloak's own copies. The jar ships to
+        providers/ (so kc.sh build sees it) and is also added to the JVM bootstrap classpath
+        by startup.sh (so security.provider.2=HSMPROXY resolves at JVM init).
     </description>
 
     <dependencies>
@@ -28,13 +29,6 @@
 
     <build>
         <plugins>
-            <!--
-                Shade plugin produces a self-contained fat JAR that bundles java-hsm-proxy-provider
-                and its full gRPC/guava/protobuf transitive runtime dependency tree.
-                docker-keycloak only needs to copy this single JAR into providers/.
-                Keycloak's own classes (keycloak-*, quarkus, jakarta) are excluded because
-                they are already on the Keycloak classloader.
-            -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -46,20 +40,14 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <!--
-                                shadedArtifactAttached=true keeps the original (unshaded) JAR as
-                                the main artifact so JaCoCo report-aggregate resolves only this
-                                module's own classes. The fat JAR is attached with the classifier
-                                below and is what docker-keycloak copies into providers/.
-                            -->
+                            <!-- Attach as classifier so the main (unshaded) JAR stays primary
+                                 — keeps JaCoCo report-aggregate scoped to this module's classes. -->
                             <shadedArtifactAttached>true</shadedArtifactAttached>
                             <shadedClassifierName>fat</shadedClassifierName>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <transformers>
-                                <!-- Merge META-INF/services files instead of overwriting.
-                                     Without this, gRPC loses its NameResolverProvider (DNS)
-                                     and LoadBalancerProvider (pick_first) when multiple gRPC
-                                     JARs are shaded into the fat JAR. -->
+                                <!-- Preserve META-INF/services entries (gRPC NameResolver/LoadBalancer,
+                                     java.security.Provider) instead of last-one-wins. -->
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
                             </transformers>
                             <artifactSet>
@@ -67,13 +55,57 @@
                                     <exclude>org.keycloak:*</exclude>
                                     <exclude>io.quarkus:*</exclude>
                                     <exclude>jakarta.*:*</exclude>
+                                    <!-- Keycloak ships an identical org.jspecify:1.0.0 in lib/lib/main/. -->
+                                    <exclude>org.jspecify:*</exclude>
                                 </excludes>
                             </artifactSet>
+                            <!-- Relocate bundled libs to a private package so they don't collide with
+                                 Keycloak's own copies in lib/lib/main/ (protobuf 4.x, grpc 1.79.x,
+                                 guava 33.x, etc.). Bytecode rewrite, same pattern as grpc-netty-shaded. -->
+                            <relocations>
+                                <!-- Deliberately broad: covers protobuf, guava, errorprone, gson, j2objc, etc.
+                                     Narrowing risks missing a transitive and reintroducing classloader conflicts. -->
+                                <relocation>
+                                    <pattern>com.google</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.google</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.grpc</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.grpc</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>io.perfmark</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.perfmark</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>android.annotation</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.android.annotation</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.annotation</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.jsr305</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.codehaus.mojo.animal_sniffer</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.animalsniffer</shadedPattern>
+                                </relocation>
+                                <!-- SLF4J: bundled+relocated (no binding inside) → HSM-proxy internal
+                                     logs go to NOPLogger; Keycloak's SLF4J in lib/lib/main/ is untouched. -->
+                                <relocation>
+                                    <pattern>org.slf4j</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.slf4j</shadedPattern>
+                                </relocation>
+                                <!-- java-hsm-proxy-provider ships as a fat jar embedding the Kotlin stdlib;
+                                     relocate it so kotlin.* doesn't split-package with providers/kotlin-stdlib. -->
+                                <relocation>
+                                    <pattern>kotlin</pattern>
+                                    <shadedPattern>de.gematik.zetaguard.shaded.kotlin</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
-
         </plugins>
     </build>
 </project>

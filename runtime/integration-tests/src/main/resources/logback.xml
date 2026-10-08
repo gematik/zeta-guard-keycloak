@@ -7,6 +7,12 @@
 
     <logger name="de.gematik" level="debug"/>
     <logger name="org.apache.http" level="info"/> <!-- "debug" for request/response logging -->
+    <!--
+      Docker Compose's own stdout/stderr; without this a failing `compose up` is just an exit code.
+      The name is the compose executable, not a class: LocalDockerCompose logs through
+      DockerLoggerFactory.getLogger(ComposeContainer.COMPOSE_EXECUTABLE).
+    -->
+    <logger name="docker" level="debug"/>
 
     <root level="WARN">
         <appender-ref ref="stdout"/>

@@ -43,12 +43,13 @@ class ClientAssertionTokenGenerator(subjectKeyPair: KeyPair = generateKeyPair())
   }
 
   fun generateClientAssertion(
-    clientId: String = ZETA_CLIENT,
-    subject: String = clientId,
-    issuedFor: String = clientId,
-    audiences: List<String>,
-    nonceString: String,
-    postureType: PostureType = PostureType.SOFTWARE,
-    otherClaims: Map<String, Any> = createOtherClaims(clientId, nonceString, keys, listOf(leafCertificate, intermediateCertificate), postureType)
-  ): String = generateToken(issuer = clientId, subject = subject, issuedFor = issuedFor, audiences = audiences, otherClaims = otherClaims)
+      clientId: String = ZETA_CLIENT,
+      subject: String = clientId,
+      issuedFor: String = clientId,
+      audiences: List<String>,
+      nonceString: String,
+      postureType: PostureType = PostureType.SOFTWARE,
+      otherClaims: Map<String, Any> = createOtherClaims(clientId, nonceString, keys, listOf(leafCertificate, intermediateCertificate), postureType),
+  ): String =
+      generateToken(issuer = clientId, subject = subject, issuedFor = issuedFor, audiences = audiences, options = TokenOptions(otherClaims = otherClaims))
 }

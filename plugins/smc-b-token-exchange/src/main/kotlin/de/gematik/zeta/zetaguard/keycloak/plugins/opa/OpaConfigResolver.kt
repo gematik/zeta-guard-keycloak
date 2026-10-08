@@ -45,27 +45,22 @@ object OpaConfigResolver {
     fun get(propKebab: String): String? = root[fq(propKebab)]
     fun getString(propKebab: String, def: String) = (get(propKebab) ?: def).trim()
     fun getInt(propKebab: String, def: Int) = get(propKebab)?.toIntOrNull() ?: def
-    fun getBool(propKebab: String, def: Boolean) = get(propKebab)?.toBooleanStrictOrNull() ?: def
 
     val resolved =
         OPAConfig(
-            enabled = getBool("opa-enabled", base.enabled),
             opaBaseUrl = getString("opa-base-url", base.opaBaseUrl),
             decisionPath = getString("decision-path", base.decisionPath),
             connectionTimeoutMs = getInt("connection-timeout-ms", base.connectionTimeoutMs),
             readTimeoutMs = getInt("read-timeout-ms", base.readTimeoutMs),
-            failClosed = getBool("fail-closed", base.failClosed),
             simulationBaseUrl = getString("opa-simulation-base-url", base.simulationBaseUrl),
         )
 
     log.infof(
-        "OPAConfig resolved (FQ-root): enabled=%s, baseUrl=%s, decisionPath=%s, connectionTimeoutMs=%d, readTimeoutMs=%d, failClosed=%s, simulationBaseUrl=%s",
-        resolved.enabled,
+        "OPAConfig resolved (FQ-root): baseUrl=%s, decisionPath=%s, connectionTimeoutMs=%d, readTimeoutMs=%d, simulationBaseUrl=%s",
         resolved.opaBaseUrl,
         resolved.decisionPath,
         resolved.connectionTimeoutMs,
         resolved.readTimeoutMs,
-        resolved.failClosed,
         resolved.simulationBaseUrl,
     )
 

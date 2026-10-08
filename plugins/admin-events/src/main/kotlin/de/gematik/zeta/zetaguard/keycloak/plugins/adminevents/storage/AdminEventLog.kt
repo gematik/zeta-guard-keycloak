@@ -42,18 +42,18 @@ import org.apache.commons.lang3.builder.ToStringStyle.NO_FIELD_NAMES_STYLE
  * @property previousHash The hash of the previous log entry, used for integrity verification.
  * @property currentHash The hash of the current log entry, calculated from the event data and timestamp.
  */
-@Suppress("JpaDataSourceORMInspection")
+@Suppress("JpaDataSourceORMInspection", "JpaEntityWithValAttributesInspection", "KotlinRedundantDefaultConstructorJpaCompilerPluginInspection")
 @Entity
-@Table(name = "admin_event_log")
+@Table(name = "ADMIN_EVENT_LOG")
 class AdminEventLog(
-    @Id @Column(name = "id", nullable = false, updatable = false, length = 36) val id: String? = null,
-    @Column(name = "created_at", nullable = false) val createdAt: Instant,
-    @Lob @Column(name = "event_data", nullable = false) val event: String,
-    @Column(name = "previous_hash", nullable = false, length = 64, unique = true) val previousHash: String,
-    @Column(name = "current_hash", nullable = false, length = 64, unique = true) val currentHash: String,
+    @Id @Column(name = "ID", nullable = false, updatable = false, length = 36) val id: String? = null,
+    @Column(name = "CREATED_AT", nullable = false) val createdAt: Instant,
+    @Lob @Column(name = "EVENT_DATA", nullable = false) val event: String,
+    @Column(name = "PREVIOUS_HASH", nullable = false, length = 64, unique = true) val previousHash: String,
+    @Column(name = "CURRENT_HASH", nullable = false, length = 64, unique = true) val currentHash: String,
 ) {
   // JPA requires a no-arg constructor for entity classes
-  @Suppress("unused") constructor() : this(null, Instant.now(), "", "", "")
+  @Suppress("unused", "KotlinRedundantDefaultConstructorJpaCompilerPluginInspection") constructor() : this(null, Instant.now(), "", "", "")
 
   override fun equals(other: Any?): Boolean =
       when {

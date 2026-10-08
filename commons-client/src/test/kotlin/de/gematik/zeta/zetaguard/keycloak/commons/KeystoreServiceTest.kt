@@ -23,12 +23,20 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.intermediateCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.publicKey
+import de.gematik.zeta.zetaguard.keycloak.commons.ClientCertificateService.getCertificate
+import de.gematik.zeta.zetaguard.keycloak.commons.ClientCertificateService.getPrivateKey
+import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
+import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
+import de.gematik.zeta.zetaguard.keycloak.commons.server.firstAdmission
+import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfession
+import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfessionInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.server.isIntermediate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.isRoot
+import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectCommonName
+import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectOrganisationName
+import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateChain
 import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
+import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -38,10 +46,14 @@ import io.kotest.matchers.string.shouldNotContain
 import io.kotest.matchers.string.shouldStartWith
 import java.io.IOException
 import java.security.SignatureException
+import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 
 class KeystoreServiceTest : ZetaGuardFunSpec() {
   init {
-    val objectUnderTest = SMCBTokenHelper.keystoreService
+    val stream = SMCBTokenHelper::class.java.getResourceAsStream("/smcb-certificates.p12")!!
+    val objectUnderTest = KeystoreService(stream, SMCB_KEYSTORE_PASSWORD)
+    val intermediateCertificate = objectUnderTest.findCertificate(CRT_GEMATIK_INTERMEDIATE)!!
+    val smcb = SMCBTokenHelper()
 
     test("Wrong password") {
       val stream = KeystoreServiceTest::class.java.getResourceAsStream("/smcb-certificates.p12")!!
@@ -58,6 +70,8 @@ class KeystoreServiceTest : ZetaGuardFunSpec() {
       objectUnderTest.hasCertificate("jens.smcb-ca21_test-only") shouldBe false
       objectUnderTest.hasCertificate(CRT_GEMATIK_ROOT) shouldBe true
 
+      objectUnderTest.hasCertificate(intermediateCertificate) shouldBe true
+
       val gematik = objectUnderTest.findCertificate(CRT_GEMATIK_ROOT).shouldNotBeNull()
       gematik.isRoot() shouldBe true
       gematik.isIntermediate() shouldBe false
@@ -65,8 +79,31 @@ class KeystoreServiceTest : ZetaGuardFunSpec() {
 
       intermediateCertificate.isRoot() shouldBe false
       intermediateCertificate.isIntermediate() shouldBe true
-      leafCertificate.issuerX500Principal shouldBe intermediateCertificate.subjectX500Principal
-      objectUnderTest.findIssuerCertificate(leafCertificate) shouldBe intermediateCertificate
+      smcb.leafCertificate.issuerX500Principal shouldBe intermediateCertificate.subjectX500Principal
+      objectUnderTest.findIssuerCertificate(smcb.leafCertificate) shouldBe intermediateCertificate
+    }
+
+    test("Checking gematik certificates") {
+      smcb.leafCertificate.subjectCommonName() shouldStartWith CRT_GEMATIK_LEAF_NAME
+      smcb.leafCertificate.subjectOrganisationName() shouldBe CRT_GEMATIK_LEAF_ORGANISATION
+
+      val professionInfo = smcb.leafCertificate.extractExtension<AdmissionSyntax>(admission)?.firstAdmission()?.firstProfessionInfo()!!
+      val professionIdentifier = professionInfo.firstProfession()!!
+      val professionOID = professionIdentifier.id
+      val telematikID = professionInfo.registrationNumber
+
+      professionOID shouldBe betriebsstaetteArzt.id
+      telematikID shouldStartWith TELEMATIK_ID
+
+      validateCertificateChain(intermediateCertificate, listOf(smcb.leafCertificate)).shouldBeRight()
+    }
+
+    test("Checking zipped certificates") {
+      getPrivateKey(10).shouldNotBeNull()
+      getPrivateKey(100).shouldNotBeNull()
+
+      validateCertificateChain(intermediateCertificate, listOf(getCertificate(10))).shouldBeRight()
+      validateCertificateChain(intermediateCertificate, listOf(getCertificate(100))).shouldBeRight()
     }
 
     test("Check public key validation") {
@@ -78,6 +115,6 @@ class KeystoreServiceTest : ZetaGuardFunSpec() {
       exception shouldBe "certificate does not verify with supplied key"
     }
 
-    test("Leaf certificate private key") { publicKey shouldBe leafCertificate.publicKey }
+    test("Leaf certificate private key") { smcb.publicKey shouldBe smcb.leafCertificate.publicKey }
   }
 }

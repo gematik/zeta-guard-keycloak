@@ -1,6 +1,6 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
  * (C) tech@Spree GmbH, 2026, licensed for gematik GmbH
  * %%
@@ -23,14 +23,14 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
-import de.gematik.zeta.zetaguard.keycloak.commons.server.setupBouncyCastle
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.setupSecurityProviders
 import io.kotest.core.spec.style.FunSpec
 import org.keycloak.common.crypto.CryptoIntegration
 
 abstract class ZetaGuardFunSpec : FunSpec() {
   companion object {
     init {
-      setupBouncyCastle()
+      setupSecurityProviders()
       CryptoIntegration.init(ZetaGuardFunSpec::class.java.getClassLoader())
     }
   }

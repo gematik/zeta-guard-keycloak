@@ -26,13 +26,13 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.hsm.tokensigning
 import de.gematik.zetaguard.hsmproxy.HsmProxyProvider
 import java.io.ByteArrayOutputStream
 import java.security.KeyStore
-import java.security.Security
 import java.util.Properties
 import org.keycloak.Config
 import org.keycloak.component.ComponentModel
+import org.keycloak.crypto.KeyUse
+import org.keycloak.keys.KeyProvider
 import org.keycloak.keys.KeyProviderFactory
 import org.keycloak.models.KeycloakSession
-import org.keycloak.models.KeycloakSessionFactory
 import org.keycloak.provider.ProviderConfigProperty
 import org.keycloak.provider.ProviderConfigurationBuilder
 import org.slf4j.LoggerFactory
@@ -45,48 +45,35 @@ internal const val TOKEN_KEY_ALIAS = "token"
 /**
  * [KeyProviderFactory] for HSM-backed ES256 token signing.
  *
- * The KeyProvider component is registered in each realm by the administrator — either via the Keycloak Admin UI (Realm Settings → Keys → Providers →
- * Add provider → zeta-hsm-token-signing), via `kcadm.sh`, or via Terraform. The plugin does NOT self-register.
- *
- * Configuration properties (set in the Admin UI or via REST API):
- * - **endpoint**: gRPC address of the HSM Proxy (e.g., `hsm-sim:50051`)
- * - **keyId**: key identifier in the HSM (e.g., `zeta-guard-keycloak-token-es256-v1.p256`)
- * - **priority**: provider priority (default 200, higher than software keys at 100)
- *
- * The JCA `HsmProxyProvider` is registered in [postInit] so the HSMPROXY KeyStore type is available for both TLS and token signing. This is the only
- * startup-time side effect.
+ * Component config (`endpoint`, `keyId`, `priority`) is registered per-realm by the admin (Admin UI / `kcadm.sh` / Terraform) — the plugin does not
+ * self-register. The JCA `HsmProxyProvider` is registered by the JVM at init via `security.provider.2=HSMPROXY` in `conf/security/java.security`,
+ * resolved against `-Xbootclasspath/a:` set up in `docker-keycloak/src/main/docker/startup.sh`.
  */
 open class HsmTokenSigningKeyProviderFactory : KeyProviderFactory<HsmTokenSigningKeyProvider> {
 
   @Volatile private var cachedKeyStore: KeyStore? = null
 
+  // Fail-closed gate (env: KC_SPI_KEYS_ZETA_HSM_TOKEN_SIGNING_FAIL_CLOSED), default true.
+  @Volatile internal var failClosed: Boolean = true
+
   override fun getId() = PROVIDER_ID
 
-  override fun init(config: Config.Scope) = Unit
-
-  override fun postInit(factory: KeycloakSessionFactory) {
-    // Register the HsmProxyProvider JCA provider at runtime. The java.security entry
-    // (security.provider.1) silently fails at JVM startup because the class is in providers/,
-    // not on the bootstrap classpath.
-    // This is needed for TLS via HSM (KC_HTTPS_KEY_STORE_TYPE=HSMPROXY) and for
-    // KeyStore.getInstance("HSMPROXY") in the create() method below.
-    if (Security.getProvider(HsmProxyProvider.NAME) == null) {
-      Security.addProvider(HsmProxyProvider())
-      log.info("🔐 Registered HsmProxyProvider JCA security provider (needed for HSMPROXY KeyStore / TLS) ✅")
-    }
+  override fun init(config: Config.Scope) {
+    failClosed = config.getBoolean(CONFIG_FAIL_CLOSED, true)
+    log.info("🔐 HSM token signing fallback guard: failClosed={}", failClosed)
   }
 
   override fun create(session: KeycloakSession, model: ComponentModel): HsmTokenSigningKeyProvider {
     val ks =
         cachedKeyStore
-          ?: synchronized(this) {
-            cachedKeyStore
-              ?: buildKeyStore(
-                  model[CONFIG_ENDPOINT] ?: throw RuntimeException("HSM endpoint not configured"),
-                  model[CONFIG_KEY_ID] ?: throw RuntimeException("HSM keyId not configured"),
-              )
-                  .also { cachedKeyStore = it }
-          }
+            ?: synchronized(this) {
+              cachedKeyStore
+                  ?: buildKeyStore(
+                          model[CONFIG_ENDPOINT] ?: throw RuntimeException("HSM endpoint not configured"),
+                          model[CONFIG_KEY_ID] ?: throw RuntimeException("HSM keyId not configured"),
+                      )
+                      .also { cachedKeyStore = it }
+            }
     return HsmTokenSigningKeyProvider(model) { _, _ -> ks }
   }
 
@@ -95,6 +82,34 @@ open class HsmTokenSigningKeyProviderFactory : KeyProviderFactory<HsmTokenSignin
   override fun getConfigProperties(): List<ProviderConfigProperty> = CONFIG_PROPERTIES
 
   override fun close() = Unit
+
+  /** Fail-closed guard: refuses software signing-key fallback for HSM-enforcing realms. Non-SIG uses pass through. */
+  override fun createFallbackKeys(session: KeycloakSession, keyUse: KeyUse, algorithm: String): Boolean {
+    if (!failClosed) return false
+    if (keyUse != KeyUse.SIG) return false
+
+    // Realms without the provider component (e.g. master at first boot) fall through, otherwise admin auth deadlocks the tooling that provisions HSM
+    // keys.
+    val realmName = hsmEnforcingRealmName(session) ?: return false
+
+    log.error(
+        "🔐 HSM token signing required (failClosed=true) but no active {} signing key is available for realm='{}'. " +
+            "Refusing to generate a software fallback key. Token issuance will fail until the HSM is reachable.",
+        algorithm,
+        realmName,
+    )
+    throw HsmUnavailableException(
+        "HSM token signing required but no active HSM-backed $algorithm signing key is available (realm=$realmName). " +
+            "Software fallback is disabled by policy."
+    )
+  }
+
+  /** Returns the realm name if it has our key-provider component, else null. Test seam: mockk can't proxy KeycloakContext on this classpath. */
+  internal open fun hsmEnforcingRealmName(session: KeycloakSession): String? {
+    val realm = session.context?.realm ?: return null
+    val usesHsm = realm.getComponentsStream(realm.id, KeyProvider::class.java.name).anyMatch { it.providerId == PROVIDER_ID }
+    return if (usesHsm) realm.name else null
+  }
 
   internal open fun buildKeyStore(endpoint: String, keyId: String): KeyStore {
     val props =
@@ -114,6 +129,9 @@ open class HsmTokenSigningKeyProviderFactory : KeyProviderFactory<HsmTokenSignin
     const val CONFIG_ENDPOINT = "endpoint"
     const val CONFIG_KEY_ID = "keyId"
     const val CONFIG_PRIORITY = "priority"
+
+    /** SPI scope key for the fail-closed guard. */
+    const val CONFIG_FAIL_CLOSED = "failClosed"
 
     val CONFIG_PROPERTIES: List<ProviderConfigProperty> =
         ProviderConfigurationBuilder.create()

@@ -25,16 +25,20 @@ package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CRT_GEMATIK_LEAF_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.PROFESSION_OID
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.smcbTokenGenerator
-import de.gematik.zeta.zetaguard.keycloak.commons.TELEMATIK_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_LAST_ACCESS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_PROFESSION_OID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toLocalDateTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbhost
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbport
+import de.spree.keycloak.commons.integrityProviderEnabled
+import io.kotest.matchers.date.shouldBeAfter
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldStartWith
 import org.hibernate.Hibernate
 import org.keycloak.models.jpa.entities.CredentialEntity
 import org.keycloak.models.jpa.entities.FederatedIdentityEntity
@@ -43,43 +47,51 @@ import org.keycloak.models.jpa.entities.UserEntity
 import org.keycloak.models.jpa.entities.UserRequiredActionEntity
 
 class SMCBUserDataIT : ZetaGuardFunSpecIT() {
+
   init {
     val nonce = createNonce()
     val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
     val smcbToken =
-      smcbTokenGenerator.generateSMCBToken(
-        nonceString = nonce,
-        audiences = smcbTokenAudience,
-        certificateChain = listOf(leafCertificate),
-      )
+        smcb.smcbTokenGenerator.generateSMCBToken(
+            nonceString = nonce,
+            audiences = smcbTokenAudience,
+            subject = smcb.telematikId,
+            certificateChain = listOf(smcb.leafCertificate),
+        )
 
-    test("Check stored user data") {
-      keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt)
+    test("Check stored user data attributes exist") {
+      val now = currentTime().minusSeconds(1) // Due to truncation
+      testExchangeToken(smcbToken, clientAssertion = jwt)
 
-      val user = lookupUser(TELEMATIK_ID.toSpicyHash().lowercase())
+      val user = lookupUser(smcb.telematikId.toSpicyHash().lowercase())
 
-      user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_NAME }.value shouldBe CRT_GEMATIK_LEAF_NAME
-      user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_PROFESSION_OID }.value shouldBe PROFESSION_OID
+      if (integrityProviderEnabled) { // Encrypted values
+        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_NAME }.value.shouldNotBeNull()
+        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_PROFESSION_OID }.value.shouldNotBeNull()
+      } else {
+        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_NAME }.value shouldStartWith CRT_GEMATIK_LEAF_NAME
+        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_PROFESSION_OID }.value shouldBe PROFESSION_OID
+        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_LAST_ACCESS }.value.toLocalDateTime() shouldBeAfter now
+      }
     }
   }
 
   private fun lookupUser(userName: String): UserEntity {
     val entityClasses =
-      arrayOf(
-        UserEntity::class.java,
-        UserAttributeEntity::class.java,
-        UserRequiredActionEntity::class.java,
-        CredentialEntity::class.java,
-        FederatedIdentityEntity::class.java,
-      )
+        arrayOf(
+            UserEntity::class.java,
+            UserAttributeEntity::class.java,
+            UserRequiredActionEntity::class.java,
+            CredentialEntity::class.java,
+            FederatedIdentityEntity::class.java,
+        )
 
     return JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
       val userEntity =
-        it
-          .createEntityManager()
-          .createQuery("SELECT u FROM UserEntity u WHERE u.username = :userName") //
-          .setParameter("userName", userName)
-          .singleResult as UserEntity
+          it.createEntityManager()
+              .createQuery("SELECT u FROM UserEntity u WHERE u.username = :userName") //
+              .setParameter("userName", userName)
+              .singleResult as UserEntity
 
       userEntity.also { user -> Hibernate.initialize(user.attributes) } // Avoid LazyInitializationException
     }

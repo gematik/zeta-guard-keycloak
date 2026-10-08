@@ -58,6 +58,7 @@ services:
       JAVA_OPTS_APPEND: -ea
       KC_DEBUG: true
       KC_DEBUG_PORT: "*:8787"
+      KC_DEBUG_SUSPEND: ${KC_DEBUG_SUSPEND:-n}
 
       # Put Keycloak build options in the first build stage of the container image
       KC_DB: postgres
@@ -69,10 +70,10 @@ services:
       KC_HEALTH_ENABLED: true
       KC_HOSTNAME: http://localhost:18080
       KC_HTTP_ENABLED: true
+      KC_TRACING_ENABLED: true
       # https://www.informatik-aktuell.de/betrieb/sicherheit/token-exchange-mit-keycloak.html
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL: "info"
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL: "warn"
-      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_SIMULATION_BASE_URL: "http://opa-simulation:8181"
       # https://www.keycloak.org/docs/latest/upgrading/#maximum-length-of-the-parameters-in-the-oidc-token-endpoint
@@ -84,8 +85,31 @@ services:
       # Where to find SMC-B certificates and how to read them
       SMCB_KEYSTORE_LOCATION: /opt/keycloak/conf/smcb-certificates.p12
       SMCB_KEYSTORE_PASSWORD: "tyqvHpFoHdu68yRE+0F4q/I"
+      SMCB_KEYSTORE_META_LOCATION: /opt/keycloak/conf/smcb-certificates-meta.json
       TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm-certificates.p12
       TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+      # OCSP_KEYSTORE_LOCATION: /opt/keycloak/conf/ocsp-signers.p12
+      # OCSP_KEYSTORE_PASSWORD: "oGxkNU73WYIGpNTfWgeU"
+      # OCSP_KEYSTORE_META_LOCATION: /opt/keycloak/conf/ocsp-signers-meta.json
+      SPREE_INTEGRITY_PROVIDER_ENABLED: ${SPREE_INTEGRITY_PROVIDER_ENABLED:-false}
+      SPREE_ENABLE_INTEGRITY_CHECK: ${SPREE_ENABLE_INTEGRITY_CHECK:-false}
+      SPREE_ENABLE_INTEGRITY_TABLE_CHECK: ${SPREE_ENABLE_INTEGRITY_TABLE_CHECK:-false}
+      # Next two settings should be disabled in production, but left enabled here for testing
+      SPREE_PERIODIC_ROW_CHECK: true
+      SPREE_LOCKDOWN_ON_ERROR: true
+      SPREE_ENCRYPTED_REALM: "zeta-guard"
+      SPREE_BOOTSTRAP_INTERVAL: "PT20S"
+      SPREE_SCANNER_INTERVAL: "PT10S"
+      SPREE_SCANNER_DELAY: "PT1M"
+      SMCB_USER_MAX_CLIENTS: 20
+      ZETA_OIDC_FLOW_ENABLED: ${ZETA_OIDC_FLOW_ENABLED:-false}
+      # Truststore reload. Short interval so a manual test does not need patience; the first check happens one
+      # interval after startup.
+      # Caveat: the truststores above are single-file bind mounts, which pin the inode — replacing a file on the host
+      # by rename stays invisible inside the container. Overwrite the file in place to try a reload out.
+      TRUSTSTORE_RELOAD_INTERVAL: "PT10S"
+    env_file:
+      - conf/spree-keychain.env
     ports:
       - "127.0.0.1:18787:8787" # debug port
       - "127.0.0.1:18080:8080" # api port
@@ -93,7 +117,11 @@ services:
       - zeta-guard
     volumes:
       - ./smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
+      - ./smcb-certificates-meta.json:/opt/keycloak/conf/smcb-certificates-meta.json
       - ./tpm-certificates.p12:/opt/keycloak/conf/tpm-certificates.p12
+      - ./ocsp-signers.p12:/opt/keycloak/conf/ocsp-signers.p12
+      - ./ocsp-signers-meta.json:/opt/keycloak/conf/ocsp-signers-meta.json
+      - ../target:/opt/keycloak/data
     healthcheck:
       # No curl in Keycloak 🙄
       test: |
@@ -107,7 +135,7 @@ services:
         condition: service_healthy
     command: start --log="console,file" --optimized
   # DEBUG Logging
-  #--log-level=org.keycloak:DEBUG
+  #--log-level=org.keycloak:DEBUG --log-level=org.hibernate.SQL:DEBUG
 
   # https://github.com/adorsys/keycloak-config-cli
   keycloak-config-cli:
@@ -124,9 +152,19 @@ services:
       IMPORT_VARSUBSTITUTION_ENABLED: true
       # See entrypoint.sh
       DEBUG_CLI_SCRIPTS: true
+      INITIAL_DELAY: 40
       KC_EVENT_LISTENER: zeta-guard-admin-events
       ADMIN_EVENT_LOGGING_ENABLED: true
       ADMIN_EVENT_LOGGING_DETAILS_ENABLED: true
+      POSTGRES_HOST: keycloak-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: zeta-guard
+      POSTGRES_PASSWORD: geheim
+      SPREE_INTEGRITY_PROVIDER_ENABLED: ${SPREE_INTEGRITY_PROVIDER_ENABLED:-false}
+      SPREE_ENABLE_INTEGRITY_CHECK: ${SPREE_ENABLE_INTEGRITY_CHECK:-false}
+      SPREE_ENCRYPTED_REALM: "zeta-guard"
+      ZETA_OIDC_FLOW_ENABLED: ${ZETA_OIDC_FLOW_ENABLED:-false}
     networks:
       - zeta-guard
     volumes:

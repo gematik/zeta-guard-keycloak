@@ -37,7 +37,6 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.AdminEventLogVerif
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLog
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService
 import io.kotest.assertions.arrow.core.shouldBeRight
-import io.kotest.core.spec.Order
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
@@ -52,9 +51,8 @@ import org.keycloak.util.JsonSerialization.readValue
 /**
  * Test hash chain logging of admin events
  *
- * Should be first after [AAStartupIT], because it refers to testcontainer's host/ports
+ * Reads testcontainer's host/ports, which [KotestProjectConfig] has resolved before any spec runs.
  */
-@Order(1)
 class AdminEventLogIT : FunSpec() {
   init {
     beforeSpec { mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false) }

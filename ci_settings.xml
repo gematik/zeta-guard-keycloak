@@ -35,6 +35,11 @@
     <profiles>
         <profile>
             <id>use-gitlab</id>
+   
+            <properties>
+                <spotless.skip>false</spotless.skip>
+                <ktfmt.skip>false</ktfmt.skip>
+            </properties>
 
             <repositories>
                 <repository>
@@ -42,7 +47,7 @@
                     <url>${env.CI_API_V4_URL}/groups/8/-/packages/maven</url>
                     <releases>
                         <enabled>true</enabled>
-                        <updatePolicy>never</updatePolicy>
+                        <updatePolicy>always</updatePolicy>
                     </releases>
 
                     <snapshots>

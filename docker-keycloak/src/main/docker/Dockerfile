@@ -7,12 +7,13 @@ ENV KC_METRICS_ENABLED=true
 
 WORKDIR /opt/keycloak
 
-COPY maven/providers/*.jar providers/
-
 # Provide default certificates for TPM-based authentication
 COPY maven/ms-tpm-certificates.p12 conf/
-
+COPY maven/*.yml conf/
+# Quarkus build-time settings (parent-first BC to avoid split-classloader collision with bootstrap BC)
+COPY maven/quarkus.properties conf/
 COPY maven/startup.sh bin/
+COPY maven/providers/*.jar providers/
 
 # Effectively an optional COPY through wildcard and activated maven profile
 COPY maven/${async.profiler}-* /opt/keycloak/${async.profiler}

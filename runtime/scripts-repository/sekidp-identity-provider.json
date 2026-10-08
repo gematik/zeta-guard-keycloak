@@ -1,0 +1,28 @@
+{
+  "alias": "zeta-sekidp-oidc",
+  "displayName": "ZETA SekIDP (GesundheitsID)",
+  "internalId": "zeta-sekidp-oidc",
+  "providerId": "zeta-sekidp-oidc",
+  "enabled": true,
+  "updateProfileFirstLoginMode": "off",
+  "trustEmail": false,
+  "storeToken": false,
+  "addReadTokenRoleOnCreate": false,
+  "authenticateByDefault": false,
+  "linkOnly": false,
+  "hideOnLogin": true,
+  "firstBrokerLoginFlowAlias": "zeta-mobile-first-login",
+  "config": {
+    "clientId": "http://localhost:18080/realms/zeta-guard",
+    "fedmasterUrl": "http://host.docker.internal:8083",
+    "acrValues": "gematik-ehealth-loa-high",
+    "defaultScope": "urn:telematik:display_name urn:telematik:versicherter openid",
+    "pkceEnabled": "true",
+    "pkceMethod": "S256",
+    "disableNonce": "false",
+    "disableUserInfo": "true",
+    "validateSignature": "false",
+    "backchannelSupported": "false",
+    "syncMode": "IMPORT"
+  }
+}

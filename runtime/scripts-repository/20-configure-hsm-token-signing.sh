@@ -1,4 +1,5 @@
 #!/bin/bash
+set -eo pipefail
 
 # Registers the HSM token signing KeyProvider component in each realm and removes
 # software signing keys (rsa-generated, ecdsa-generated).
@@ -15,7 +16,7 @@ if [ "${HSM_TOKEN_SIGNING_ENABLED}" != "true" ]; then
   exit 0
 fi
 
-echo "Configure HSM token signing (endpoint=${HSM_TOKEN_SIGNING_ENDPOINT}, keyId=${HSM_TOKEN_SIGNING_KEY_ID})"
+echo "🛠️ Configure HSM token signing (endpoint=${HSM_TOKEN_SIGNING_ENDPOINT}, keyId=${HSM_TOKEN_SIGNING_KEY_ID})"
 
 REALMS=("zeta-guard" "master")
 PRIORITY="${HSM_TOKEN_SIGNING_PRIORITY:-200}"

@@ -64,24 +64,25 @@ enum class Platform {
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = PROPERTY_PLATFORM_DISCRIMINATOR, visible = true)
 @JsonSubTypes(
-  value =
-    [
-      JsonSubTypes.Type(value = AndroidProductId::class, name = "android"),
-      JsonSubTypes.Type(value = AppleProductId::class, name = "apple"),
-      JsonSubTypes.Type(value = LinuxProductId::class, name = "linux"),
-      JsonSubTypes.Type(value = WindowsProductId::class, name = "windows"),
-    ])
+    value =
+        [
+            JsonSubTypes.Type(value = AndroidProductId::class, name = "android"),
+            JsonSubTypes.Type(value = AppleProductId::class, name = "apple"),
+            JsonSubTypes.Type(value = LinuxProductId::class, name = "linux"),
+            JsonSubTypes.Type(value = WindowsProductId::class, name = "windows"),
+        ]
+)
 sealed class ProductId(
-  @field:JsonProperty(PROPERTY_PLATFORM_DISCRIMINATOR) // Holds discriminator value
-  @field:JsonIgnore // But is not written to JSON (would be duplicate)
-  val productPlatform: Platform
+    @field:JsonProperty(PROPERTY_PLATFORM_DISCRIMINATOR) // Holds discriminator value
+    @field:JsonIgnore // But is not written to JSON (would be duplicate)
+    val productPlatform: Platform
 )
 
 data class AndroidProductId
 @ConstructorProperties(PROPERTY_PACKAGE_NAME, PROPERTY_SHA_256_CERT_FINGERPRINTS)
 constructor(
-	@field:JsonProperty(PROPERTY_PACKAGE_NAME) val packageName: String,
-	@field:JsonProperty(PROPERTY_SHA_256_CERT_FINGERPRINTS) val sha256CertFingerprints: List<String>,
+    @field:JsonProperty(PROPERTY_PACKAGE_NAME) val packageName: String,
+    @field:JsonProperty(PROPERTY_SHA_256_CERT_FINGERPRINTS) val sha256CertFingerprints: List<String>,
 ) : ProductId(Platform.ANDROID) {
   @field:JsonProperty(PROPERTY_NAMESPACE) val namespace: String = "android_app"
 }
@@ -89,21 +90,20 @@ constructor(
 data class AppleProductId
 @ConstructorProperties(PROPERTY_PLATFORM_TYPE, PROPERTY_APP_BUNDLE_IDS)
 constructor(
-	@field:JsonProperty(PROPERTY_PLATFORM_TYPE) val platformType: String, //
-	@field:JsonProperty(PROPERTY_APP_BUNDLE_IDS) val appBundleIds: List<String>
+    @field:JsonProperty(PROPERTY_PLATFORM_TYPE) val platformType: String, //
+    @field:JsonProperty(PROPERTY_APP_BUNDLE_IDS) val appBundleIds: List<String>,
 ) : ProductId(Platform.APPLE)
 
 data class LinuxProductId
 @ConstructorProperties(PROPERTY_PACKAGING_TYPE, PROPERTY_APPLICATION_ID)
 constructor(
-	@field:JsonProperty(PROPERTY_PACKAGING_TYPE) val packagingType: String, //
-	@field:JsonProperty(PROPERTY_APPLICATION_ID) val applicationId: String
+    @field:JsonProperty(PROPERTY_PACKAGING_TYPE) val packagingType: String, //
+    @field:JsonProperty(PROPERTY_APPLICATION_ID) val applicationId: String,
 ) : ProductId(Platform.LINUX)
-
 
 data class WindowsProductId
 @ConstructorProperties(PROPERTY_STORE_ID, PROPERTY_PACKAGE_FAMILY_NAME)
 constructor(
     @field:JsonProperty(PROPERTY_STORE_ID) val storeId: String, //
-    @field:JsonProperty(PROPERTY_PACKAGE_FAMILY_NAME) val packageFamilyName: String
+    @field:JsonProperty(PROPERTY_PACKAGE_FAMILY_NAME) val packageFamilyName: String,
 ) : ProductId(Platform.WINDOWS)

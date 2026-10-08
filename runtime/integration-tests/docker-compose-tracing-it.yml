@@ -1,0 +1,24 @@
+name: "zeta-guard"
+
+services:
+  keycloak:
+    environment:
+      KC_TELEMETRY_ENDPOINT: http://lgtm:4318
+      KC_TELEMETRY_PROTOCOL: http/protobuf
+    depends_on:
+      lgtm:
+        condition: service_started
+
+  lgtm:
+    image: grafana/otel-lgtm
+    networks:
+      - zeta-guard
+    ports:
+      - "13200:3200"  # Tempo API
+      - "14318:4318"  # OTLP HTTP
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 30s

@@ -39,12 +39,11 @@ private const val HSM_SIM_SERVICE = "hsm-sim"
 private const val HSM_SIM_PORT = 50051
 
 /**
- * Integration test for the HSMPROXY KeyStore against a real hsm_sim instance.
+ * JCA-SPI smoke test for `HSMPROXY` KeyStore against a real `hsm_sim` — **no Keycloak involved**. Runs in the surefire JVM, registers
+ * [HsmProxyProvider] manually, and exercises gRPC + `engineLoad` + cert retrieval. Keycloak-side TLS wiring is not covered here; see
+ * `keycloak-upgrade-26.6.3.md` for the deferred TLS-termination IT.
  *
- * Verifies that [HsmProxyProvider] can connect to hsm_sim via gRPC and load a TLS certificate.
- *
- * Starts hsm_sim automatically via Docker Compose. Override with `-Dhsm.sim.endpoint=host:port`
- * to use an already-running instance.
+ * Starts hsm_sim via Docker Compose; override with `-Dhsm.sim.endpoint=host:port` to reuse a running instance.
  */
 class HsmProxyKeycloakFactoryIT : FunSpec() {
 
@@ -58,8 +57,7 @@ class HsmProxyKeycloakFactoryIT : FunSpec() {
         hsmEndpoint = externalEndpoint
       } else {
         hsm.start()
-        hsmEndpoint =
-            "${hsm.getServiceHost(HSM_SIM_SERVICE, HSM_SIM_PORT)}:${hsm.getServicePort(HSM_SIM_SERVICE, HSM_SIM_PORT)}"
+        hsmEndpoint = "${hsm.getServiceHost(HSM_SIM_SERVICE, HSM_SIM_PORT)}:${hsm.getServicePort(HSM_SIM_SERVICE, HSM_SIM_PORT)}"
       }
     }
 
@@ -86,11 +84,7 @@ class HsmProxyKeycloakFactoryIT : FunSpec() {
   }
 
   companion object {
-    private val composeFile =
-        HsmProxyKeycloakFactoryIT::class.java
-            .getResource("/docker-compose-hsm-sim-it.yml")!!
-            .toURI()
-            .let { java.io.File(it) }
+    private val composeFile = HsmProxyKeycloakFactoryIT::class.java.getResource("/docker-compose-hsm-sim-it.yml")!!.toURI().let { java.io.File(it) }
 
     private val hsm = ComposeContainer(composeFile).withExposedService(HSM_SIM_SERVICE, HSM_SIM_PORT)
   }

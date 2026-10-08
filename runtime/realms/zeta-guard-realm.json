@@ -767,10 +767,10 @@
   },
   "smtpServer": {},
   "eventsListeners": [
-    "$(env:KC_EVENT_LISTENER:-jboss-logging)"
+    "zeta-guard-admin-events"
   ],
-  "adminEventsEnabled": "$(env:ADMIN_EVENT_LOGGING_ENABLED:-false)",
-  "adminEventsDetailsEnabled": "$(env:ADMIN_EVENT_LOGGING_DETAILS_ENABLED:-false)",
+  "adminEventsEnabled": "true",
+  "adminEventsDetailsEnabled": "false",
   "eventsEnabled": false,
   "enabledEventTypes": [
     "SEND_RESET_PASSWORD",
@@ -971,19 +971,6 @@
     ],
     "org.keycloak.keys.KeyProvider": [
       {
-        "name": "rsa-enc-generated",
-        "providerId": "rsa-enc-generated",
-        "subComponents": {},
-        "config": {
-          "priority": [
-            "100"
-          ],
-          "algorithm": [
-            "RSA-OAEP"
-          ]
-        }
-      },
-      {
         "name": "hmac-generated-hs512",
         "providerId": "hmac-generated",
         "subComponents": {},
@@ -1003,6 +990,35 @@
         "config": {
           "priority": [
             "100"
+          ]
+        }
+      },
+      {
+        "name": "ecdsa-generated",
+        "providerId": "ecdsa-generated",
+        "subComponents": {},
+        "config": {
+          "priority": [
+            "100"
+          ],
+          "ecdsaEllipticCurveKey": [
+            "P-256"
+          ],
+          "ecGenerateCertificate": [
+            "true"
+          ]
+        }
+      },
+      {
+        "name": "ecdh-generated",
+        "providerId": "ecdh-generated",
+        "subComponents": {},
+        "config": {
+          "priority": [
+            "100"
+          ],
+          "ecdhAlgorithm": [
+            "ECDH-ES"
           ]
         }
       }
@@ -1366,34 +1382,10 @@
       "builtIn": true,
       "authenticationExecutions": [
         {
-          "authenticator": "client-secret",
-          "authenticatorFlow": false,
-          "requirement": "ALTERNATIVE",
-          "priority": 10,
-          "autheticatorFlow": false,
-          "userSetupAllowed": false
-        },
-        {
           "authenticator": "client-jwt",
           "authenticatorFlow": false,
           "requirement": "ALTERNATIVE",
           "priority": 20,
-          "autheticatorFlow": false,
-          "userSetupAllowed": false
-        },
-        {
-          "authenticator": "client-secret-jwt",
-          "authenticatorFlow": false,
-          "requirement": "ALTERNATIVE",
-          "priority": 30,
-          "autheticatorFlow": false,
-          "userSetupAllowed": false
-        },
-        {
-          "authenticator": "client-x509",
-          "authenticatorFlow": false,
-          "requirement": "ALTERNATIVE",
-          "priority": 40,
           "autheticatorFlow": false,
           "userSetupAllowed": false
         }
@@ -1717,7 +1709,7 @@
       "alias": "VERIFY_PROFILE",
       "name": "Verify Profile",
       "providerId": "VERIFY_PROFILE",
-      "enabled": true,
+      "enabled": false,
       "defaultAction": false,
       "priority": 90,
       "config": {}

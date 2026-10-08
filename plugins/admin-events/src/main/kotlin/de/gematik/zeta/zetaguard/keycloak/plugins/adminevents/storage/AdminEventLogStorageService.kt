@@ -25,15 +25,8 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_GENESIS_HASH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
+import de.gematik.zeta.zetaguard.keycloak.jpa.EntityManagerCreator
 import jakarta.persistence.EntityManager
-import org.keycloak.connections.jpa.JpaConnectionProvider
-import org.keycloak.models.KeycloakSession
-
-typealias EntityManagerCreator = () -> EntityManager
-
-class DefaultEMCreator(private val keycloakSession: KeycloakSession) : EntityManagerCreator {
-  override fun invoke(): EntityManager = keycloakSession.entityManager
-}
 
 /**
  * Service for managing admin event logs in the Keycloak database.
@@ -41,10 +34,10 @@ class DefaultEMCreator(private val keycloakSession: KeycloakSession) : EntityMan
  * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_26269
  *
  * This service provides methods to retrieve the previous hash, find all admin event logs, and save new admin event log entries.
- *
- * @property emCreator A lambda that provides an [EntityManager] instance for database operations.
  */
-class AdminEventLogStorageService(emCreator: EntityManagerCreator) {
+class AdminEventLogStorageService
+/** @param emCreator A lambda that provides an [EntityManager] instance for database operations. */
+constructor(emCreator: EntityManagerCreator) {
   private val entityManager by lazy { emCreator.invoke() }
 
   /**
@@ -53,11 +46,11 @@ class AdminEventLogStorageService(emCreator: EntityManagerCreator) {
    * If no entries exist, it returns a genesis hash from memory.
    */
   fun previousHash(): String =
-    entityManager
-      .createQuery("SELECT a.currentHash FROM AdminEventLog a ORDER BY a.createdAt DESC", String::class.java)
-      .setMaxResults(1)
-      .resultList
-      .firstOrNull() ?: GENESIS_HASH
+      entityManager
+          .createQuery("SELECT a.currentHash FROM AdminEventLog a ORDER BY a.createdAt DESC", String::class.java)
+          .setMaxResults(1)
+          .resultList
+          .firstOrNull() ?: GENESIS_HASH
 
   /**
    * Retrieves all admin event logs in historical order, i.e., from the oldest to the latest.
@@ -65,7 +58,7 @@ class AdminEventLogStorageService(emCreator: EntityManagerCreator) {
    * This method is used to fetch the complete history of admin events.
    */
   fun findAll(): List<AdminEventLog> =
-    entityManager.createQuery("SELECT a FROM AdminEventLog a ORDER BY a.createdAt ASC", AdminEventLog::class.java).resultList
+      entityManager.createQuery("SELECT a FROM AdminEventLog a ORDER BY a.createdAt ASC", AdminEventLog::class.java).resultList
 
   fun saveAdminEventLog(adminEventLog: AdminEventLog) {
     entityManager.persist(adminEventLog)
@@ -78,6 +71,3 @@ class AdminEventLogStorageService(emCreator: EntityManagerCreator) {
     val GENESIS_HASH: String by lazy { safeGetenv(ENV_GENESIS_HASH) }
   }
 }
-
-val KeycloakSession.entityManager: EntityManager
-  get() = getProvider(JpaConnectionProvider::class.java).entityManager

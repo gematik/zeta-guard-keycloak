@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.4.xsd">
+
+    <changeSet id="1" author="Markus Dahm">
+        <preConditions onFail="MARK_RAN">
+            <and>
+                <not>
+                    <tableExists tableName="ZETA_USER_DATA"/>
+                </not>
+
+                <not>
+                    <tableExists tableName="ZETA_CLIENT_DATA"/>
+                </not>
+            </and>
+        </preConditions>
+
+        <!-- Table for ZetaGuardUserData -->
+        <createTable tableName="ZETA_USER_DATA">
+            <column name="ID" type="VARCHAR(255)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="CREATED_AT" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="LAST_ACCESS" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <!-- Table for ZetaGuardClientData -->
+        <createTable tableName="ZETA_CLIENT_DATA">
+            <column name="ID" type="VARCHAR(255)">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+
+            <column name="CREATED_AT" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="LAST_ACCESS" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+
+            <column name="USER_ID" type="VARCHAR(255)">
+                <constraints nullable="true"
+                             foreignKeyName="FK_ZETA_CLIENT_USER"
+                             referencedTableName="ZETA_USER_DATA"
+                             referencedColumnNames="ID"/>
+            </column>
+
+            <column name="ATTESTATION_STATE" type="VARCHAR(20)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+    </changeSet>
+
+    <changeSet id="delete-duplicate-clients" author="Markus Dahm">
+        <sql>
+            DELETE
+            FROM ${database.defaultSchemaName}.USER_ATTRIBUTE
+            WHERE VALUE IN (SELECT DISTINCT ua1.VALUE
+                            FROM ${database.defaultSchemaName}.USER_ATTRIBUTE ua1
+                                     INNER JOIN (SELECT VALUE, COUNT(VALUE)
+                                                 FROM ${database.defaultSchemaName}.USER_ATTRIBUTE
+                                                 WHERE NAME = 'zetaguard.smcbuser.client_ids'
+                                                 GROUP BY VALUE
+                                                 HAVING COUNT(VALUE) > 1) ua2
+                                                ON ua1.VALUE = ua2.VALUE);
+
+        </sql>
+    </changeSet>
+
+    <changeSet id="fill-zeta-user-data" author="Markus Dahm">
+        <sql>
+            INSERT INTO ${database.defaultSchemaName}.ZETA_USER_DATA (ID, CREATED_AT, LAST_ACCESS)
+            SELECT DISTINCT u.USERNAME AS ID , CURRENT_DATE AS CREATED_AT, CURRENT_DATE AS LAST_ACCESS
+            FROM ${database.defaultSchemaName}.USER_ENTITY u
+                     INNER JOIN ${database.defaultSchemaName}.REALM r on r.ID = u.REALM_ID
+                     LEFT JOIN ${database.defaultSchemaName}.ZETA_USER_DATA z on z.ID = u.USERNAME
+            WHERE
+                r.NAME = 'zeta-guard'
+              AND z.ID IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="fill-zeta-client-data-valid" author="Markus Dahm">
+        <sql>
+            INSERT INTO ${database.defaultSchemaName}.ZETA_CLIENT_DATA (ID, CREATED_AT, LAST_ACCESS, USER_ID, ATTESTATION_STATE)
+            SELECT ua.VALUE AS ID, CURRENT_DATE AS CREATED_AT, CURRENT_DATE AS LAST_ACCESS, u.USERNAME AS USER_ID, 'VALID' AS ATTESTATION_STATE
+            FROM ${database.defaultSchemaName}.USER_ENTITY u
+                     INNER JOIN ${database.defaultSchemaName}.REALM r on r.ID = u.REALM_ID
+                     INNER JOIN ${database.defaultSchemaName}.USER_ATTRIBUTE ua on ua.USER_ID = u.ID
+                     LEFT JOIN ${database.defaultSchemaName}.ZETA_CLIENT_DATA z on z.ID = ua.VALUE
+            WHERE r.NAME = 'zeta-guard'
+              AND ua.NAME = 'zetaguard.smcbuser.client_ids'
+              AND z.ID IS NULL;
+        </sql>
+    </changeSet>
+
+    <changeSet id="fill-zeta-client-data-pending" author="Markus Dahm">
+        <sql>
+            INSERT INTO ${database.defaultSchemaName}.ZETA_CLIENT_DATA (ID, CREATED_AT, LAST_ACCESS, USER_ID, ATTESTATION_STATE)
+            SELECT ca.CLIENT_ID AS ID, CURRENT_DATE AS CREATED_AT, CURRENT_DATE AS LAST_ACCESS, NULL AS USER_ID, 'PENDING' AS ATTESTATION_STATE
+            FROM ${database.defaultSchemaName}.CLIENT_ATTRIBUTES ca
+                     LEFT JOIN ${database.defaultSchemaName}.ZETA_CLIENT_DATA z on z.ID = ca.CLIENT_ID
+            WHERE ca.VALUE = 'pending_attestation'
+              AND z.ID IS NULL
+        </sql>
+    </changeSet>
+    <!-- Performance indexes for ZETA_CLIENT_DATA, identified during load
+         testing where both showed up as full table scans dominating DB time:
+         the user_id lookup runs on every client token flow, and
+         (attestation_state, last_access) backs the periodic pending-client
+         cleanup scan. -->
+    <changeSet id="add-zeta-client-data-user-id-index" author="Paul Schyska">
+        <createIndex indexName="ZETA_CLIENT_DATA_USER_ID" tableName="ZETA_CLIENT_DATA">
+            <column name="USER_ID"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="add-zeta-client-data-state-last-access-index" author="Paul Schyska">
+        <createIndex indexName="ZETA_CLIENT_DATA_STATE_LAST_ACCESS" tableName="ZETA_CLIENT_DATA">
+            <column name="ATTESTATION_STATE"/>
+            <column name="LAST_ACCESS"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="add-zeta-client-data-last-access-index" author="Markus Dahm">
+        <createIndex indexName="ZETA_CLIENT_DATA_LAST_ACCESS" tableName="ZETA_CLIENT_DATA">
+            <column name="LAST_ACCESS"/>
+        </createIndex>
+    </changeSet>
+    <changeSet id="add-zeta-user-data-last-access-index" author="Markus Dahm">
+        <createIndex indexName="ZETA_USER_DATA_LAST_ACCESS" tableName="ZETA_USER_DATA">
+            <column name="LAST_ACCESS"/>
+        </createIndex>
+    </changeSet>
+
+    <!-- ZETA stage 2 (SEK_IDP clients): additive columns on ZETA_CLIENT_DATA.
+         CLIENT_AUTH_METHOD NOT NULL with DB default SMC_B: rolling-upgrade safeguard — old pods
+         (code without the field) keep inserting rows without CLIENT_AUTH_METHOD; the default covers that.
+         CLIENT_REGISTRATION_STATUS nullable. -->
+    <changeSet id="add-client-type-and-email-verification-state" author="Cong Nguyen">
+        <addColumn tableName="ZETA_CLIENT_DATA">
+            <column name="CLIENT_AUTH_METHOD" type="VARCHAR(20)" defaultValue="SMC_B">
+                <constraints nullable="false"/>
+            </column>
+            <column name="CLIENT_REGISTRATION_STATUS" type="VARCHAR(32)"/>
+        </addColumn>
+        <update tableName="ZETA_CLIENT_DATA">
+            <column name="CLIENT_AUTH_METHOD" value="SMC_B"/>
+            <where>CLIENT_AUTH_METHOD IS NULL</where>
+        </update>
+    </changeSet>
+</databaseChangeLog>

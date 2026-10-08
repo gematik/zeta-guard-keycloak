@@ -31,10 +31,10 @@ import javax.security.auth.x500.X500Principal
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
 import org.keycloak.common.util.KeystoreUtil.KeystoreFormat.PKCS12
 
-class KeystoreService(stream: InputStream, password: String) {
+open class KeystoreService(stream: InputStream, password: String) {
   private val keystore: KeyStore by lazy {
     KeyStore.getInstance(PKCS12.name, PROVIDER_NAME) // Always use BC in order to handle Brainpool curve
-      .apply { load(stream, password.toCharArray()) }
+        .apply { load(stream, password.toCharArray()) }
   }
   private val certificates: Map<String, X509Certificate> by lazy {
     val aliases = keystore.aliases().toList().map { it.uppercase() }.toSet()
@@ -44,9 +44,13 @@ class KeystoreService(stream: InputStream, password: String) {
 
   private val certificatesBySubject: Map<X500Principal, X509Certificate> by lazy { certificates.values.associateBy { it.subjectX500Principal } }
 
+  protected val aliasBySubject: Map<X500Principal, String> by lazy { certificates.map { it.value.subjectX500Principal to it.key }.toMap() }
+
   fun aliases() = certificates.keys
 
   fun hasCertificate(name: String): Boolean = aliases().contains(name.uppercase())
+
+  fun hasCertificate(certificate: X509Certificate): Boolean = aliasBySubject[certificate.subjectX500Principal] != null
 
   fun getPrivateKey(name: String, password: String): PrivateKey {
     val key = keystore.getKey(name.uppercase(), password.toCharArray()) ?: keystore.getCertificate(name)

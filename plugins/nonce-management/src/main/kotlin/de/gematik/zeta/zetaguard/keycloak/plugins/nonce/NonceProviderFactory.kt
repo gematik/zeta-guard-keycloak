@@ -49,7 +49,7 @@ open class NonceProviderFactory : RealmResourceProviderFactory {
 
   override fun getId() = NONCE_PROVIDER_ID
 
-  override fun create(session: KeycloakSession) = NonceProvider(session, nonceFactory)
+  override fun create(session: KeycloakSession) = NonceProvider(nonceFactory)
 
   override fun postInit(factory: KeycloakSessionFactory) {
     assert(!this::nonceFactory.isInitialized) { "NonceFactory already initialized" }

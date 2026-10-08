@@ -33,6 +33,7 @@ import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import java.io.StringReader
 import java.io.StringWriter
 import java.security.Key
+import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SignatureException
 import java.security.cert.CertPathValidator
@@ -46,12 +47,14 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier
 import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 import org.bouncycastle.asn1.isismtt.x509.Admissions
 import org.bouncycastle.asn1.isismtt.x509.ProfessionInfo
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.BCStyle
 import org.bouncycastle.asn1.x500.style.IETFUtils
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
 import org.bouncycastle.openssl.PEMParser
+import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter
 import org.keycloak.common.util.PemUtils
 
@@ -131,11 +134,11 @@ private fun Any.toPEMString(): String {
 /** Validate that the provided certificate's signature was generated with the given public key. */
 fun validateCertificateSignature(certificate: X509Certificate, publicKey: PublicKey): Either<String, Success> = either {
   Either.catch { certificate.verify(publicKey) }
-    .mapLeft {
-      logger.error("Signature validation failed for $certificate", it)
-      it.message ?: "Signature validation failed"
-    }
-    .bind()
+      .mapLeft {
+        logger.error("Signature validation failed for $certificate", it)
+        it.message ?: "Signature validation failed"
+      }
+      .bind()
 
   SimpleSuccess
 }
@@ -146,11 +149,11 @@ fun validateCertificateSignature(certificate: X509Certificate, publicKey: Public
  * Returns true when BouncyCastle's PEMParser can read at least one object from the string.
  */
 fun String.isPEMFormat(): Boolean =
-  try {
-    PEMParser(StringReader(this)).use { it.readObject() != null }
-  } catch (e: Exception) {
-    false
-  }
+    try {
+      PEMParser(StringReader(this)).use { it.readObject() != null }
+    } catch (e: Exception) {
+      false
+    }
 
 /**
  * Convert a string containing either a PEM-encoded certificate or a base64 DER certificate to an X509Certificate.
@@ -160,14 +163,23 @@ fun String.isPEMFormat(): Boolean =
  * - Otherwise, the string is treated as base64-encoded DER and decoded via a CertificateFactory using the configured BouncyCastle provider.
  */
 fun String.toCertificate(): X509Certificate =
-  if (isPEMFormat()) {
-    PemUtils.decodeCertificate(this)
-  } else {
-    val bytes = fromBase64()
-    val certificateFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
+    if (isPEMFormat()) {
+      PemUtils.decodeCertificate(this)
+    } else {
+      fromBase64().toCertificate()
+    }
 
-    certificateFactory.generateCertificate(bytes.inputStream()) as X509Certificate
-  }
+fun ByteArray.toCertificate(): X509Certificate {
+  val certificateFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
+
+  return certificateFactory.generateCertificate(inputStream()) as X509Certificate
+}
+
+fun ByteArray.toPrivateKey(): PrivateKey {
+  val privateKeyInfo = PrivateKeyInfo.getInstance(this)
+
+  return JcaPEMKeyConverter().setProvider(PROVIDER_NAME).getPrivateKey(privateKeyInfo)
+}
 
 /**
  * Validate a certificate chain against a trust store provided by the KeystoreService.
@@ -177,45 +189,42 @@ fun String.toCertificate(): X509Certificate =
  * - Validate against that certificate
  */
 fun validateCertificateChain(keystoreService: KeystoreService, certificateChain: List<X509Certificate>): Either<String, PKIXCertPathValidatorResult> =
-  either {
-    val certificate = certificateChain.first { keystoreService.findIssuerCertificate(it) != null }
+    either {
+      val certificate = certificateChain.first { keystoreService.findIssuerCertificate(it) != null }
 
-    ensureNotNull(certificate) { "No issuer certificate found in trust store" }
+      ensureNotNull(certificate) { "No issuer certificate found in trust store" }
 
-    val certificateIndex = certificateChain.indexOf(certificate)
-    val chain = certificateChain.subList(0, certificateIndex + 1)
-    val rootCertificate = keystoreService.findIssuerCertificate(certificate)!!
+      val certificateIndex = certificateChain.indexOf(certificate)
+      val chain = certificateChain.subList(0, certificateIndex + 1)
+      val rootCertificate = keystoreService.findIssuerCertificate(certificate)!!
 
-    validateCertificateChain(rootCertificate, chain).bind()
-  }
+      validateCertificateChain(rootCertificate, chain).bind()
+    }
 
 /**
  * Validate a certificate chain against a provided root certificate (trust anchor).
  *
  * This function performs PKIX validation using the BouncyCastle provider with optional revocation checking.
  */
-fun validateCertificateChain(
-  rootCertificate: X509Certificate,
-  certificateChain: List<X509Certificate>,
-  revocationCheck: Boolean = false
-): Either<String, PKIXCertPathValidatorResult> = either {
-  ensure(certificateChain.isNotEmpty()) { "Certificate chain is empty" }
+fun validateCertificateChain(rootCertificate: X509Certificate, certificateChain: List<X509Certificate>): Either<String, PKIXCertPathValidatorResult> =
+    either {
+      ensure(certificateChain.isNotEmpty()) { "Certificate chain is empty" }
 
-  Either.catch {
-      val certFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
-      val certPath = certFactory.generateCertPath(certificateChain)
-      val trustAnchor = TrustAnchor(rootCertificate, null)
-      val params = PKIXParameters(setOf(trustAnchor)).apply { isRevocationEnabled = revocationCheck }
-      val validator = CertPathValidator.getInstance("PKIX", PROVIDER_NAME)
+      Either.catch {
+            val certFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
+            val certPath = certFactory.generateCertPath(certificateChain)
+            val trustAnchor = TrustAnchor(rootCertificate, null)
+            val params = PKIXParameters(setOf(trustAnchor)).apply { isRevocationEnabled = false } // check revocation as a later step
+            val validator = CertPathValidator.getInstance("PKIX", PROVIDER_NAME)
 
-      validator.validate(certPath, params) as PKIXCertPathValidatorResult
+            validator.validate(certPath, params) as PKIXCertPathValidatorResult
+          }
+          .mapLeft {
+            logger.error("Certificate validation failed for ${certificateChain.toList()}", it)
+            it.message ?: "Certificate validation failed"
+          }
+          .bind()
     }
-    .mapLeft {
-      logger.error("Certificate validation failed for ${certificateChain.toList()}", it)
-      it.message ?: "Certificate validation failed"
-    }
-    .bind()
-}
 
 /**
  * Extract a typed ASN.1 extension from this certificate using the provided OID.
@@ -223,15 +232,15 @@ fun validateCertificateChain(
  * This helper uses BouncyCastle's JcaX509CertificateHolder to obtain the parsed extension.
  */
 inline fun <reified T : ASN1Encodable> X509Certificate.extractExtension(oid: ASN1ObjectIdentifier): T? =
-  try {
-    val certHolder = JcaX509CertificateHolder(this)
-    val encodable = certHolder.getExtension(oid)?.parsedValue
+    try {
+      val certHolder = JcaX509CertificateHolder(this)
+      val encodable = certHolder.getExtension(oid)?.parsedValue
 
-    T::class.members.find { it.name == "getInstance" }?.call(encodable) as T?
-  } catch (e: Exception) {
-    logger.warn("Error parsing extension $oid: ${e.message}")
-    null
-  }
+      T::class.members.find { it.name == "getInstance" }?.call(encodable) as T?
+    } catch (e: Exception) {
+      logger.warn("⚠️ Error parsing extension $oid: ${e.message}")
+      null
+    }
 
 /** Return the first Admissions element contained in an AdmissionSyntax instance, or null if none exist. */
 fun AdmissionSyntax.firstAdmission(): Admissions? = if (contentsOfAdmissions.isNotEmpty()) contentsOfAdmissions[0] else null
@@ -250,4 +259,4 @@ fun X509Certificate.subjectOrganisationName() = getSubjectComponent(BCStyle.O)
 
 /** Internal helper to extract a single subject component value from this certificate's subject DN using the provided ASN.1 identifier. */
 private fun X509Certificate.getSubjectComponent(identifier: ASN1ObjectIdentifier) =
-  X500Name(subjectX500Principal.name).getRDNs(identifier).map { IETFUtils.valueToString(it.first.value) }.firstOrNull() ?: "Unbekannt"
+    X500Name(subjectX500Principal.name).getRDNs(identifier).map { IETFUtils.valueToString(it.first.value) }.firstOrNull() ?: "Unbekannt"

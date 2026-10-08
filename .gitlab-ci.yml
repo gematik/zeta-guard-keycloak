@@ -8,20 +8,17 @@ spec:
 ---
 
 stages:
+  - verify
   - build
   - test
   - release
   - publish
   - harden
+  - sign
   - systemtest
   - publish_reports
 
 include:
-  - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/dependency-check-mvn@v0.4.0
-    inputs:
-      image: "$CI_REGISTRY/zeta/devops/ci-images/maven:3.9-eclipse-temurin-21-zeta-0"
-      cache-key: keycloak-zeta
-
   - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-scanning@v0.4.2
     inputs:
       analyzer-image: $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX/aquasec/trivy:0.69.3@sha256:7228e304ae0f610a1fad937baa463598cadac0c2ac4027cc68f3a8b997115689
@@ -29,8 +26,18 @@ include:
       git-strategy: fetch
       job-dependencies: [ harden ]
       job-stage: systemtest
-      openvex-file: "vulnerabilites.openvex.json"
+      openvex-file: ".vex/vulnerabilites.openvex.json"
       severity: UNKNOWN,HIGH,CRITICAL
+    rules:
+      - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      - if: $CI_COMMIT_TAG
+      - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+
+  - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-signing@v1.2.0
+    inputs:
+      image-to-sign: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$CUSTOM_IMAGE_TAG"
+      job-dependencies: [ harden ]
+      job-stage: sign
     rules:
       - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       - if: $CI_COMMIT_TAG
@@ -56,7 +63,7 @@ default:
     
     printf "%s" "$CI_DEPENDENCY_PROXY_PASSWORD" | docker login "$CI_DEPENDENCY_PROXY_SERVER" -u "$CI_DEPENDENCY_PROXY_USER" --password-stdin
     printf "%s" "$CI_REGISTRY_PASSWORD" | docker login "$CI_REGISTRY" -u "$CI_REGISTRY_USER" --password-stdin
-    printf "Executing mvn %s -P %s verify" "$MAVEN_CLI_OPTS" "$MAVEN_PROFILES"
+    printf "Executing mvn %s -P %s verify\n" "$MAVEN_CLI_OPTS" "$MAVEN_PROFILES"
 
 .rules_mr_default:
   rules:
@@ -125,11 +132,32 @@ workflow:
         CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - when: never
 
+verify-maven-registry:
+  stage: verify
+
+  script:
+    - |
+      echo "Checking GitLab Maven registry access..."
+
+      echo mvn $MAVEN_CLI_OPTS dependency:get -DgroupId=org.apache.maven -DartifactId=maven-core -Dversion=2.2.1 -Dpackaging=jar -Dclassifier=sources
+
+      mvn $MAVEN_CLI_OPTS dependency:get \
+      -DgroupId=org.apache.maven -DartifactId=maven-core -Dversion=2.2.1 -Dpackaging=jar -Dclassifier=sources \
+      -Dtransitive=false
+
+      echo mvn $MAVEN_CLI_OPTS dependency:get -DgroupId=de.spree.keycloak -DartifactId=encryption-provider -Dversion=0.5.0 -Dpackaging=jar
+      
+      mvn $MAVEN_CLI_OPTS dependency:get \
+      -DgroupId=de.spree.keycloak -DartifactId=encryption-provider -Dversion=0.8.3 -Dpackaging=jar \
+      -Dtransitive=false
+
+  rules:
+    - when: always
+
 build:
   stage: build
   script:
-    - |
-      mvn $MAVEN_CLI_OPTS -P $MAVEN_PROFILES verify
+    - mvn $MAVEN_CLI_OPTS -P $MAVEN_PROFILES verify
     - |
       jacoco_reports=$(find aggregate-code-coverage -name "jacoco.csv")
 
@@ -238,7 +266,7 @@ harden:
   script: |
     # -Ddocker.tag=$CUSTOM_IMAGE_TAG wird genutzt, weil der Job auch bei dem Pushen eines Tags läuft. In dem Fall 
     # würde bei der Verwendung von $IMAGE_TAG würde das falsche Tag (v1-2-3 anstatt v1.2.3) genutzt werden
-    mvn $MAVEN_CLI_OPTS -Ddocker.tag=$CUSTOM_IMAGE_TAG -pl docker-keycloak-harden -P gitlab package
+    mvn $MAVEN_CLI_OPTS -Ddocker.tag=$CUSTOM_IMAGE_TAG -DskipTests -pl docker-keycloak-harden -P gitlab,harden package
     docker push "$IMAGE_NAME:$CUSTOM_IMAGE_TAG"
   rules:
     - !reference [ .rules_tags, rules ]
@@ -280,8 +308,6 @@ publish_artifacts:
   needs:
     - job: build
       artifacts: true
-    - job: dependency-check-mvn
-      artifacts: true
     - job: sbom
       artifacts: true
     - job: container-scanning
@@ -291,7 +317,6 @@ publish_artifacts:
     - git clone https://zeta-sdk:${REPORTING_TOKEN}@tas-devtools-gitlab.spree.de/zeta/reporting.git
     - mkdir -p ./reporting/zeta-guard/keycloak-zeta/
     - find . -path ./reporting -prune -o -name 'jacoco.xml' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
-    - find . -path ./reporting -prune -o -name 'dependency-check-report.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
     - find . -path ./reporting -prune -o -name 'bom.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
     - find . -path ./reporting -prune -o -name 'gl-container-scanning-report.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
     - cd reporting

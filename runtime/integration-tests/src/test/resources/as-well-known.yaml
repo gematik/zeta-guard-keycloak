@@ -1,0 +1,177 @@
+# Schema for the Authorization Server .well-known JSON object
+$schema: "http://json-schema.org/draft-07/schema#"
+schemaVersion: "1.1.0"
+title: Authorization Server .well-known JSON Object
+description: Schema for the .well-known JSON object used by Authorization Servers.
+type: object
+properties:
+  issuer:
+    type: string
+    format: uri
+    description: "The URL of the issuer."
+  authorization_endpoint:
+    type: string
+    format: uri
+    description: "The URL of the authorization endpoint."
+  token_endpoint:
+    type: string
+    format: uri
+    description: "The URL of the token endpoint."
+  pushed_authorization_request_endpoint:
+    type: string
+    format: uri
+    description: "The URL of the pushed authorization request endpoint."
+  require_pushed_authorization_requests:
+    type: boolean
+    description: >-
+      Indicates whether the Authorization Server requires pushed authorization requests.
+      In ZETA, this is always true.
+    const: true
+  redirection_endpoint:
+    type: string
+    format: uri
+    description: >-
+      The URL of the redirection endpoint of the Authorization Server acting as OIDC
+      Relying Party. The sectoral IDP redirects the user agent here (oidc_redirect_uri)
+      after authentication; the AuthS then exchanges the IDP authorization code at the
+      IDP token endpoint. The ZETA Client uses the path of the incoming redirect_uri
+      to distinguish this endpoint (SekIDP Auth Code Flow) from the token_endpoint
+      (ZETA Guard Auth Code Flow).
+  nonce_endpoint:
+    type: string
+    format: uri
+    description: "The URL of the nonce endpoint."
+  registration_endpoint:
+    type: string
+    format: uri
+    description: "The URL of the client registration endpoint."
+  openid_providers_endpoint:
+    type: string
+    format: uri
+    description: "The URL of the openid providers endpoint."
+  jwks_uri:
+    type: string
+    format: uri
+    description: "The URL of the JSON Web Key Set."
+  scopes_supported:
+    type: array
+    description: "The scopes supported by the authorization server."
+    items:
+      type: string
+  response_types_supported:
+    type: array
+    description: "The response types supported by the authorization server."
+    items:
+      type: string
+      enum:
+        - code
+        - token
+        - id_token
+        - token id_token
+        - code id_token
+        - code token id_token
+        - code token
+  response_modes_supported:
+    type: array
+    description: "The response modes supported by the authorization server."
+    items:
+      type: string
+  grant_types_supported:
+    type: array
+    description: "The grant types supported by the authorization server."
+    items:
+      type: string
+  token_endpoint_auth_methods_supported:
+    type: array
+    description: "The token endpoint authentication methods supported."
+    items:
+      type: string
+  token_endpoint_auth_signing_alg_values_supported:
+    type: array
+    description: "The signing algorithms supported at the token endpoint."
+    items:
+      type: string
+  revocation_endpoint:
+    type: string
+    format: uri
+    description: >-
+      The URL of the token revocation endpoint (RFC 7009). In ZETA this endpoint
+      is primarily intended for revoking refresh tokens, turning the otherwise
+      client-side-only logout into a real server-side termination of the grant
+      (aligned with the `refresh_token_revoked` error). Because access tokens are
+      short-lived, DPoP-bound (RFC 9449) and validated statelessly by the resource
+      server, revoking an access token here has limited effect and is not the
+      purpose of this endpoint. Revocation requests MUST be client-authenticated
+      in the same way as requests to the token endpoint, so that a client can only
+      revoke its own tokens.
+  revocation_endpoint_auth_methods_supported:
+    type: array
+    description: >-
+      The client authentication methods supported at the revocation endpoint
+      (RFC 7009 / RFC 8414). Mirrors token_endpoint_auth_methods_supported.
+    items:
+      type: string
+  revocation_endpoint_auth_signing_alg_values_supported:
+    type: array
+    description: >-
+      The signing algorithms supported for client authentication at the revocation
+      endpoint. Mirrors token_endpoint_auth_signing_alg_values_supported.
+    items:
+      type: string
+  service_documentation:
+    type: string
+    format: uri
+    description: "A URL to the service documentation."
+  code_challenge_methods_supported:
+    type: array
+    description: "The code challenge methods supported for PKCE."
+    items:
+      type: string
+
+  # --- Token-Issuance Contract Versioning ---
+  api_versions_supported:
+    type: array
+    description: >-
+      A JSON array listing the token-issuance contract versions supported by this
+      Authorization Server. Clients use this to discover whether the Authorization
+      Server supports the `resource`-indicator based contract (version 2, RFC 8707)
+      before sending a `resource` parameter to the token endpoint. Mirrors the
+      structure of `api_versions_supported` in the protected resource metadata.
+    items:
+      type: object
+      properties:
+        major_version:
+          type: integer
+          description: The major version number of the token-issuance contract.
+        version:
+          type: string
+          description: The full, stable Semantic Versioning (SemVer) compliant string for this contract version.
+        status:
+          type: string
+          description: The release status of this contract version.
+          enum: [stable, beta, alpha, deprecated, retired]
+        documentation_uri:
+          type: string
+          format: uri
+          description: >-
+            URL of the documentation specific to this contract version.
+      required:
+        - major_version
+        - version
+        - status
+
+required:
+  - issuer
+  - authorization_endpoint
+  - nonce_endpoint
+  - registration_endpoint
+  - token_endpoint
+  - redirection_endpoint
+  - jwks_uri
+  - scopes_supported
+  - response_types_supported
+  - grant_types_supported
+  - token_endpoint_auth_methods_supported
+  - token_endpoint_auth_signing_alg_values_supported
+  - code_challenge_methods_supported
+  - revocation_endpoint

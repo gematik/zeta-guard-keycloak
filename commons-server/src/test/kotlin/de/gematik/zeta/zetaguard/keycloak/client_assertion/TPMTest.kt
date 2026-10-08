@@ -39,7 +39,7 @@ class TPMTest : ZetaGuardFunSpec() {
   init {
     val tpmAttestationKey = "yH-hHUAhTzX1H6WMhYBqehf1hqJVUr-flHPrKsqqpEIrRrwgmMwGF-vYOTN0v6Ej8uGnyoOeR92sgnD6cet1vQ=="
     val tpmQuote =
-      "_1RDR4AYACIAC5AgE-j7_fsgTyVokI-7wf1v1bIRYBgbzcJQ6zU8YcTPACCrq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urqwAAAAABCx0BHWNGlsOY8YsBlRTWaepDsjsAAAABAAsDgQCAACAuqauRmNFjgAdADNLDvvHMdFuGS3YBGg4bxSGArGRS1A=="
+        "_1RDR4AYACIAC5AgE-j7_fsgTyVokI-7wf1v1bIRYBgbzcJQ6zU8YcTPACCrq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urqwAAAAABCx0BHWNGlsOY8YsBlRTWaepDsjsAAAABAAsDgQCAACAuqauRmNFjgAdADNLDvvHMdFuGS3YBGg4bxSGArGRS1A=="
     val tpmSignature = "vOLjjEzbr2EyBZfQb8PNHAHQlPrSd-PRaz-F4WWV_32Irh6AvMqHtVpAfECr-3pcEYxddXZ9b4XNZTxNq-c6Zw=="
 
     test("Data from client") {

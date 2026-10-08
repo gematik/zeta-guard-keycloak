@@ -23,18 +23,10 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
-import de.gematik.zeta.zetaguard.keycloak.commons.CertificateGenerator.buildCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.intermediateCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
-import de.gematik.zeta.zetaguard.keycloak.commons.server.firstAdmission
-import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfession
-import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfessionInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generateKeyPair
 import de.gematik.zeta.zetaguard.keycloak.commons.server.isRoot
-import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectCommonName
-import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectOrganisationName
 import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateChain
 import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateSignature
 import io.kotest.assertions.arrow.core.shouldBeLeft
@@ -45,6 +37,8 @@ import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import java.security.KeyPair
+import java.security.cert.X509Certificate
 import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x509.GeneralName
@@ -97,33 +91,20 @@ class CertificateGeneratorTest : ZetaGuardFunSpec() {
       with(objectUnderTest) { validateCertificateChain(intermediateCert, listOf(leafCert)).shouldBeRight() }
     }
 
-    test("Checking gematik certificates") {
-      leafCertificate.subjectCommonName() shouldBe CRT_GEMATIK_LEAF_NAME
-      leafCertificate.subjectOrganisationName() shouldBe CRT_GEMATIK_LEAF_ORGANISATION
-
-      val professionInfo = leafCertificate.extractExtension<AdmissionSyntax>(admission)?.firstAdmission()?.firstProfessionInfo()!!
-      val professionIdentifier = professionInfo.firstProfession()!!
-      val professionOID = professionIdentifier.id
-      val telematikID = professionInfo.registrationNumber
-
-      professionOID shouldBe betriebsstaetteArzt.id
-      telematikID shouldBe TELEMATIK_ID
-
-      validateCertificateChain(intermediateCertificate, listOf(leafCertificate)).shouldBeRight()
-    }
-
     test("Validating certificate fails") {
       with(objectUnderTest) {
         val keyPair = generateKeyPair()
         val unrelatedCertificate =
-          buildCertificate(
-            subjectName = CRT_GEMATIK_ROOT_DN,
-            subjectKeyPair = keyPair,
-            issuerName = CRT_GEMATIK_ROOT_DN,
-            issuerKeyPair = keyPair,
-            isCA = true,
-            isRootCA = true,
-            createAdmissionExtension = false)
+            CertificateGenerator(
+                    subjectName = CRT_GEMATIK_ROOT_DN,
+                    subjectKeyPair = keyPair,
+                    issuerName = CRT_GEMATIK_ROOT_DN,
+                    issuerKeyPair = keyPair,
+                    isCA = true,
+                    isRootCA = true,
+                    createAdmissionExtension = false,
+                )
+                .buildCertificate()
 
         validateCertificateChain(unrelatedCertificate, listOf(leafCert, intermediateCert)).shouldBeLeft() shouldContain "validation failed"
       }
@@ -140,6 +121,7 @@ class CertificateGeneratorTest : ZetaGuardFunSpec() {
         rootCert.keyUsage[5] shouldBe true // keyCertSign
       }
     }
+
     test("Read extensions from certificate") {
       with(objectUnderTest) {
         leafCert.nonCriticalExtensionOIDs shouldContain admission.id
@@ -158,39 +140,53 @@ class CertificateGeneratorTest : ZetaGuardFunSpec() {
 }
 
 class CertificateChain(
-  curve: String = CURVE_BRAINPOOL,
-  rootDN: String = CRT_GEMATIK_ROOT_DN,
-  intermediateDN: String = CRT_GEMATIK_INTERMEDIATE_DN,
-  leafDN: String = CRT_GEMATIK_LEAF_DN,
+    val rootKeyPair: KeyPair = generateKeyPair(CURVE_BRAINPOOL),
+    val rootCert: X509Certificate =
+        CertificateGenerator(
+                subjectName = CRT_GEMATIK_ROOT_DN,
+                subjectKeyPair = rootKeyPair,
+                issuerName = CRT_GEMATIK_ROOT_DN,
+                issuerKeyPair = rootKeyPair,
+                isCA = true,
+                isRootCA = true,
+                createAdmissionExtension = false,
+            )
+            .buildCertificate(),
+    val intermediateKeyPair: KeyPair = generateKeyPair(CURVE_BRAINPOOL),
+    val intermediateCert: X509Certificate =
+        CertificateGenerator(
+                subjectName = CRT_GEMATIK_INTERMEDIATE_DN,
+                subjectKeyPair = intermediateKeyPair,
+                issuerName = rootCert.subjectX500Principal.name,
+                issuerKeyPair = rootKeyPair,
+                isCA = true,
+            )
+            .buildCertificate(),
+    suffix: String = "",
 ) {
-  val rootKeyPair = generateKeyPair(curve)
-  val rootCert =
-    buildCertificate(
-      subjectName = rootDN,
-      subjectKeyPair = rootKeyPair,
-      issuerName = rootDN,
-      issuerKeyPair = rootKeyPair,
-      isCA = true,
-      isRootCA = true,
-      createAdmissionExtension = false)
-
-  val intermediateKeyPair = generateKeyPair(curve)
-  val intermediateCert =
-    buildCertificate(
-      subjectName = intermediateDN,
-      subjectKeyPair = intermediateKeyPair,
-      issuerName = rootCert.subjectX500Principal.name,
-      issuerKeyPair = rootKeyPair,
-      isCA = true,
-    )
-
-  val leafKeyPair = generateKeyPair(curve)
+  val leafKeyPair = generateKeyPair(CURVE_BRAINPOOL)
   val leafCert =
-    buildCertificate(
-      subjectName = leafDN,
-      subjectKeyPair = leafKeyPair,
-      issuerName = intermediateCert.subjectX500Principal.name,
-      issuerKeyPair = intermediateKeyPair,
-      isCA = false,
-    )
+      CertificateGenerator(
+              subjectName = CRT_GEMATIK_LEAF_DN + suffix,
+              subjectKeyPair = leafKeyPair,
+              issuerName = intermediateCert.subjectX500Principal.name,
+              issuerKeyPair = intermediateKeyPair,
+              isCA = false,
+              telematikId = TELEMATIK_ID + suffix,
+          )
+          .buildCertificate()
+
+  val leafCertName = CRT_GEMATIK_LEAF + suffix
+}
+
+fun CertificateChain.createLeafCertificate(suffixIndex: Int): CertificateChain {
+  val suffix = suffixIndex.toLeafSuffix()
+
+  return CertificateChain(
+      rootKeyPair = rootKeyPair,
+      rootCert = rootCert,
+      intermediateKeyPair = intermediateKeyPair,
+      intermediateCert = intermediateCert,
+      suffix = suffix,
+  )
 }

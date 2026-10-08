@@ -24,30 +24,55 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import com.fasterxml.jackson.annotation.JsonProperty
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PRODUCT_ID
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PRODUCT_VERSION
 import org.keycloak.OAuth2Constants.GRANT_TYPE
 
+/**
+ * Date model for a specific (policy) request send to OPA to trigger and retrieve a policy decision.
+ *
+ * @see [https://github.com/gematik/zeta/blob/v1.3.0/src/schemas/policy-engine-input.yaml]
+ */
 data class OpaInput(val input: Input) {
   data class Input(
       @get:JsonProperty("authorization_request") val authorizationRequest: OpaAuthorizationRequest? = null,
+      @get:JsonProperty("client_registration_data") val clientRegistrationData: ZetaClientRegistration? = null,
       @get:JsonProperty("user_info") val userInfo: OpaUserInfo? = null,
-      @get:JsonProperty("client_assertion") val clientAssertion: OpaClientAssertion? = null,
+      val version: String? = null,
   )
 
   data class OpaAuthorizationRequest(
-      val scopes: List<String>? = null,
+      @get:JsonProperty("amr") val authenticationMethodsReferences: List<String>? = null,
+      @get:JsonProperty("acr") val authenticationContextClassReference: String,
       val audience: List<String>? = null,
       @get:JsonProperty(GRANT_TYPE) val grantType: String? = null,
       @get:JsonProperty("ip_address") val ipAddress: String? = null,
+      @get:JsonProperty("previous_ip_address") val previousIpAddress: String? = null,
+      val scopes: List<String>? = null,
   )
 
-  data class OpaUserInfo(@get:JsonProperty("professionOID") val professionOID: String? = null)
+  /** @see [https://github.com/gematik/zeta/blob/v1.3.0/src/schemas/policy-engine-client-data.yaml] */
+  data class ZetaClientRegistration(
+      @get:JsonProperty("attestation_result") val attestationResult: AttestationResult? = null,
+      @get:JsonProperty("client_id") val clientId: String? = null,
+      @get:JsonProperty("device_info") val deviceInfo: DeviceInfo? = null,
+      val platform: String? = null,
+      @get:JsonProperty("posture_type") val postureType: String? = null,
+      @get:JsonProperty("product_id") val productId: String? = null,
+      @get:JsonProperty("product_version") val productVersion: String? = null,
+      @get:JsonProperty("registration_timestamp") val registrationTimestamp: Long? = null,
+  )
 
-  data class OpaClientAssertion(val posture: OpaPosture? = null)
+  data class AttestationResult(val tpm: String? = null)
 
-  data class OpaPosture(
-      @get:JsonProperty(PROPERTY_PRODUCT_ID) val productId: String? = null,
-      @get:JsonProperty(PROPERTY_PRODUCT_VERSION) val productVersion: String? = null,
+  data class DeviceInfo(
+      val os: String? = null,
+      @get:JsonProperty("os_version") val osVersion: String? = null,
+      @get:JsonProperty("device_model") val deviceModel: String? = null,
+  )
+
+  /** @see [https://github.com/gematik/zeta/blob/v1.3.0/src/schemas/user-info.yaml] */
+  data class OpaUserInfo(
+      val identifier: String? = null,
+      @get:JsonProperty("professionOID") val professionOid: String? = null,
+      val commonName: String? = null,
   )
 }

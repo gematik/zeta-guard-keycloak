@@ -23,11 +23,11 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import org.keycloak.TokenVerifier
 import org.keycloak.crypto.SignatureVerifierContext
 import org.keycloak.jose.jws.JWSHeader
@@ -60,11 +60,9 @@ fun String.toIDTokenInfo(verifer: SignatureVerifierContext? = null): IDTokenInfo
 fun JsonWebToken.expirationDate(): LocalDateTime = exp.secondsToLocalDateTime()
 
 fun JsonWebToken.expirationDate(ttl: Duration) {
-  exp(now().plus(ttl).atZone(ZoneId.systemDefault()).toEpochSecond())
+  exp(currentTime().plus(ttl).atZone(ZoneId.systemDefault()).toEpochSecond())
 }
 
 fun JsonWebToken.issuedAt(): LocalDateTime = iat.secondsToLocalDateTime()
 
 fun Long.secondsToLocalDateTime(): LocalDateTime = Instant.ofEpochSecond(this).atZone(ZoneId.systemDefault()).toLocalDateTime()
-
-fun now(): LocalDateTime = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)

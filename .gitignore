@@ -26,4 +26,5 @@ http-requests/http-client.env.json
 
 .jenkins
 .githubignore
+/docs/internal/
 

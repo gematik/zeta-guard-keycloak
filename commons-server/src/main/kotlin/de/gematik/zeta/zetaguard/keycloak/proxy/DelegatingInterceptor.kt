@@ -31,11 +31,11 @@ import net.bytebuddy.implementation.bind.annotation.RuntimeType
 class DelegatingInterceptor<T>(private val delegate: T, private val augmenter: MethodAugmenter<T>) {
   @RuntimeType
   fun intercept(@Origin method: Method, @AllArguments args: Array<out Any?>): Any? =
-    if (augmenter.isAugmentedMethod(method)) {
-      // Augmented call
-      augmenter.execute(delegate, method, args)
-    } else {
-      // Direct delegation
-      method.invoke(delegate, *args)
-    }
+      if (augmenter.isAugmentedMethod(method)) {
+        // Augmented call
+        augmenter.execute(delegate, method, args)
+      } else {
+        // Direct delegation
+        method.invoke(delegate, *args)
+      }
 }

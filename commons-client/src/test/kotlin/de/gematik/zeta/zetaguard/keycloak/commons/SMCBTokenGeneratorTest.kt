@@ -25,23 +25,21 @@
 
 package de.gematik.zeta.zetaguard.keycloak.commons
 
-import de.gematik.zeta.zetaguard.keycloak.commons.CertificateGenerator.buildCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.subjectKeyPair
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.createVerifierContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generateKeyPair
-import de.gematik.zeta.zetaguard.keycloak.commons.server.setupBouncyCastle
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPEM
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainOnly
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.longs.shouldBeLessThanOrEqual
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldStartWith
 import java.security.cert.X509Certificate
 import org.bouncycastle.asn1.ASN1OctetString
 import org.bouncycastle.asn1.ASN1Primitive
@@ -60,9 +58,15 @@ class SMCBTokenGeneratorTest : ZetaGuardFunSpec() {
   init {
     val objectUnderTest = SMCBTokenGenerator(generateKeyPair())
     val certificate =
-      buildCertificate(
-        subjectName = DN_PRAXIS, subjectKeyPair = generateKeyPair(), issuerName = DN_GEMATIK, issuerKeyPair = generateKeyPair(), isCA = false)
-    val token = objectUnderTest.generateSMCBToken(nonceString = "noncence", certificateChain = listOf(certificate))
+        CertificateGenerator(
+                subjectName = DN_PRAXIS,
+                subjectKeyPair = generateKeyPair(),
+                issuerName = DN_GEMATIK,
+                issuerKeyPair = generateKeyPair(),
+                isCA = false,
+            )
+            .buildCertificate()
+    val token = objectUnderTest.generateSMCBToken(nonceString = "noncence", subject = TELEMATIK_ID, certificateChain = listOf(certificate))
     val (jwt, header) = token.toIDTokenInfo(objectUnderTest.keys.keypair.public.createVerifierContext())
 
     test("Validate JWT") {
@@ -95,12 +99,14 @@ class SMCBTokenGeneratorTest : ZetaGuardFunSpec() {
     test("Validate certificate admissions") { checkCertificateExtensions(certificate, TELEMATIK_ID) }
 
     test("Validate gematik certificate") {
-      val tokenGenerator = SMCBTokenGenerator(subjectKeyPair = subjectKeyPair)
-      val token = tokenGenerator.generateSMCBToken(nonceString = "noncence", certificateChain = listOf(leafCertificate))
-      val (jwt, header) = token.toIDTokenInfo(subjectKeyPair.public.createVerifierContext())
+      val smcb = SMCBTokenHelper()
+      val tokenGenerator = SMCBTokenGenerator(subjectKeyPair = smcb.subjectKeyPair)
+      val token =
+          tokenGenerator.generateSMCBToken(nonceString = "noncence", subject = smcb.telematikId, certificateChain = listOf(smcb.leafCertificate))
+      val (jwt, header) = token.toIDTokenInfo(smcb.subjectKeyPair.public.createVerifierContext())
 
       checkJWT(header, jwt)
-      checkCertificateExtensions(leafCertificate, TELEMATIK_ID)
+      checkCertificateExtensions(smcb.leafCertificate, smcb.telematikId)
     }
   }
 
@@ -129,20 +135,17 @@ class SMCBTokenGeneratorTest : ZetaGuardFunSpec() {
     header.algorithm.name shouldBe "ES256"
     header.type shouldBe OAuth2Constants.JWT
     header.x5c.size shouldBe 1
+    // subject-token-smb.yaml forbids these — must not be emitted
+    header.keyId.shouldBeNull()
+    jwt.type.shouldBeNull()
 
     // Check values of https://github.com/gematik/zeta/blob/main/src/schemas/smb-id-token-jwt.yaml
     jwt.id.shouldNotBeNull()
     jwt.nonce.shouldNotBeNull() // To be checked in integration test
     jwt.issuer shouldBe ZETA_CLIENT
-    jwt.subject shouldBe TELEMATIK_ID
+    jwt.subject shouldStartWith TELEMATIK_ID
     jwt.audience shouldContain ZETA_CLIENT
     (jwt.iat * 1000) shouldBeLessThanOrEqual System.currentTimeMillis()
     (jwt.exp * 1000) shouldBeGreaterThan System.currentTimeMillis()
-  }
-
-  companion object {
-    init {
-      setupBouncyCastle()
-    }
   }
 }

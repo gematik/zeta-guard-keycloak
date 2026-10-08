@@ -41,7 +41,7 @@
     "token.endpoint.auth.signing.alg": "ES256",
     "access.token.signed.response.alg": "ES256",
     "id.token.signed.response.alg": "ES256",
-    "zeta-guard.client.attestation_state": "validated_attestation"
+    "zeta-guard.client.attestation_state": "VALID"
   },
   "authenticationFlowBindingOverrides": {},
   "fullScopeAllowed": true,

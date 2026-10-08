@@ -1,0 +1,1366 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-125d34f0b1208192a6bceafe82c9229daae7d887e8ee04ca5f4812886c19d721",
+  "author": "Unknown Author",
+  "version": 5,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2025-66293"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-02-13T12:54:56.395996953Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22184"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "untgz ist nicht im Image enthalten und wird außerdem auch nicht verwendet.",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-02-13T12:54:56.395996953Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-59250"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.microsoft.sqlserver/mssql-jdbc@13.2.1"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "False positive. Das ist mit Version der hier vorliegenden Version 13.2.1 gefixt. Siehe https://learn.microsoft.com/en-us/sql/connect/jdbc/release-notes-for-the-jdbc-driver?view=sql-server-ver17#132-releases",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-02-13T12:54:56.395996953Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-25646"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-03-13T12:43:30.721754000Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-26740"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-03-23T10:50:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-72hv-8253-57qq"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.19.2"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird von Keycloak verwendet. Allerding wird die verwundbare async Api nicht verwendet. Die verwendete sync Api ist nicht verwundbar.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-03-17T08:26:52.598916253Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-2603"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-server-spi-private@26.5.7"
+        },
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services@26.5.7"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "ZETA does not configure or use SAML Identity Providers. The only Identity Provider is the custom zeta-smc-b-oidc (OIDC-based SMC-B token exchange). The SAML protocol mappers and client scopes present in the realm JSON are Keycloak defaults and do not constitute a SAML IdP. The vulnerability (unauthorized authentication via a disabled SAML IdP) cannot be exploited without a SAML IdP being configured.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-04-23T14:45:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-28164"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat wird der betroffene Code in den headless-Varianten nicht ausgeführt (https://access.redhat.com/security/cve/cve-2025-28164)",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-64505"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek libsplashscreen.so in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2025-64505)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-64506"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek libsplashscreen.so in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2025-64506)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22693"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek HarfBuzz in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2026-22693)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42198"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.postgresql/postgresql"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die Schwachstelle ist nur ausnutzbar, wenn ein Angreifer die verwendete Datenbank des Clients (hier Keycloak-Server) kontrollieren kann. Da die Datenbank hier nicht durch Nutzer konfigurierbar ist, müsste entweder die Postgres-Instanz übernommen werden oder ein MITM-Angriff durchgeführt werden. Beides ist innerhalb des Cluster äußerst unwahrscheinlich.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-06T10:40:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42577"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-transport-native-epoll@4.1.130.Final"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Betroffen sind nur die Version 4.2.x",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-05-04T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22016"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Keycloak-Image (quay.io/keycloak/keycloak) installiert. Da bisher keine Version des Images mit nicht betroffener Version von java-21-openjdk-headless veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22020"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-34282"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Keycloak-Image (quay.io/keycloak/keycloak) installiert. Da bisher keine Version des Images mit nicht betroffener Version von java-21-openjdk-headless veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4878"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/libcap"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Basis-Image (registry.access.redhat.com/ubi9-micro) des Keycloak-Images installiert. Da bisher keine Version des Images mit nicht betroffener Version von libcap2 veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-6860"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.vertx/vertx-core"
+        }
+      ],
+      "status": "affected",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-7500"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Im ZETA-Keycloak wird die Account REST API nicht deaktiviert. Insofern besteht kein Risiko, dass diese nicht vollständig deaktiviert werden könnte (https://github.com/keycloak/keycloak/issues/48709).",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22013"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). (https://www.oracle.com/security-alerts/cpuapr2026.html#AppendixJAVA, NOTE 1)",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22695"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22801"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33416"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33636"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-34757"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4628"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "affected",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-5278"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/coreutils-single"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Coreutils ist eine Sammlung von grundlegenden Shell-Commandos bzw. -Werkzeugen (https://www.gnu.org/software/coreutils/). Das betroffene Werkzeug ist sort (/usr/bin/sort). Keycloak ruft sort nicht auf. Damit ein Angreifer sort mit benutzerdefinierten Parametern aufrufen könnte, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben. Diese Bedingung ist nicht zutreffend.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5435"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Es werden ausschließlich Java-Programme ausgeführt, die nicht direkt auf Funktionen aus dynamischen Bibliotheken angewiesen sind. Es wird kein JNI (Java Native Interface) oder JNA (Java Native Access) verwendet. Eine dynamische Bibliothek importiert die betroffene Funktion fp_nquery(): '/usr/lib64/libresolv.so.2'. JVM-bezogene Executables und dynamische Bibliotheken importieren die anderen betroffenen dynamischen Bibliotheken nicht. Damit ein Angreifer die betroffene Bibliothek mit benutzerdefinierten Parametern aufrufen kann, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben. Diese Bedingung ist nicht zutreffend.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5450"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "affected",
+      "status_notes": "Die betroffene Funktionen-Familie von scanf() wird in diversen Executables und Libraries genutzt. Daher kann nicht ausgeschlossen werden, dass die Schwachstelle im Rahmen der hohen Angriffskomplexität ausgenutzt werden kann. Die Schwachstelle wird von der NVD als Critical eingestuft (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H). Doch Red Hat bietet eine gut begründete Analyse (https://access.redhat.com/security/cve/cve-2026-5450), durch die diese Schwachstelle einen CVSS3.1-Score von 5 (Medium) erhält (CVSS:3.1/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:H). ",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5928"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Es werden ausschließlich Java-Programme ausgeführt, die nicht direkt auf Funktionen aus dynamischen Bibliotheken angewiesen sind. Es wird kein JNI (Java Native Interface) oder JNA (Java Native Access) verwendet. Keine Executable und keine dynamische Bibliothek importieren die betroffene Funktion ungetwc()",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-45292"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.opentelemetry/opentelemetry-api"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut Vendor Advisory (https://github.com/open-telemetry/opentelemetry-java/security/advisories/GHSA-rcgg-9c38-7xpx) kann der Attack Vector geschlossen werden, wenn der Anwendungsserver selber Limits für Header Size setzt. Quarkus setzt per default quarkus.http.limits.max-header-size=20k und für HTTP/2 quarkus.http.limits.max-header-list-size=8192. Die defaults werden weder durch Umgebungsvariablen noch durch eine /conf/quarkus.properties angepasst. Dadurch wird die Größe des baggage-Headers von opentelemetry-api begrenzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-02T08:38:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41254"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die betroffenen Java-Funktionen sind ICC_Profile.getInstance(bytes) und ICC_Profile.toRGB() (https://abhinavagarwal07.github.io/posts/lcms2-cubesize-overflow/). Die beiden Funktionen werden in keiner Jar-Datei im Zeta-Keycloak-Image gefunden. Verifiziert mit grep.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-05T14:42:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5958"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/sed"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "In keinem Skript im Zeta-Keycloak-Image wird sed mit den Parameter -i und --follow-symlinks aufgerufen. Mit grep getestet.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-05T14:42:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-6238"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die betroffenen Funktionen sind ns_printrrf, ns_printrr und fp_nquery. Diese werden in keiner Executable oder Bibliothek im Image importiert. Die einzige Ausnahme ist fp_nquery(). Diese Funktion wird von '/usr/lib64/libresolv.so.2' importiert. Verifiziert mithilfe von von nm -D, ldd und grep -aF. Laut https://seclists.org/oss-sec/2026/q2/251 wird diese Funktion nur zum Debugging verwendet und nicht im Aufruf-Pfad des DNS-Resolvers in libresolv.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54369"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/libacl"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "libacl ist im Base-Image vorhanden und wird nur von OS-Utilities (cp/mv/install/coreutils/sed) importiert, die im Keycloak-Betrieb nicht ausgeführt werden. Keines der acl-importierenden Binaries ist setuid. Der Keycloak nutzt libacl nicht. Ausnutzung erfordert einen privilegierten Aufruf auf angreiferkontrollierten Pfaden — im Keycloak-Laufzeitkontext nicht gegeben.",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54370"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/libacl"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "libacl ist im Base-Image vorhanden und wird nur von OS-Utilities (cp/mv/install/coreutils/sed) importiert, die im Keycloak-Betrieb nicht ausgeführt werden. Keines der acl-importierenden Binaries ist setuid. Der Keycloak nutzt libacl nicht. Ausnutzung erfordert einen privilegierten Aufruf auf angreiferkontrollierten Pfaden — im Keycloak-Laufzeitkontext nicht gegeben. Die CLI-Tools getfacl/setfacl/chacl sind im Image nicht enthalten.",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54371"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/libattr"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die Schwachstelle betrifft die CLI-Tools getfattr und setfattr (aus dem attr-Paket). Diese Tools sind nicht im Image enthalten (verifiziert mit 'find / -name getfattr' und 'find / -name setfattr'). Im Image ist nur die Bibliothek libattr1 vorhanden.",
+      "justification": "component_not_present",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-13757"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/p11-kit-trust"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die Schwachstelle betrifft den RPC-Remoting-Code von p11-kit (p11_rpc_message_get_attribute() und p11_rpc_message_get_attribute_array_value() in p11-kit/rpc-message.c), der ausschliesslich im Paket p11-kit ausgeliefert wird. Dieses Paket ist im Image nicht installiert; vorhanden ist nur p11-kit-trust (/usr/lib64/pkcs11/p11-kit-trust.so), das keinen RPC-Server/Socket bereitstellt und keinen der verwundbaren Codepfade enthält (kein RPC-Symbol/String). Die verwundbare Komponente ist somit nicht vorhanden.",
+      "justification": "component_not_present",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54512"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "PolymorphicTypeValidator(PTV)-Bypass: Bei einer klassennamenbasierten Typ-ID mit Generics (z. B. java.util.ArrayList<com.evil.Gadget>) validiert die Methode nur den Roh-Container vor '<'; TypeFactory.constructFromCanonical() konstruiert anschließend den vollständigen parametrisierten Typ, ohne die verschachtelten Typ-Argumente erneut gegen den PTV zu prüfen, sodass eine per Allowlist verbotene Klasse als generischer Parameter eines erlaubten Containers instanziiert wird (https://github.com/FasterXML/jackson-databind/security/advisories/GHSA-j3rv-43j4-c7qm). Ausnutzung setzt zwingend voraus, dass (a) ein restriktiver PTV (Allowlist) konfiguriert ist und (b) dieser bei der polymorphen Deserialisierung nicht vertrauenswürdigen JSONs über klassennamenbasierte Typ-IDs konsultiert wird — d. h. @JsonTypeInfo mit Id.CLASS/Id.MINIMAL_CLASS oder aktiviertes Default Typing. Nur auf diesem Pfad (ClassNameIdResolver) wird ein Angreifer-Klassenname via constructFromCanonical() geparst. Weder im ZETA- noch im Keycloak-Code (26.6.3) wird ein PTV registriert oder Default Typing aktiviert: Der Bytecode-Scan über alle Jars im Image zeigt keine Referenz auf setPolymorphicTypeValidator, activateDefaultTyping, enableDefaultTyping oder BasicPolymorphicTypeValidator. Sämtliche polymorphe Deserialisierung nutzt @JsonTypeInfo(use=Id.NAME) mit geschlossener @JsonSubTypes-Allowlist (ZETA: ProductId, ClientStatementData; Keycloak: BaseClientRepresentation, AttestationStatementSerializationContainer, CredentialRequest). Verifiziert mit grep über die Quellcodes von ZETA-Keycloak und Upstream-Keycloak. Die Auflösung läuft namensbasiert über TypeNameIdResolver und erreicht constructFromCanonical() nicht. Der verwundbare Code-Pfad wird somit nicht erreicht. ",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54513"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "PolymorphicTypeValidator(PTV)-Bypass in BasicPolymorphicTypeValidator.Builder.allowIfSubTypeIsArray(). Ausnutzung setzt zwingend voraus, dass ein per allowIfSubTypeIsArray() konfigurierter BasicPolymorphicTypeValidator im Deserialisierungspfad von nicht vertrauenswürdigem JSON verwendet wird. Im gesamten Image (494 Jars) gibt es keine Referenz auf allowIfSubTypeIsArray, activateDefaultTyping oder enableDefaultTyping (verifiziert per Bytecode-grep über die Konstantenpools). Die von RedHat vorgeschlagene Mitigation ist damit erfüllt: https://access.redhat.com/security/cve/cve-2026-54513. Es wird kein PTV konfiguriert und Default Typing wird nicht aktiviert. Die einzige polymorphe Deserialisierung im ZETA-Code (ProductId, ClientStatementData) nutzt @JsonTypeInfo(use=Id.NAME) mit einer geschlossenen @JsonSubTypes-Allowlist ohne PTV. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54514"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Der verwundbare Code liegt in jackson-databind selbst (JDKFromStringDeserializer): Bindet jackson nicht vertrauenswürdiges JSON in einen Wert, dessen statischer Typ java.net.InetSocketAddress ist, ruft es 'new InetSocketAddress(host, port)' auf, was eine eager DNS-Auflösung auslöst. Ausnutzbar ist damit nur ein Typ, der einen InetSocketAddress als Bindungsziel deklariert und aus angreiferkontrolliertem JSON (REST-Body, Token-/Client-Payload) deserialisiert wird. Ein Bytecode-Scan über alle 494 Jars im Image (Konstantenpool-Grep auf java.net.InetSocketAddress, Feld-/Accessor-Analyse per javap) fand 97 Klassen mit einem InetSocketAddress-Feld, davon 16 in ZETA/shaded-Code. Sämtliche Treffer sind reine Netzwerk-Infrastrukturtypen (Netty, Undertow, Vert.x, Apache HttpClient, shaded gRPC/Netty); keiner ist ein jackson-DTO, das aus nicht vertrauenswürdigem JSON gebunden wird. Es existiert kein Deserialisierungspfad von untrusted Input auf einen InetSocketAddress.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-9689"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Keycloak überprüft nicht, ob übergebene Redirect URIs Request Parameter enthalten, die OIDC-Response Parametern entsprechen, wordurch es zu Duplikaten kommen kann. Dies ist nur bei der Konfiguration von Redirect URIs mit Wildcard möglich. Bisher werden zur Authentifizierung keine Redirect UIRs verwendet. Daher wird der vulnerable Code-Pfad momentan nicht aufgerufen. Wenn das Feature zukünftig von mobile Clients genutzt wird, sollte die Schwachstelle im Upstream bereits gefixt sein. Ein entsprechende Nachkontrolle ist notwendig.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-9793"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "CVE-2026-9793 ermöglicht es, mit einem JWE-verschlüsselten Request Object eine für einen Client konfigurierte Request-Object-Signatur-Policy zu umgehen. Eine solche Policy wird über das Client-Attribut request.object.signature.alg (getRequestObjectSignatureAlg) gesetzt. Bei keinem ZETA-Client ist dieses Attribut gesetzt. Ohne gesetzten Wert gilt der Default 'any', es existiert also keine erzwungene Signatur-Policy. Somit gibt es keine Policy, die umgangen werden könnte, und der verwundbare Code-Pfad wird nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-9798"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Diese Schwachstelle kann nur ausgenutzt werden, wenn CIBA (Client-Initiated Backchannel Authentication) im Keycloak konfiguriert und aktiviert ist (siehe https://access.redhat.com/security/cve/cve-2026-9798). Dies ist nicht der Fall. Daher ist der vulnerable Code-Pfad nicht erreichbar.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-9795"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Privilege Escalation in Fine-Grained Admin Permissions v2 (FGAPv2). Ausnutzung setzt zwingend voraus, dass FGAPv2 auf einem Realm aktiviert ist (adminPermissionsEnabled=true) und einem Nicht-Realm-Admin eingeschränkte Client-Management-Rechte delegiert wurden. Bei ZETA ist FGAPv2 deaktiviert, es wird kein entsprechendes Feature-Flag (KC_FEATURES/--features) gesetzt. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-50020"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Ausnutzung erfordert, dass ein vorgelagertes Front-End rohe führende Steuerzeichen an einer Request-Grenze über eine geteilte Upstream-Verbindung an Netty durchreicht. In ZETA steht ein nginx-Ingress (>=1.21.1) vor Keycloak, der seit 1.21.1 Steuerzeichen in der Request-Line grundsätzlich mit einem Fehler abweist (siehe https://nginx.org/en/CHANGES, Eintrag 1.21.1: 'now nginx always returns an error if spaces or control characters are used in the request line'). Dadurch können die für den Desync nötigen Steuerzeichen den Netty-Decoder nicht verbatim erreichen, auch bei aktivem Upstream-Keepalive.",
+      "justification": "inline_mitigations_already_exist",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54515"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Ausnutzung setzt zwingend zwei gleichzeitig erfüllte Bedingungen voraus: (a) auf dem verwendeten Mapper ist case-insensitives Property-Matching aktiviert (MapperFeature.ACCEPT_CASE_INSENSITIVE_PROPERTIES bzw. @JsonFormat(with=Feature.ACCEPT_CASE_INSENSITIVE_PROPERTIES)) UND (b) ein konkret benanntes @JsonIgnoreProperties({'feld'}) soll die Deserialisierung eines deklarierten Feldes verhindern (Mass-Assignment-Schutz). Die erste Bedingungen ist weder im ZETA- noch im Keycloak-Code (26.6.3) erfüllt: Im ZETA-Code wird auf dem geteilten JsonSerialization.mapper ausschließlich MapperFeature.ACCEPT_CASE_INSENSITIVE_ENUMS aktiviert (commons-server JsonUtil) — das betrifft nur Enum-Werte, nicht Property-Namen. ACCEPT_CASE_INSENSITIVE_PROPERTIES wird nirgends aktiviert. Ein Bytecode-Scan über alle Jars im Image (Konstantenpool-Grep auf ACCEPT_CASE_INSENSITIVE_PROPERTIES) findet die Konstante ausschließlich in jackson-databind (Implementierung) und jackson-annotations (Enum-Deklaration). Kein Keycloak- oder Anwendungs-Jar referenziert oder aktiviert das Feature. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54516"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "@JsonIgnore-Bypass in jackson-databind durch Property-Rename und aktiviertes MapperFeature.INFER_PROPERTY_MUTATORS (default). Ausnutzbar ist nur ein POJO mit asymmetrischer Form (Getter @JsonProperty('wireName') und Setter @JsonIgnore auf derselben Property), das aus angreiferkontrolliertem JSON gebunden wird. Die einzige ZETA-Klasse mit beiden Annotationen ist ProductId, dort ist die verwundbare Form nicht gegeben: Das Feld productPlatform ist final und hat keinen Setter (per javap verifiziert), es wird nie aus JSON gebunden, sondern vom Subtyp-Konstruktor mit einer festen Konstante belegt (AndroidProductId auf ANDROID usw.). Es ist zugleich der sichtbare @JsonTypeInfo-Diskriminator 'platform' — derselbe JSON-Schlüssel steuert Subtyp-Auswahl und Feldwert, eine Divergenz ist nicht erzeugbar. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54517"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "@JsonView-Bypass in jackson-databind auf setter-losen Collection/Map-Properties. Ausnutzbar ist nur eine mit @JsonView eingeschränkte, setter-lose Collection/Map-Property, die auf dem Deserialisierungspfad mit aktiver View gebunden wird. Beides ist nicht gegeben: Im ZETA-Code gibt es keine @JsonView-Nutzung und keine view-basierte Deserialisierung (kein withView/DEFAULT_VIEW_INCLUSION). Ein Bytecode-Scan über alle 494 Jars im Image findet genau eine Nicht-jackson-Klasse mit @JsonView, JacksonMessageBodyWriterUtil aus dem resteasy-reactive-jackson-Provider — die reine Serialisierungs-/Response-Seite. Der zugehörige JacksonBasicMessageBodyReader referenziert @JsonView nicht und setzt keine aktive View, DEFAULT_VIEW_INCLUSION wird nur von jackson-databind selbst referenziert. Damit wird nirgends eine @JsonView-Property auf dem Deserialisierungspfad mit aktiver View gebunden. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54518"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Ausnutzbar ist die Schwachstelle nur, wenn eine Klasse, deren Creator-Parameter zugleich @JsonUnwrapped und @JsonView trägt und die auf dem Deserialisierungspfad mit aktiver View aus angreiferkontrolliertem JSON gebunden wird. Diese Form fehlt vollständig: Im ZETA-Code gibt es weder @JsonUnwrapped noch @JsonView und keine view-basierte Deserialisierung. Ein Bytecode-Scan über alle 494 Jars im Image findet keine einzige Klasse mit beiden Annotationen. Die einzige Nicht-jackson-@JsonView-Nutzung überhaupt ist JacksonMessageBodyWriterUtil (resteasy-reactive-jackson) auf der reinen Serialisierungsseite, nicht auf einem @JsonUnwrapped-Creator und nicht auf dem Deserialisierungspfad. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-01T18:09:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-54291",
+        "aliases": [
+          "GHSA-j92g-9f8w-j867"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.postgresql/postgresql"
+        }
+      ],
+      "status": "affected",
+      "status_notes": "Ermöglicht ein angreifer-initiiertes Downgrade von SCRAM-SHA-256-PLUS auf SCRAM-SHA-256 im PostgreSQL-Treiber pgJDBC, wodurch der MITM-Schutz verloren geht, den SCRAM-SHA-256-PLUS bieten soll. Der Angriff ist nur ausnutzbar wenn channel-binding über 'channelBinding=require' konfiguriert wird. Unter anderen Konfigurationen von 'channelBinding' ist der Fallback auf SCRAM-SHA-256 das dokumentierte Verhalten. Die Datenbank in ZETA ist typischerweise nicht aus dem Internet erreichbar. Daher wurde der auf der öffentlichen Schwachstellenmeldung (https://nvd.nist.gov/vuln/detail/CVE-2026-54291) basierende CVSS3.1-Vektor über 'Environmental Score Metrics' angepasst ('Attack Vector' (AV): 'Adjacent Network'). Außerdem wurden 'Temporal Score Metrics' gesetzt. Der daraus folgenden CVSS3.1-Vektor resultiert in einem Score von 4.9 (LOW): CVSS3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:N/I:H/A:N/E:U/RL:U/RC:C/CR:X/IR:X/AR:X/MAV:A/MAC:H/MPR:N/MUI:N/MS:U/MC:N/MI:H/MA:N.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59888",
+        "aliases": [
+          "GHSA-3pjw-73gf-8qr5"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Ausnutzung setzt zwingend voraus: (1) ein Java-Record, dessen Komponente @JsonIgnore trägt (2) eine auf diesen Record wirkende PropertyNamingStrategy — global via ObjectMapper.setPropertyNamingStrategy bzw. quarkus.jackson.property-naming-strategy ODER pro Klasse via @JsonNaming (3) Deserialisierung aus angreiferkontrolliertem JSON. Ein Bytecode-Scan über alle 494 Jars im Image (Schnittmenge aus super_class java/lang/Record und dem @JsonIgnore-Deskriptor (1), jackson-eigene Klassen ausgeschlossen; zusätzlich @JsonNaming/setPropertyNamingStrategy/PropertyNamingStrategies als (2)) findet keine Klasse, die zugleich Java-Record ist und @JsonIgnore trägt. Weder ZETA Guard Keycloak noch Keycloak 26.6.3 besitzen einen Record mit @JsonIgnore auf dem Deserialisierungspfad. Der verwundbare Code-Pfad (1) ist somit nirgends vorhanden und wird nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59889",
+        "aliases": [
+          "GHSA-5gvw-p9qm-jgwh"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Ausnutzbar ist die Schwachstelle nur, wenn eine Klasse, deren Creator-Parameter zugleich @JsonUnwrapped und @JsonView trägt und die auf dem Deserialisierungspfad mit aktiver View aus angreiferkontrolliertem JSON gebunden wird. Diese Form fehlt vollständig: Im ZETA-Code gibt es weder @JsonUnwrapped noch @JsonView und keine view-basierte Deserialisierung. Ein Bytecode-Scan über alle 494 Jars im Image findet keine einzige Klasse mit beiden Annotationen. Die einzige Nicht-jackson-@JsonView-Nutzung überhaupt ist JacksonMessageBodyWriterUtil (resteasy-reactive-jackson) auf der reinen Serialisierungsseite, nicht auf einem @JsonUnwrapped-Creator und nicht auf dem Deserialisierungspfad. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-r7wm-3cxj-wff9"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-core"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Unvollständiger Fix von GHSA-72hv-8253-57qq. Daher gleiche Argumentation wie dort. Betroffen ist ausschließlich der non-blocking Async-Parser (createNonBlockingByteArrayParser/createNonBlockingByteBufferParser, NonBlockingUtf8JsonParserBase). Diese async API wird von Keycloak nicht verwendet. Die verwendete sync API (UTF8StreamJsonParser/ReaderBasedJsonParser) ist nicht verwundbar.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-mhm7-754m-9p8w"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-databind"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "@JsonView-Bypass in jackson-databind (BeanDeserializer.deserializeUsingPropertyBasedWithExternalTypeId) für Creator-Parameter mit @JsonTypeInfo(include=As.EXTERNAL_PROPERTY): der Creator-Zweig lässt den visibleInView(activeView)-Check aus, sodass ein per @JsonView eingeschränkter Parameter dennoch aus JSON gebunden wird. Ausnutzbar ist nur eine Klasse, deren Creator-Parameter zugleich @JsonView und @JsonTypeInfo(use=Id.NAME, include=As.EXTERNAL_PROPERTY) trägt und die auf dem Deserialisierungspfad mit aktiver View aus angreiferkontrolliertem JSON gebunden wird. Diese Form fehlt vollständig: Ein Bytecode-Scan über alle 494 Jars im Image (Konstantenpool-Grep) findet @JsonView in genau einer Nicht-jackson-Klasse, JacksonMessageBodyWriterUtil (resteasy-reactive-jackson) - der reinen Serialisierungs-/Response-Seite (MessageBodyWriter), nicht dem verwundbaren Deserializer-Pfad; 0 Treffer in ZETA-/Keycloak-Code. As.EXTERNAL_PROPERTY wird von 10 Klassen referenziert, aber keine davon trägt zugleich @JsonView. Die Schnittmenge (@JsonView UND EXTERNAL_PROPERTY in derselben Klasse) ist leer. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-55831",
+        "aliases": [
+          "GHSA-6jqx-86gh-f27w"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "SPDY/3.1-SETTINGS-Frame-DoS in netty-codec-http: Der SPDY-Frame-Decoder übernimmt die vom Peer angegebene Anzahl der Settings-Einträge ohne absolutes Limit, sodass ein einzelnes rund 2 MiB großes SETTINGS-Frame 262144 Map-Einträge und damit etwa 17-18 MiB Heap erzeugt (unauthentifizierter Remote-DoS). Ausnutzbar ist die Schwachstelle nur, wenn eine Netty-ChannelPipeline explizit einen SPDY-Handler installiert. SPDY ist in Netty reiner Opt-in-Code: Netty verdrahtet es niemals selbst, es gibt keine Auto-Konfiguration, keinen Default und keinen Fallback von HTTP/1.1 oder HTTP/2. Keycloak bedient HTTP über Quarkus/Vert.x, und Vert.x nutzt den SPDY-Codec von Netty nicht: Vert.x unterstützt ausschließlich HTTP/1.0, HTTP/1.1 und HTTP/2 - das Enum io.vertx.core.http.HttpVersion kennt keinen SPDY-Wert (https://vertx.io/docs/apidocs/io/vertx/core/http/HttpVersion.html), und ein Feature-Request für SPDY wurde ohne Umsetzung geschlossen (https://github.com/eclipse-vertx/vert.x/issues/1510).  SPDY selbst ist seit 2016 obsolet, seit HTTP/2 (RFC 7540) es als Standard ersetzt hat. Quarkus implementiert SPDY nicht. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-55833",
+        "aliases": [
+          "GHSA-mvh2-crg5-v77c"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Zlib-Dekompressionsbombe im SPDY-Header-Block von netty-codec-http. Ausnutzbar ist die Schwachstelle nur, wenn eine Netty-ChannelPipeline explizit einen SPDY-Handler installiert. SPDY ist in Netty reiner Opt-in-Code: Netty verdrahtet es niemals selbst, es gibt keine Auto-Konfiguration, keinen Default und keinen Fallback von HTTP/1.1 oder HTTP/2. Keycloak bedient HTTP über Quarkus/Vert.x, und Vert.x nutzt den SPDY-Codec von Netty nicht: Vert.x unterstützt ausschließlich HTTP/1.0, HTTP/1.1 und HTTP/2 - das Enum io.vertx.core.http.HttpVersion kennt keinen SPDY-Wert (https://vertx.io/docs/apidocs/io/vertx/core/http/HttpVersion.html), und ein Feature-Request für SPDY wurde ohne Umsetzung geschlossen (https://github.com/eclipse-vertx/vert.x/issues/1510).  SPDY selbst ist seit 2016 obsolet, seit HTTP/2 (RFC 7540) es als Standard ersetzt hat. Quarkus implementiert SPDY nicht. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56745",
+        "aliases": [
+          "GHSA-jppx-w49h-x2qq"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "ByteBuf-Referenzleck im SPDY-Codec von netty-codec-http: Beim Eintreffen eines RST_STREAM-Frames oder beim Überschreiten des Content-Length-Limits entfernt der Decoder den Stream aus seiner Map, ohne den gepoolten ByteBuf freizugeben, sodass ein Angreifer über wiederholte Stream-Resets den nativen Speicher erschöpfen kann (DoS). Ausnutzbar ist die Schwachstelle nur, wenn eine Netty-ChannelPipeline explizit einen SPDY-Handler installiert. SPDY ist in Netty reiner Opt-in-Code: Netty verdrahtet es niemals selbst, es gibt keine Auto-Konfiguration, keinen Default und keinen Fallback von HTTP/1.1 oder HTTP/2. Keycloak bedient HTTP über Quarkus/Vert.x, und Vert.x nutzt den SPDY-Codec von Netty nicht: Vert.x unterstützt ausschließlich HTTP/1.0, HTTP/1.1 und HTTP/2 - das Enum io.vertx.core.http.HttpVersion kennt keinen SPDY-Wert (https://vertx.io/docs/apidocs/io/vertx/core/http/HttpVersion.html), und ein Feature-Request für SPDY wurde ohne Umsetzung geschlossen (https://github.com/eclipse-vertx/vert.x/issues/1510).  SPDY selbst ist seit 2016 obsolet, seit HTTP/2 (RFC 7540) es als Standard ersetzt hat. Quarkus implementiert SPDY nicht. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-55851",
+        "aliases": [
+          "GHSA-q6cq-mhr2-jmr5"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-haproxy"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Direct-Memory-Exhaustion im HAProxyMessageDecoder von netty-codec-haproxy. Erreichbar ist der Code-Pfad jedoch nur, wenn ein HAProxyMessageDecoder in einer Netty-ChannelPipeline registriert wird, und das geschieht ausschließlich bei aktiviertem PROXY-Protokoll. Ein Bytecode-Scan über alle 362 Jars in /opt/keycloak/lib/lib/main und /opt/keycloak/providers zeigt, dass ausschließlich vertx-core 4.5.27 den HAProxy-Codec referenziert (io.vertx.core.http.impl.HttpServerWorker, io.vertx.core.net.impl.NetServerImpl$NetServerWorker, io.vertx.core.net.impl.HAProxyMessageCompletionHandler); kein Keycloak-Modul und kein Keycloak-Provider nutzt ihn. HttpServerWorker.accept() fügt den Decoder nur unter der Bedingung HAProxyMessageCompletionHandler.canUseProxyProtocol(options.isUseProxyProtocol()) hinzu. Keiner der Schalter, die diese Bedingung erfüllen würden, ist aktiviert - weder auf Netty-/Vert.x-, noch auf Quarkus-, noch auf Keycloak-Ebene. Auf Vert.x-Ebene ist NetServerOptions.DEFAULT_USE_PROXY_PROTOCOL false. Quarkus speist den Schalter aus quarkus.http.proxy.use-proxy-protocol (RUN_TIME, Default false, io.quarkus.vertx.http.runtime.ProxyConfig); für die Management-Schnittstelle gilt quarkus.management.proxy.use-proxy-protocol mit demselben Default false. Keycloak bildet ihn auf die Option proxy-protocol-enabled ab (org.keycloak.config.ProxyOptions, Default false). Die Defaults werden weder durch Umgebungsvariablen (KC_PROXY_PROTOCOL_ENABLED, QUARKUS_HTTP_PROXY_USE_PROXY_PROTOCOL) noch durch eine Konfiguration in /opt/keycloak/conf/keycloak.conf oder /opt/keycloak/conf/quarkus.properties angepasst. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56746",
+        "aliases": [
+          "GHSA-6cqp-g7gg-8hr5"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Umgehung der CORS-Short-Circuit-Prüfung in netty-codec-http: Bei 'Origin: null' liefert io.netty.handler.codec.http.cors.CorsHandler eine CorsConfig zurück, obwohl der Null-Origin nicht erlaubt ist, sodass die per CorsConfigBuilder.shortCircuit() konfigurierte Abweisung ausbleibt. Ein Bytecode-Scan über alle 494 Archive des Images zeigt: Außerhalb von io.netty.* referenziert keine Klasse das Paket io/netty/handler/codec/http/cors/; die Positivkontrolle des Scans (16 Treffer innerhalb von Nettys eigenen Klassen) belegt, dass die Suche greift. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59898",
+        "aliases": [
+          "GHSA-4mp9-239f-g9hg"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Fehlende Connection/Upgrade-Validierung im WebSocket-V07/V08-Handshaker von netty-codec-http (GHSA-4mp9-239f-g9hg, CWE-444, CVSS 4.0: AV:N/AC:H/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N). io.netty.handler.codec.http.websocketx.WebSocketServerHandshaker07 und ...Handshaker08 erzeugen die Handshake-Antwort, ohne zu prüfen, ob die Anfrage 'Connection: Upgrade' und 'Upgrade: websocket' trug; ein Client kann damit einen 101-Protokollwechsel erzwingen, den ein vorgelagerter Proxy nicht als Upgrade erkennt (Request Smuggling / Protocol Confusion). Keycloak nutzt keine WebSockets: Es ist kein WebSocket-Endpunkt exponiert und kein WebSocket-Handler registriert, sodass ein WebSocket-Server-Handshaker nie in eine Netty-ChannelPipeline gelangt. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59899",
+        "aliases": [
+          "GHSA-q4f6-jm68-57ww"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Unbegrenzt wachsende Warteschlange im HttpContentEncoder von netty-codec-http. io.netty.handler.codec.http.HttpContentEncoder - Elternklasse des Produktionshandlers HttpContentCompressor - hält pro Verbindung eine ArrayDeque<CharSequence> acceptEncodingQueue ohne Größenbegrenzung: Für jeden eingehenden Request kommt auf dem I/O-Thread ein Eintrag hinzu, geleert wird die Queue erst, wenn die Anwendung eine Non-1xx-Antwort sendet. Über HTTP/1.1-Pipelining kann ein unauthentifizierter Angreifer schneller Requests einspeisen als Antworten entstehen und so den Speicher erschöpfen (Remote-DoS). Im Keycloak ist Antwortkompression nicht aktiviert: Die Schalter quarkus.http.enable-compression und quarkus.management.enable-compression werden während der Quarkus-Augmentation aufgelöst und sind im Image auf false eingebacken. Gesetzt werden sie weder in /opt/keycloak/conf/quarkus.properties noch im Helm-Chart. Ohne aktivierte Kompression wird der HttpContentEncoder nicht in die Netty-ChannelPipeline eingehängt. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56391",
+        "aliases": [
+          "GHSA-7xvj-m9x7-qgxq"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/coreutils-single"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Coreutils ist eine Sammlung von grundlegenden Shell-Commandos bzw. -Werkzeugen (https://www.gnu.org/software/coreutils/). Das betroffene Werkzeug ist uniq (/usr/bin/uniq). Keycloak ruft uniq nicht auf. Damit ein Angreifer sort mit benutzerdefinierten Parametern aufrufen könnte, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56392",
+        "aliases": [
+          "GHSA-g24f-m2hx-pfgx"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/coreutils-single"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Coreutils ist eine Sammlung von grundlegenden Shell-Commandos bzw. -Werkzeugen (https://www.gnu.org/software/coreutils/). Das betroffene Werkzeug ist unexpand (/usr/bin/unexpand). Keycloak ruft unexpand nicht auf. Damit ein Angreifer sort mit benutzerdefinierten Parametern aufrufen könnte, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-73508",
+        "aliases": [
+          "GHSA-mfg7-5gfp-c4w3"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-dns"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Speicherleck im DNS-Record-Decoder von netty-codec-dns. io.netty.handler.codec.dns.DefaultDnsRecordDecoder.decodeRecord() übergibt den dekodierten Domainnamen beim Konstruieren des DnsRecord an java.net.IDN.toASCII(); bei IDNA-verletzenden Zeichen wird eine IllegalArgumentException geworfen, bevor die ByteBuf-Referenz im Record abgelegt ist, sodass der Puffer nie freigegeben wird. Dieselbe Form hat DnsCodecUtil.decompressDomainName(), das einen selbst allokierten Puffer verliert. Anhaltend fehlerhafte DNS-Antworten erschöpfen so schrittweise den Direct Memory. Ausgelöst wird das Leck ausschließlich beim Dekodieren von DNS-Antworten, nicht durch Anfragen an den Keycloak. Im Keycloak erreichen keine angreiferkontrollierten Hostnamen den Netty-DNS-Codec. Dieser liegt ausschließlich auf dem Pfad von Vert.x-/Netty-Clients: Vert.x baut über io.vertx.core.impl.resolver.DnsResolverProvider einen Netty-DnsNameResolver, weil der Schalter vertx.disableDnsResolver nicht gesetzt ist; die darüber aufgelösten Namen (Vert.x-HTTP-Server, OTLP-Exporter, Infinispan-Hotrod-Client) stammen sämtlich aus der Betreiberkonfiguration. Die ausgehenden HTTP-Aufrufe des Keycloak selbst — z.B. der OPA-Aufruf sowie die OCSP-Abfrage in OcspUtil.getEncodedOCSPResponse() — laufen dagegen über Apache HttpClient 4 aus Keycloaks DefaultHttpClientFactory (session.httpClient). Dieser löst Hostnamen über SystemDefaultDnsResolver bzw. java.net.InetAddress und damit über den blockierenden JDK-Resolver auf. Ein eigener DnsResolver ist am HttpClient nicht gesetzt und im Image registriert kein Jar einen java.net.spi.InetAddressResolverProvider, der die JDK-Auflösung auf Netty umleiten würde. Die theoretisch angreiferbeeinflussbare, aus der AuthorityInformationAccess-Extension des Zertifikats stammende OCSP-Responder-URL erreicht den Netty-Codec deshalb nicht. Übrig bleiben damit nur zwei Angreiferpositionen: das Einschleusen gefälschter DNS-Antworten im Container-Netz (Spoofing oder Kontrolle des konfigurierten Nameservers) oder die autoritative Kontrolle über eine DNS-Zone, deren Hostnamen der Betreiber ohnehin konfiguriert hat. Beides setzt voraus, dass die Netzwerk- bzw. DNS-Vertrauensgrenze bereits verletzt ist; diese liegt außerhalb der Verantwortung dieser Komponente. Ein Angreifer in einer dieser Positionen verfügt zudem über deutlich wirksamere Angriffe als ein schrittweises Direct-Memory-Leck.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-47063",
+        "aliases": [
+          "GHSA-vw39-pj36-hc59"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "status_notes": "Die öffentlichen CVE-Beschreibungen von Oracle und NVD benennen die betroffene Codestelle nicht, sondern nur die Sammelkomponente. Die einzige belastbare Quelle dafür, was die Schwachstelle konkret ist, ist der zugehörige Fix-Commit im OpenJDK; er ist daher hier verlinkt und trägt die Bewertung. Der Fix JDK-8381049 'Enhance Jar handling' (https://github.com/openjdk/jdk21u/commit/1f0f5e25e84d03b540d5a41bbd317cb20d3b90b4) betrifft sun/security/pkcs/SignerInfo.java und sun/security/timestamp/TSResponse.java, also die Prüfung der PKCS#7/CMS-SignerInfo-Struktur und der RFC-3161-Timestamp-Antwort im Rahmen der Signaturprüfung signierter JAR-Dateien. Im Container wird kein angreiferkontrolliertes, signiertes JAR geprüft: die JAR-Signaturprüfung trifft ausschließlich ins Image gebackene Artefakte, es gibt keinen Endpunkt, der Archive annimmt.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-60147",
+        "aliases": [
+          "GHSA-4pv6-97j8-3pwq"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "status_notes": "Die öffentlichen CVE-Beschreibungen von Oracle und NVD benennen die betroffene Codestelle nicht, sondern nur die Sammelkomponente. Die einzige belastbare Quelle dafür, was die Schwachstelle konkret ist, ist der zugehörige Fix-Commit im OpenJDK; er ist daher hier verlinkt und trägt die Bewertung. Der Fix JDK-8380672 'Improve certification checking' (https://github.com/openjdk/jdk21u/commit/8f58b0f5e45df66b75a4888513cf7dde0d47a793) betrifft sun/security/x509/DNSName.java und sun/security/util/HostnameChecker.java, also die Auswertung von DNS-Namen bei der Prüfung der NameConstraints-Extension während der PKIX-Pfadvalidierung. Die CA-Zertifikate der gematik enthalten keine NameConstraints-Extension (siehe https://download.tsl.ti-dienste.de/ECC/). DNSName.constrains() wird daher bei der Validierung der verwendeten Zertifikatsketten nicht aufgerufen.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-46968",
+        "aliases": [
+          "GHSA-hhf8-3x8g-6pff"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "status_notes": "Die öffentlichen CVE-Beschreibungen von Oracle und NVD benennen die betroffene Codestelle nicht, sondern nur die Sammelkomponente. Die einzige belastbare Quelle dafür, was die Schwachstelle konkret ist, ist der zugehörige Fix-Commit im OpenJDK; er ist daher hier verlinkt und trägt die Bewertung. Der Fix JDK-8368041 'Enhance TLS certificate handling' (https://github.com/openjdk/jdk21u/commit/01e7fa4c16c2fa44a19265e7e26a6ecbdd74ca23) betrifft sun/security/ssl/Alert.java, also die Behandlung des no_certificate-Warning-Alerts im TLS-Handshake. Der betroffene Zweig wird nur in der Server-Rolle mit clientAuthType == CLIENT_AUTH_REQUESTED betreten. KC_HTTPS_CLIENT_AUTH bzw. https-client-auth wird nicht gesetzt; Keycloak spricht kein mTLS mit den Clients. Der vulnerable Code wird daher nie ausgeführt.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-46917",
+        "aliases": [
+          "GHSA-x5x7-pvpw-w5hv"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "status_notes": "Die öffentlichen CVE-Beschreibungen von Oracle und NVD benennen die betroffene Codestelle nicht, sondern nur die Sammelkomponente. Die einzige belastbare Quelle dafür, was die Schwachstelle konkret ist, ist der zugehörige Fix-Commit im OpenJDK; er ist daher hier verlinkt und trägt die Bewertung. Der Fix JDK-8373275 'Improve DTLS handshaking' (https://github.com/openjdk/jdk21u/commit/033dcae289e9b1500f56752916b5a36c838029ca) betrifft ausschließlich sun/security/ssl/HelloCookieManager.java, und dort nur den D10HelloCookieManager, der das Cookie der DTLS-HelloVerifyRequest erzeugt und prüft. DTLS wird im Container nicht genutzt: Keycloak kommuniziert ausschließlich über TCP/TLS (HTTP), es wird kein DTLS-SSLContext und keine SSLEngine im Datagram-Modus erzeugt. Der vulnerable Code wird daher nie ausgeführt.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-47021",
+        "aliases": [
+          "GHSA-qw6j-rcfr-8vrx"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "status_notes": "Die öffentlichen CVE-Beschreibungen von Oracle und NVD benennen die betroffene Codestelle nicht, sondern nur die Sammelkomponente. Die einzige belastbare Quelle dafür, was die Schwachstelle konkret ist, ist der zugehörige Fix-Commit im OpenJDK; er ist daher hier verlinkt und trägt die Bewertung. Der Fix JDK-8377158 'Enhance XBM image support' (https://github.com/openjdk/jdk21u/commit/dd1cf5ff59ad83734720e226b811af5e943163e0) betrifft ausschließlich sun/awt/image/XbmImageDecoder.java, den XBM-Decoder des Legacy-AWT-Bildladepfads. Diese Klasse wird nur von sun.awt.image.InputStreamImageSource.getDecoder() instanziiert, also nur über Toolkit.createImage bzw. Toolkit.getImage. Das Paket sun.awt.image wird von java.desktop nicht exportiert und es werden keine --add-exports/--add-opens auf java.desktop gesetzt, so dass kein anderer Einstieg existiert. Im Container erreichen keine angreiferkontrollierten Daten diesen Pfad.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-47027",
+        "aliases": [
+          "GHSA-cqfh-fjhw-mr88"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "status_notes": "Die öffentlichen CVE-Beschreibungen von Oracle und NVD benennen die betroffene Codestelle nicht, sondern nur die Sammelkomponente. Die einzige belastbare Quelle dafür, was die Schwachstelle konkret ist, ist der zugehörige Fix-Commit im OpenJDK; er ist daher hier verlinkt und trägt die Bewertung. Der Fix JDK-8377833 'Enhance Jar file processing' (https://github.com/openjdk/jdk21u/commit/f3d9bf808ad257f27abe04f2e23e578b0cc09b58) betrifft java/util/jar/JarVerifier.java und sun/security/util/SignatureFileVerifier.java, also den Signer-Cache der Signaturprüfung signierter JAR-Dateien. Im Container wird kein angreiferkontrolliertes, signiertes JAR geprüft: die JAR-Signaturprüfung trifft ausschließlich ins Image gebackene Artefakte, und es gibt keinen Endpunkt, der Archive annimmt.",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59919",
+        "aliases": [
+          "GHSA-wh89-7897-x99h"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-haproxy"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "CRLF-Injection im HAProxy-V1-Encoder von netty-codec-haproxy (CVSS3.1: 5.5, AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:H/A:N, https://github.com/netty/netty/security/advisories/GHSA-wh89-7897-x99h). io.netty.handler.codec.haproxy.HAProxyMessageEncoder.encodeV1() schreibt AF_UNIX-Adressen ungeprüft in die Ausgabe; HAProxyMessage.checkAddress() begrenzt bei AF_UNIX nur die Länge auf 108 Zeichen und filtert keine Steuerzeichen. Eine Adresse mit eingebettetem CRLF erzeugt dadurch eine zweite PROXY-Zeile und erlaubt gegenüber nachgelagerten Systemen das Fälschen der Client-IP. Vorbedingung laut Advisory ist, dass die Anwendung selbst HAProxy-V1-Nachrichten mit AF_UNIX-Adressen aus externen Quellen erzeugt und versendet. Behoben ab 4.1.136.Final bzw. 4.2.16.Final; im Image liegt netty-codec-haproxy als 4.1.135.Final vor (Dateiname bleibt io.netty.netty-codec-haproxy-4.1.133.Final.jar, MANIFEST Implementation-Version 4.1.135.Final), der verwundbare Bytecode inklusive HAProxyMessageEncoder.class ist also enthalten. Der Keycloak erzeugt jedoch keine PROXY-Protokoll-Header. Ein Bytecode-Scan über alle 362 Jars in /opt/keycloak/lib/lib/main und /opt/keycloak/providers findet außerhalb des Pakets io.netty.handler.codec.haproxy keine einzige Referenz auf HAProxyMessageEncoder. Die einzigen Nutzer des HAProxy-Codecs im Image sind drei Klassen aus vertx-core 4.5.27 (io.vertx.core.net.impl.NetServerImpl$NetServerWorker, io.vertx.core.net.impl.HAProxyMessageCompletionHandler, io.vertx.core.http.impl.HttpServerWorker), und diese verwenden ausschließlich die Dekodier-Seite (HAProxyMessage), also den Empfang eines PROXY-Headers auf der Serverseite. Kein Keycloak-Modul und kein ZETA-Provider tritt als PROXY-Protokoll-Client auf. Anders als bei CVE-2026-55851 ist der Schalter proxy-protocol-enabled bzw. quarkus.http.proxy.use-proxy-protocol hier ohne Belang: er entscheidet über die Installation des HAProxyMessageDecoder in der eingehenden Pipeline, nicht über den Encoder. Die Vorbedingung des Advisories ist damit nicht erfüllbar. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59921",
+        "aliases": [
+          "GHSA-gcjf-9mgh-3p7g"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "CRLF-Injection über Multipart-Dateinamen im HttpPostRequestEncoder von netty-codec-http: io.netty.handler.codec.http.multipart.HttpPostRequestEncoder konkateniert name und filename ungeprüft in die Content-Disposition-Header der Body-Parts, ein eingebettetes CRLF erzeugt dadurch zusätzliche MIME-Header. Betroffen ist ausschließlich die Encode-Seite. Ausnutzbar ist die Schwachstelle nur, wenn eine Anwendung mit Nettys Encoder ausgehende multipart/form-data-Requests erzeugt und den Dateinamen aus angreiferkontrollierter Eingabe übernimmt; der Encoder ist reiner Opt-in-Code, Netty verdrahtet ihn nie selbst. Der Keycloak erzeugt keine ausgehenden Multipart-Requests: Ausgehende Aufrufe (Identity Provider, JWKS, Token-Exchange, OCSP) laufen über den Apache HttpClient aus org.keycloak.connections.httpclient, und OIDC/SAML übertragen nur x-www-form-urlencoded und JSON. Ein Bytecode-Scan über alle 494 Archive des Images findet außerhalb von io.netty.* keine einzige Referenz auf HttpPostRequestEncoder; die Positivkontrolle (90 Treffer innerhalb von Nettys eigenen Klassen) belegt, dass die Suche greift. Die vier Nicht-Netty-Treffer im Multipart-Paket liegen alle auf der nicht betroffenen Decode-Seite von vertx-core: Http1xServerRequest und Http2ServerRequest nutzen den HttpPostRequestDecoder, NettyFileUpload und NettyFileUploadDataFactory implementieren Nettys FileUpload für eingehende Uploads. Die dekodierten FileUpload-Objekte werden nicht erneut encodiert. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59900",
+        "aliases": [
+          "GHSA-c69g-56f8-xwqj"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http2"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Fehlende Host-Header-Deduplizierung in der HTTP/2-zu-HTTP/1.x-Übersetzung von netty-codec-http2. io.netty.handler.codec.http2.Http2StreamFrameToHttpObjectCodec und io.netty.handler.codec.http2.InboundHttp2ToHttpAdapter wandeln das :authority-Pseudo-Header in einen Host-Header um und kopieren zusätzlich einen literalen host-Header aus demselben HEADERS-Frame, sodass das erzeugte HttpRequest zwei abweichende, angreiferkontrollierte Host-Header trägt. Ausnutzbar ist die Schwachstelle nur, wenn einer dieser beiden Übersetzungs-Handler in einer Netty-ChannelPipeline registriert ist; beide sind reiner Opt-in-Code für Anwendungen, die HTTP/2 auf Nettys HTTP/1-Objektmodell abbilden, und werden von Netty nie selbst verdrahtet. Der Keycloak bedient HTTP über Quarkus/Vert.x, und Vert.x implementiert HTTP/2 nativ: VertxHttp2ConnectionHandler erweitert Nettys Http2ConnectionHandler mit einem eigenen Http2FrameListener und bildet Http2Headers direkt auf io.vertx.core.http.HttpServerRequest ab; es entsteht nie ein Netty-HttpRequest aus einem HTTP/2-Frame. Ein Bytecode-Scan über alle 494 Archive des Images findet außerhalb von io.netty.* keine einzige Referenz auf die beiden Übersetzungs-Handler oder auf HttpConversionUtil; die Positivkontrolle (573 Treffer innerhalb von Nettys eigenen Klassen) belegt, dass die Suche greift. Die 110 Nicht-Netty-Treffer im http2-Paket stammen ausschließlich aus vertx-core 4.5.27 (23), grpc-netty 1.79.0 (43), dem geschatteten grpc-netty im zeta-hsm-proxy-provider (43) und quarkus-netty (1); sie nutzen mit VertxHttp2ConnectionHandler bzw. NettyServerHandler eine eigene Frame-Behandlung. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-50559",
+        "aliases": [
+          "GHSA-qcxp-gm7m-4j5v"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.quarkus/quarkus-vertx-http"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Authentifizierungs-/Autorisierungs-Bypass durch fehlerhafte Pfad-Normalisierung. Erreicht wird es nicht, aus drei unabhängigen Gründen. Es ist keine Pfad-Policy konfiguriert: ein Scan über /opt/keycloak/conf (keycloak.conf, quarkus.properties), /opt/keycloak/bin, /opt/keycloak/providers findet 0 Treffer für quarkus.http.auth.permission, quarkus.http.auth.policy, quarkus.management.auth.permission bzw. die zugehörigen QUARKUS_*-Umgebungsvariablen. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59901",
+        "aliases": [
+          "GHSA-558v-64gr-wgg4"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Endlosschleife im Bzip2-Decoder von netty-codec. Die Zustandsmaschine der Lauflängendekodierung in io.netty.handler.codec.compression.Bzip2BlockDecompressor.read() kann bei einem präparierten Bzip2-Strom in eine Endlosschleife geraten. Der abarbeitende Event-Loop-Thread hängt dann dauerhaft und verarbeitet keine weiteren Ereignisse mehr (unauthentifizierter Remote-DoS). Entscheidend ist daher die Erreichbarkeit. Ausnutzbar ist die Schwachstelle nur, wenn eine Netty-ChannelPipeline explizit einen Bzip2Decoder installiert. Der Bzip2-Codec ist in Netty reiner Opt-in-Code: Netty verdrahtet ihn niemals selbst, es gibt keine Auto-Konfiguration, keinen Default und keinen Fallback. Insbesondere existiert kein HTTP-Pfad dorthin, denn bzip2 ist kein registriertes HTTP-Content-Coding (IANA-Registry: gzip, deflate, compress, br, zstd, identity), und io.netty.handler.codec.http.HttpContentDecompressor.newContentDecoder() kennt ausschließlich gzip, deflate, br, zstd und snappy - einen bzip2-Zweig gibt es nicht. Ein Angreifer kann den verwundbaren Decoder also nicht über einen Content-Encoding-Header anfordern. Ein Bytecode-Scan über alle 494 Archive des Images findet außerhalb von Nettys eigenen Klassen keine einzige Referenz auf das Paket io/netty/handler/codec/compression/Bzip2. Die Gegenprobe mit demselben Scan auf ZlibDecoder findet dagegen sehr wohl einen Nutzer außerhalb von Netty (io.vertx.grpc.common.GrpcMessageDecoder in vertx-grpc-common 4.5.27) und belegt damit, dass externe Aufrufer von Klassen des Pakets compression zuverlässig erkannt werden. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-07-22T15:35:30Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-56819",
+        "aliases": [
+          "GHSA-93wv-jw9v-4972"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-http2"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Direct-Memory-Leck im HTTP/2-Dekompressor von netty-codec-http2. io.netty.handler.codec.http2.DelegatingDecompressorFrameListener$Http2Decompressor.decompress() ruft writeInbound(data.retain()), ohne zu prüfen, ob der interne EmbeddedChannel noch offen ist. Ist er bereits geschlossen, wirft writeInbound() in ensureOpen(), während der zuvor erhöhte Referenzzähler nicht zurückgenommen wird - der Fehlerpfad enthält kein data.release(). Ein unauthentifizierter Angreifer leckt somit DATA-Frames für Streams, deren Dekompressor bereits abgebaut wurde, pro Frame einen Direct-ByteBuf und erschöpft den Off-Heap-Speicher bis zum OutOfMemoryError. Entscheidend ist daher die Erreichbarkeit: Netty verdrahtet den DelegatingDecompressorFrameListener niemals selbst, er gelangt ausschließlich bei aktivierter Request-Dekompression in eine HTTP/2-Pipeline. Ein Bytecode-Scan über alle 494 Archive des Images findet außerhalb von Nettys eigenen Klassen genau einen Nutzer, io.vertx.core.http.impl.VertxHttp2ConnectionHandler$2 in vertx-core 4.5.27. Kein Keycloak-Modul, kein Provider und keine shaded Netty-Kopie referenziert ihn (Positivkontrollen: 10 Netty-eigene Treffer belegen, dass die Suche greift). Dieser eine Nutzer ist über das Feld useDecompressor der umschließenden Klasse VertxHttp2ConnectionHandler abgesichert, das io.vertx.core.http.impl.HttpServerWorker aus HttpServerOptions.isDecompressionSupported() über VertxHttp2ConnectionHandlerBuilder.useDecompression(boolean) speist. HttpServerOptions.DEFAULT_DECOMPRESSION_SUPPORTED ist false. Quarkus setzt den Schalter aus quarkus.http.enable-decompression bzw. quarkus.management.enable-decompression (Default: false). Weder '/opt/keycloak/conf/quarkus.properties' noch eine Umgebungsvariable enthalten einen Wert, der die Dekompression einschaltet, und Keycloak exponiert keine entsprechende Option. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-08-03T08:40:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-40984",
+        "aliases": [
+          "GHSA-g3pr-3p32-fp23"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.micrometer/micrometer-core"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "status_notes": "Unbegrenzte Meter-Kardinalität in den HTTP-Server-Instrumentierungen von micrometer-core. io.micrometer.core.instrument.binder.http.HttpRequestTags.method() und HttpJakartaServletRequestTags.method() übernahmen den method-Tag unverändert aus dem Request (Tag.of(\"method\", request.getMethod())). HTTP-Methoden-Token sind laut RFC 9110 freie Token, also angreiferkontrolliert: jeder neue Token erzeugt eine neue Tag-Kombination und damit einen neuen Meter in der Registry. Ein unauthentifizierter Angreifer lässt die Registry so unbegrenzt wachsen, bis der Heap erschöpft ist. Derselbe Fehler bestand in der Jersey-Server-Instrumentierung (JerseyTags, JerseyKeyValues, DefaultJerseyObservationConvention) und in micrometer-jetty12s DefaultJettyCoreRequestTagsProvider. Ab 1.16.6 lässt HttpMethods.isStandard() nur die neun Standardmethoden zu, alles andere wird METHOD_UNKNOWN (Fix-Commit: https://github.com/micrometer-metrics/micrometer/commit/36da131525228188a36779a28471a76c79213dd4, gh-7580). Das Image liefert micrometer-core 1.16.3, ist also versionsseitig betroffen, und wegen KC_METRICS_ENABLED=true werden auch Metriken aufgezeichnet. Entscheidend ist daher die Erreichbarkeit. Die betroffenen Klassen sind reine Opt-in-Hilfsklassen: Micrometer verdrahtet seine HTTP-Server-Instrumentierung niemals selbst, es gibt keine Auto-Konfiguration, keinen Default und keinen Fallback. Ein Bytecode-Scan über alle 494 Archive des Images findet außerhalb von Micrometers eigenen Klassen keine einzige Referenz auf HttpRequestTags, HttpJakartaServletRequestTags, deren Default*TagsProvider oder die Jersey-Server-Instrumentierung; micrometer-jetty11/12 und Jersey sind überhaupt nicht im Image enthalten. Keycloak instrumentiert HTTP stattdessen über den eigenen Quarkus-Binder io.quarkus.micrometer.runtime.binder.vertx.VertxHttpServerMetrics, der seine Tags in io.quarkus.micrometer.runtime.binder.HttpCommonTags bildet. Aus dem betroffenen Paket nutzt Quarkus ausschließlich Outcome - eine Klasse, die der Fix nicht anfasst. Genau diese drei Outcome-Nutzer (HttpCommonTags, VertxHttpServerMetrics, VertxMetricsTags) dienen als Positivkontrolle und belegen, dass der Scan externe Aufrufer aus demselben Paket zuverlässig erkennt (weitere Kontrollen: 79 externe MeterRegistry-Nutzer, 17 Micrometer-eigene Selbstreferenzen). Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "timestamp": "2026-08-11T07:45:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-40983",
+        "aliases": [
+          "GHSA-w737-wx49-qj23"
+        ]
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.micrometer/micrometer-core"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Unbegrenzte Meter-Kardinalität in der gRPC-Server-Instrumentierung von micrometer-core. io.micrometer.core.instrument.binder.grpc.DefaultGrpcServerObservationConvention.getLowCardinalityKeyValues() gab net.peer.name und net.peer.port als Low-Cardinality-Key-Values aus. Serverseitig sind das die Adresse des Clients und dessen ephemerer Quellport, also vollständig angreiferkontrolliert: jede eingehende Verbindung erzeugt eine neue Tag-Kombination und damit einen neuen Meter. Ein unauthentifizierter Angreifer lässt die Registry so unbegrenzt wachsen, bis der Heap erschöpft ist. Der Fix verschiebt beide Key-Values nach getHighCardinalityKeyValues(), wo der Metrik-Handler sie ignoriert (Fix-Commit: https://github.com/micrometer-metrics/micrometer/commit/dc2e5e2ea33a41a271b4b40e796ef39f1ed056af, gh-7581). Das Image liefert micrometer-core 1.16.3, ist also versionsseitig betroffen. Entscheidend ist daher die Erreichbarkeit. Der einzige Weg in die betroffene Convention führt über ObservationGrpcServerInterceptor, denn nur er erzeugt einen GrpcServerObservationContext. Dieser Interceptor ist reiner Opt-in-Code: Micrometer registriert ihn niemals selbst, es gibt keine Auto-Konfiguration, keinen Default und keinen Fallback. Ein Bytecode-Scan über alle 494 Archive des Images findet außerhalb von Micrometers eigenen Klassen keine einzige Referenz auf ObservationGrpcServerInterceptor, DefaultGrpcServerObservationConvention oder GrpcServerObservationContext. Der einzige externe Nutzer des grpc-Binder-Pakets ist Quarkus' io.quarkus.micrometer.runtime.binder.grpc.GrpcMetricsServerInterceptor, der von der Tag-basierten MetricCollectingServerInterceptor erbt - einer vom Fix unberührten Klasse ohne Peer-Tags - und der über @io.quarkus.grpc.GlobalInterceptor an die gRPC-Server-Extension quarkus-grpc gebunden ist. Diese Extension fehlt im Image, vorhanden ist nur quarkus-grpc-common; der Interceptor ist damit ohnehin inaktiv. Genau dieser eine Nutzer dient als Positivkontrolle und belegt, dass der Scan externe Aufrufer aus demselben Paket zuverlässig erkennt (weitere Kontrollen: 79 externe MeterRegistry-Nutzer, 8 Micrometer-eigene Selbstreferenzen). Auch die Metrik-Brücke fehlt: es gibt im gesamten Image keinen externen Nutzer von ObservationRegistry oder DefaultMeterObservationHandler. Die vorhandenen io.grpc-Artefakte 1.79.0 stammen vom OpenTelemetry-OTLP-Exporter und betreiben keinen instrumentierten gRPC-Server. Die projekteigene gRPC-Kopie in providers/zeta-hsm-proxy-provider.jar ist nach de.gematik.zetaguard.shaded.grpc relocatet und könnte von Micrometers gegen io.grpc.* typisierten Interceptoren prinzipiell nicht instrumentiert werden. Der verwundbare Code-Pfad wird somit nicht erreicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-08-11T07:45:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-16442"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services@26.6.4"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "ZETA nutzt den SAML broker nicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-08-21T15:45:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-16443"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services@26.6.4"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "ZETA nutzt den SAML broker nicht.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-08-21T15:45:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-58062"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.bouncycastle/bcprov-jdk18on"
+        }
+      ],
+      "status": "affected",
+      "status_notes": "Grundsätzlich anfällig, allerdings ist die CVSS Beurteilung im ZETA Gesamtprodukt weniger kritisch: CVSS:3.1/AV:A/AC:H/PR:H/UI:R/S:C/C:L/I:L/A:N . Hierbei ist zu berücksichtigen, dass OCSP Stapling ledliglich eine Rolle ggü. Systemen spielt, wo der Keycloak als Client auftritt.",
+      "timestamp": "2026-08-31T14:43:02Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-8763"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.bouncycastle/bcprov-jdk18on"
+        }
+      ],
+      "status": "affected",
+      "status_notes": "Grundsätzlich anfällig, allerdings ist die CVSS Beurteilung im ZETA Gesamtprodukt weniger kritisch: CVSS:3.1/AV:A/AC:H/PR:H/UI:R/S:C/C:L/I:L/A:N . Hierbei ist zu berücksichtigen, dass Name Constraints ledliglich eine Rolle ggü. Systemen spielt, wo der Keycloak als Client auftritt. Bei SMC-Bs spielt das keine Rolle.",
+      "timestamp": "2026-08-31T14:43:02Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-59638"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.bouncycastle/bctls-jdk18on"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "bctls-jdk18on ist im Keycloak-Image nicht enthalten. Keycloak nutzt BouncyCastle bei ZETA nicht für TLS Terminierung. Damit ist ZETA Keycloak nicht von dieser Lücke betroffen.",
+      "justification": "component_not_present",
+      "timestamp": "2026-08-31T14:43:02Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-45674"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-resolver-dns"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Nicht betroffen. Die betroffene Netty-Bibliothek wird im Image auf 4.1.135.Final (ZETA 1.2.x) bzw. 4.1.136.Final (ZETA 1.3.0) hochgezogen (Fix ist ab 4.1.135.Final enthalten).",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-08-31T14:43:02Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-47691"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-resolver-dns"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Nicht betroffen. Die betroffene Netty-Bibliothek wird im Image auf 4.1.135.Final (ZETA 1.2.x) bzw. 4.1.136.Final (ZETA 1.3.0) hochgezogen (Fix ist ab 4.1.135.Final enthalten).",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-08-31T14:43:02Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42579"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-codec-dns"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Nicht betroffen. Die betroffene Netty-Bibliothek wird im Image auf 4.1.135.Final (ZETA 1.2.x) bzw. 4.1.136.Final (ZETA 1.3.0) hochgezogen (Fix ist ab 4.1.133.Final enthalten).",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-08-31T14:43:02Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-18963"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Über den Flow zum Zurücksetzen des Passworts kann ein nicht-authentifizierter Angreifer einen Account übernehmen, sobald er den Nutzernamen/E-Mail-Adresse kennt. Diese Schwachstelle ist nicht ausnutzbar, wenn die Funktionalität zum Zurücksetzen des Passworts deaktiviert ist (s. https://access.redhat.com/security/cve/cve-2026-18963). Diese Funktion ist bei allen Realms im Keycloak des PDP per default deaktiviert. Daher ist die Schwachstelle im Authserver im Auslieferungszustand nicht ausnutzbar.",
+      "justification": "vulnerable_code_cannot_be_controlled_by_adversary",
+      "timestamp": "2026-09-01T08:34:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-11822"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/sqlite-libs"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "sqlite-libs ist eine transitive Abhängigkeit von java-21-openjdk-headless über nss/nss-softokn. CVE-2026-11822 betrifft ausschließlich die FTS5-Volltextsuche und ist nur erreichbar, indem eine FTS5-MATCH-Query gegen eine angreiferkontrollierte, präparierte Datenbank ausgeführt wird. nss/nss-softokn nutzt die FTS5-Erweiterung nicht, führt keine MATCH-Queries aus und öffnet keine extern bereitgestellte Datenbankdateien.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-17T12:19:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-11824"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/sqlite-libs"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "sqlite-libs ist eine transitive Abhängigkeit von java-21-openjdk-headless über nss/nss-softokn. CVE-2026-11824 betrifft ausschließlich die FTS5-Volltextsuche und ist nur erreichbar, indem eine FTS5-MATCH-Query gegen eine angreiferkontrollierte, präparierte Datenbank ausgeführt wird. nss/nss-softokn nutzt die FTS5-Erweiterung nicht, führt keine MATCH-Queries aus und öffnet keine extern bereitgestellte Datenbankdateien.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-17T12:19:00Z"
+    }
+  ],
+  "last_updated": "2026-08-31T14:43:02Z",
+  "timestamp": "2026-02-26T13:28:51Z"
+}

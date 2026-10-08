@@ -23,7 +23,7 @@ services:
       retries: 5
 
   keycloak:
-    image: zeta/zeta-guard/keycloak-zeta
+    image: zeta/zeta-guard/keycloak-zeta:profiling
     container_name: zeta-guard-keycloak
     environment:
       PRINT_ENV: true
@@ -31,7 +31,7 @@ services:
       JAVA_OPTS_APPEND: >
         -agentpath:/opt/keycloak/async-profiler/lib/libasyncProfiler.so=start,interval=5ms,jfr,event=cpu,file=/opt/keycloak/data/zeta-guard.jfr
         -ea
-      KC_DEBUG: true
+      KC_DEBUG: false
       KC_DEBUG_PORT: "*:8787"
 
       # Put Keycloak build options in the first build stage of the container image
@@ -44,10 +44,10 @@ services:
       KC_HEALTH_ENABLED: true
       KC_HOSTNAME: http://localhost:18080
       KC_HTTP_ENABLED: true
+      KC_TRACING_ENABLED: true
       # https://www.informatik-aktuell.de/betrieb/sicherheit/token-exchange-mit-keycloak.html
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL: "info"
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL: "warn"
-      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_SIMULATION_BASE_URL: "http://opa-simulation:8181"
       # https://www.keycloak.org/docs/latest/upgrading/#maximum-length-of-the-parameters-in-the-oidc-token-endpoint
@@ -58,8 +58,13 @@ services:
       # Where to find SMC-B certificates and how to read them
       SMCB_KEYSTORE_LOCATION: /opt/keycloak/conf/smcb-certificates.p12
       SMCB_KEYSTORE_PASSWORD: "tyqvHpFoHdu68yRE+0F4q/I"
+      SMCB_KEYSTORE_META_LOCATION: /opt/keycloak/conf/smcb-certificates-meta.json
       TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm-certificates.p12
       TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+      # OCSP_KEYSTORE_LOCATION: /opt/keycloak/conf/ocsp-signers.p12
+      # OCSP_KEYSTORE_PASSWORD: "oGxkNU73WYIGpNTfWgeU"
+      # OCSP_KEYSTORE_META_LOCATION: /opt/keycloak/conf/ocsp-signers-meta.json
+      ZETA_OIDC_FLOW_ENABLED: ${ZETA_OIDC_FLOW_ENABLED:-false}
     ports:
       - "127.0.0.1:18787:8787" # debug port
       - "127.0.0.1:18080:8080" # api port
@@ -67,7 +72,10 @@ services:
       - zeta-guard
     volumes:
       - ./smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
+      - ./smcb-certificates-meta.json:/opt/keycloak/conf/smcb-certificates-meta.json
       - ./tpm-certificates.p12:/opt/keycloak/conf/tpm-certificates.p12
+      - ./ocsp-signers.p12:/opt/keycloak/conf/ocsp-signers.p12
+      - ./ocsp-signers-meta.json:/opt/keycloak/conf/ocsp-signers-meta.json
       - ./target:/opt/keycloak/data
     healthcheck:
       # No curl in Keycloak 🙄
@@ -77,22 +85,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+    # Give profiler some time to write its data
+    stop_grace_period: 30s
     depends_on:
       keycloak-db:
         condition: service_healthy
-    command: start --log="console,file" --optimized
+    command: start --log="console,file" --optimized --http-pool-max-threads=200
     # https://bell-sw.com/blog/profiling-java-docker-containers-with-async-profiler/
     cap_add:
       - SYS_ADMIN
     security_opt:
       - seccomp=unconfined
-
   # DEBUG Logging
   #--log-level=org.keycloak:DEBUG
 
   # https://github.com/adorsys/keycloak-config-cli
   keycloak-config-cli:
-    image: ${IMAGE_KEYCLOAK_CONFIG:-zeta/zeta-guard/keycloak-config-cli}
+    image: zeta/zeta-guard/keycloak-config-cli
     container_name: keycloak-config-cli
     environment:
       KEYCLOAK_URL: "http://keycloak:8080"
@@ -108,6 +117,7 @@ services:
       KC_EVENT_LISTENER: zeta-guard-admin-events
       ADMIN_EVENT_LOGGING_ENABLED: true
       ADMIN_EVENT_LOGGING_DETAILS_ENABLED: true
+      ZETA_OIDC_FLOW_ENABLED: ${ZETA_OIDC_FLOW_ENABLED:-false}
     networks:
       - zeta-guard
     volumes:

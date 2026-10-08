@@ -24,14 +24,21 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.smcb
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_CLIENT_IDS
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_CREATED_AT
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_LAST_ACCESS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_ORGANISATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_TELEMATIK_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_MAX_CLIENTS
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toISO8601
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
 import de.gematik.zeta.zetaguard.keycloak.commons.toJsonWebToken
+import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardExpirationService
 import de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange.getSMCBContext
 import org.keycloak.broker.oidc.OIDCIdentityProvider
 import org.keycloak.broker.oidc.OIDCIdentityProviderConfig
@@ -44,6 +51,7 @@ import org.keycloak.protocol.oidc.TokenExchangeContext
 import org.keycloak.services.clientregistration.ClientRegistrationException
 
 private val MAX_CLIENTS = System.getenv(ENV_MAX_CLIENTS) ?: "256"
+private val maxClients = MAX_CLIENTS.toInt()
 
 /**
  * As of version 26.4.7, Keycloak does not implement external-to-internal token exchange in V2.
@@ -54,16 +62,17 @@ private val MAX_CLIENTS = System.getenv(ENV_MAX_CLIENTS) ?: "256"
  */
 open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityProviderConfig) : OIDCIdentityProvider(session, config) {
   private fun profile(subject: String, email: String, name: String, preferredUsername: String, givenName: String, familyName: String) =
-    ObjectMapper()
-      .readTree(
-        """{
+      ObjectMapper()
+          .readTree(
+              """{
               "sub": "$subject",
               "name": "$name",
               "given_name": "$givenName",
               "family_name": "$familyName",
               "preferred_username": "$preferredUsername",
               "email": "$email"
-            }""")
+            }"""
+          )
 
   /**
    * Inspired by [org.keycloak.broker.oidc.AbstractOAuth2IdentityProvider.validateExternalTokenThroughUserInfo] which is called by the legacy V1
@@ -78,26 +87,20 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
     val username = subject.toSpicyHash()
     val mailaddress = mailaddress(username)
 
-    return extractIdentityFromProfile(
-        tokenExchangeContext.event,
-        profile(
-          username,
-          mailaddress,
-          username,
-          mailaddress,
-          username,
-          username,
-        ),
-      )
-      .apply {
-        contextData[EXCHANGE_PROVIDER] = config.alias
-        idp = this@SMCBIdentityProvider
-        modelUsername = username
-      }
+    return extractIdentityFromProfile(tokenExchangeContext.event, profile(username, mailaddress, username, mailaddress, username, username)).apply {
+      contextData[EXCHANGE_PROVIDER] = config.alias
+      idp = this@SMCBIdentityProvider
+      modelUsername = username
+    }
   }
 
-  override fun importNewUser(session: KeycloakSession, realm: RealmModel, user: UserModel, context: BrokeredIdentityContext) {
-    updateBrokeredUser(session, realm, user, context)
+  override fun importNewUser(session: KeycloakSession, realm: RealmModel, userModel: UserModel, context: BrokeredIdentityContext) {
+    val dataService = ZetaGuardDataService(DefaultEMCreator(session))
+
+    dataService.createUserData(userModel.username)
+    userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_CREATED_AT, currentTime().toISO8601())
+
+    updateBrokeredUser(session, realm, userModel, context)
   }
 
   /**
@@ -109,17 +112,27 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
    * The maximum number of clients per user is limited: https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25748
    */
   override fun updateBrokeredUser(session: KeycloakSession, realm: RealmModel, user: UserModel, context: BrokeredIdentityContext) {
-    // See [org.keycloak.models.cache.infinispan.UserAdapter]: Changes will not be persisted otherwise
+    val dataService = ZetaGuardDataService(DefaultEMCreator(session))
+
+    // See [org.keycloak.models.cache.infinispan.UserAdapter]: Changes will not be persisted without direct access
     val userModel = if (user is CachedUserModel) user.delegateForUpdate else user
     val clientId = session.context.client.clientId
-    val clientIds = user.attributes[ATTRIBUTE_SMCBUSER_CLIENT_IDS]?.toMutableSet() ?: mutableSetOf()
+    val userData =
+        dataService.findUserData(userModel.username) ?: throw ClientRegistrationException("Could not find user data for »${userModel.username}«")
+    val clientData = dataService.findClientData(clientId) ?: throw ClientRegistrationException("Could not find client data for »${clientId}«")
+    val clientIds = userData.clients.map { it.id }.toMutableSet()
+    val clientExpirationService = ZetaGuardExpirationService(session)
+    val now = currentTime()
 
-    if (clientIds.add(clientId)) {
-      if (clientIds.size > maxClients()) {
-        throw ClientRegistrationException("Too many clients for user ${userModel.username}")
+    if (clientIds.add(clientId)) { // A_25748-02
+      if (clientIds.size > maxClients && !clientExpirationService.removeOldestClient(userModel.username)) {
+        throw ClientRegistrationException("Too many clients for user »${userModel.username}«").also {
+          SecurityEventLogger.logClientRegistrationFail(clientId = clientId, reason = "too_many_clients_registered")
+        }
       }
 
-      userModel.setAttribute(ATTRIBUTE_SMCBUSER_CLIENT_IDS, clientIds.toList())
+      userData.clients.add(clientData)
+      clientData.userData = userData
 
       val smcbContext = context.getSMCBContext()
 
@@ -128,6 +141,11 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
       userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_TELEMATIK_ID, smcbContext.telematikID)
       userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_PROFESSION_OID, smcbContext.professionOID)
     }
+
+    // Gather data for expiration, https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_28808
+    userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_LAST_ACCESS, now.toISO8601())
+    userData.lastAccess = now
+    clientData.lastAccess = now
   }
 
   /**
@@ -136,8 +154,6 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
    * We will handle nonces ourselves
    */
   override fun getConfig(): OIDCIdentityProviderConfig = super.config.apply { isDisableNonce = true }
-
-  private fun maxClients() = MAX_CLIENTS.toInt()
 }
 
 private fun mailaddress(subject: String) = "$subject@gematik.de"

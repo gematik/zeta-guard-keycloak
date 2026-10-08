@@ -1,4 +1,9 @@
+# Taken from https://github.com/gematik/zeta/blob/v1.3.0/pip-pap/test-fachdienst-policy/policies/zeta/authztest.rego
+
 package policies.zeta.authztest
+
+import future.keywords.if
+import future.keywords.in
 
 import data.policies.zeta.authz
 
