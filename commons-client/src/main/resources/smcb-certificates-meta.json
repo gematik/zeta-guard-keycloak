@@ -1,0 +1,15 @@
+[
+  {
+    "friendlyName": "CN=GEM.SMCB-CA57 TEST-ONLY,OU=Institution des Gesundheitswesens-CA der Telematikinfrastruktur,O=gematik NOT-VALID,C=DE",
+    "tspName": "gematik"
+  },
+  {
+    "friendlyName": "gem.smcb-ca57_test-only",
+    "tspName": "gematik",
+    "revokedSince": "2020-08-05T14:00:00Z"
+  },
+  {
+    "friendlyName": "gem.smcb-ca1_test-only",
+    "tspName": "root"
+  }
+]

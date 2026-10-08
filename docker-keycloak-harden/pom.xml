@@ -5,13 +5,12 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>1.0.1</version>
+        <version>1.3.2</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <artifactId>docker-keycloak-harden</artifactId>
-    <packaging>pom</packaging>
-    <name>𝝵-Guard :: Harden Keycloak image by overriding vulnerable JARs</name>
+    <name>𝝵-Guard :: Harden Keycloak image</name>
     <description>Downloads patch JARs used to replace vulnerable dependencies in the Keycloak image during the CI harden stage.</description>
 
     <properties>
@@ -22,6 +21,13 @@
     </properties>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -41,66 +47,72 @@
                             <overWriteReleases>true</overWriteReleases>
                             <overWriteSnapshots>true</overWriteSnapshots>
 
-                            <artifactItems>
-                                <!-- CVE-2026-33870, CVE-2026-33871, CVE-2026-42583, CVE-2026-42579, CVE-2026-42584, CVE-2026-42587:
-                                     override netty-code, netty-codec-dns, netty-codec-http and netty-codec-http2
-                                     can be deleted when keycloak image ships netty >= 4.1.133.Final -->
-                                <artifactItem>
-                                    <groupId>io.netty</groupId>
-                                    <artifactId>netty-codec-http</artifactId>
-                                    <version>4.1.133.Final</version>
-                                    <destFileName>netty-codec-http-4.1.133.Final.jar</destFileName>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>io.netty</groupId>
-                                    <artifactId>netty-codec-http2</artifactId>
-                                    <version>4.1.133.Final</version>
-                                    <destFileName>netty-codec-http2-4.1.133.Final.jar</destFileName>
-                                </artifactItem>
+                            <artifactItems> <!-- Must no be empty, otherwise the plugin will not execute -->
                                 <artifactItem>
                                     <groupId>io.netty</groupId>
                                     <artifactId>netty-codec</artifactId>
-                                    <version>4.1.133.Final</version>
-                                    <destFileName>netty-codec-4.1.133.Final.jar</destFileName>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-codec-4.1.136.Final.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>io.netty</groupId>
                                     <artifactId>netty-codec-dns</artifactId>
-                                    <version>4.1.133.Final</version>
-                                    <destFileName>netty-codec-dns-4.1.133.Final.jar</destFileName>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-codec-dns-4.1.136.Final.jar</destFileName>
                                 </artifactItem>
-
-                                <!-- CVE-2026-5598: override bouncycastle 1.82 with 1.84
-                                     can be deleted when keycloak image ships bouncycastle >= 1.84
-                                     This is a false negative: Trivy has not found this vulnerability -->
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-codec-haproxy</artifactId>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-codec-haproxy-4.1.136.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-codec-http2</artifactId>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-codec-http2-4.1.136.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-codec-http</artifactId>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-codec-http-4.1.136.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-handler</artifactId>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-handler-4.1.136.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-resolver-dns</artifactId>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-resolver-dns-4.1.136.Final.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>io.netty</groupId>
+                                    <artifactId>netty-transport-native-epoll</artifactId>
+                                    <version>4.1.136.Final</version>
+                                    <destFileName>netty-transport-native-epoll-4.1.136.Final.jar</destFileName>
+                                </artifactItem>
                                 <artifactItem>
                                     <groupId>org.bouncycastle</groupId>
                                     <artifactId>bcpkix-jdk18on</artifactId>
-                                    <version>1.84</version>
-                                    <destFileName>bcpkix-jdk18on-1.84.jar</destFileName>
+                                    <version>1.85</version>
+                                    <destFileName>bcpkix-jdk18on-1.85.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.bouncycastle</groupId>
                                     <artifactId>bcprov-jdk18on</artifactId>
-                                    <version>1.84</version>
-                                    <destFileName>bcprov-jdk18on-1.84.jar</destFileName>
+                                    <version>1.85</version>
+                                    <destFileName>bcprov-jdk18on-1.85.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.bouncycastle</groupId>
                                     <artifactId>bcutil-jdk18on</artifactId>
-                                    <version>1.84</version>
-                                    <destFileName>bcutil-jdk18on-1.84.jar</destFileName>
-                                </artifactItem>
-
-                                <!-- io.quarkus:quarkus-vertx-http@3.27.3 is vulnerable to CVE-2026-39852,
-                                    this override can be deleted when this package is updated in the keycloak image to version >=3.27.3.1 oder >=3.33.1.1 oder >=3.35.1.1 -->
-                                <artifactItem>
-                                    <groupId>io.quarkus</groupId>
-                                    <artifactId>quarkus-vertx-http</artifactId>
-                                    <version>3.27.3.1</version>
-                                    <type>jar</type>
-                                    <outputDirectory>${project.build.outputDirectory}/jars</outputDirectory>
-                                    <destFileName>quarkus-vertx-http-3.27.3.1.jar</destFileName>
+                                    <version>1.85</version>
+                                    <destFileName>bcutil-jdk18on-1.85.jar</destFileName>
                                 </artifactItem>
                             </artifactItems>
                         </configuration>
@@ -152,5 +164,4 @@
             </properties>
         </profile>
     </profiles>
-
 </project>

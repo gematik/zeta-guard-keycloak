@@ -33,8 +33,10 @@ import java.net.URI
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.Period
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
+import kotlinx.datetime.DateTimePeriod
 import org.keycloak.common.util.Base64Url
 import org.keycloak.models.KeycloakUriInfo
 
@@ -47,17 +49,25 @@ fun ByteArray.toBase64(): String = Base64Url.encode(this)
 fun String.fromBase64(): ByteArray = Base64Url.decode(this)
 
 fun String?.toURI(): Either<Throwable, URI> =
-  if (this != null) {
-    Either.catch { URI(this) }
-  } else {
-    NullPointerException().left()
-  }
+    if (this != null) {
+      Either.catch { URI(this) }
+    } else {
+      NullPointerException().left()
+    }
 
 fun LocalDateTime.toISO8601(): String = format(DateTimeFormatter.ISO_DATE_TIME)
 
 fun String.toLocalDateTime(): LocalDateTime = LocalDateTime.parse(this, DateTimeFormatter.ISO_DATE_TIME)
 
-fun String.toDuration(): Duration = Duration.parse(this)
+fun String.toDateTimePeriod() = DateTimePeriod.parse(this)
+
+fun DateTimePeriod.toPeriod(): Period = Period.of(years, months, days)
+
+fun DateTimePeriod.toDuration(): Duration = Duration.ofSeconds(hours * 3600L + minutes * 60L + seconds)
+
+fun LocalDateTime.plus(period: DateTimePeriod): LocalDateTime = plus(period.toPeriod()).plus(period.toDuration())
+
+fun LocalDateTime.minus(period: DateTimePeriod): LocalDateTime = minus(period.toPeriod()).minus(period.toDuration())
 
 fun currentTime(): LocalDateTime = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
 

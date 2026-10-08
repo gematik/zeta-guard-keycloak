@@ -47,21 +47,21 @@ import org.keycloak.representations.RefreshToken
  */
 class ZetaGuardTokenManager : TokenManager() {
   override fun responseBuilder(
-    realm: RealmModel,
-    client: ClientModel,
-    event: EventBuilder,
-    session: KeycloakSession,
-    userSession: UserSessionModel,
-    clientSessionCtx: ClientSessionContext
+      realm: RealmModel,
+      client: ClientModel,
+      event: EventBuilder,
+      session: KeycloakSession,
+      userSession: UserSessionModel,
+      clientSessionCtx: ClientSessionContext,
   ): AccessTokenResponseBuilder = ZetaGuardAccessTokenResponseBuilder(realm, client, event, session, userSession, clientSessionCtx)
 
   inner class ZetaGuardAccessTokenResponseBuilder(
-    realm: RealmModel,
-    client: ClientModel,
-    event: EventBuilder,
-    private val session: KeycloakSession,
-    private val userSession: UserSessionModel,
-    private val clientSessionCtx: ClientSessionContext
+      realm: RealmModel,
+      client: ClientModel,
+      event: EventBuilder,
+      private val session: KeycloakSession,
+      private val userSession: UserSessionModel,
+      private val clientSessionCtx: ClientSessionContext,
   ) : AccessTokenResponseBuilder(realm, client, event, session, userSession, clientSessionCtx) {
 
     override fun generateRefreshToken(): AccessTokenResponseBuilder {
@@ -84,7 +84,7 @@ class ZetaGuardTokenManager : TokenManager() {
      * This way all relevant fields are copied.
      */
     private fun createZetaGuardRefreshToken(refreshToken: RefreshToken) =
-      refreshToken.toJSON().toObjectWithCreator<ZetaGuardRefreshToken>(mapOf(PARAM_REFRESH_TOKEN to refreshToken))
+        refreshToken.toJSON().toObjectWithCreator<ZetaGuardRefreshToken>(mapOf(PARAM_REFRESH_TOKEN to refreshToken))
 
     /**
      * Apply transformations to refresh token.
@@ -93,12 +93,12 @@ class ZetaGuardTokenManager : TokenManager() {
      */
     private fun transformRefreshToken() {
       ProtocolMapperUtils.getSortedProtocolMappers(session, clientSessionCtx)
-        .filter { it.value is OIDCRefreshTokenMapper }
-        .forEach {
-          val mapper = it.value as OIDCRefreshTokenMapper
+          .filter { it.value is OIDCRefreshTokenMapper }
+          .forEach {
+            val mapper = it.value as OIDCRefreshTokenMapper
 
-          mapper.transformRefreshToken(refreshToken, it.key, session, userSession, clientSessionCtx)
-        }
+            mapper.transformRefreshToken(refreshToken, it.key, session, userSession, clientSessionCtx)
+          }
     }
   }
 }

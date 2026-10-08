@@ -24,10 +24,9 @@
 package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.getPublicKey
-import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import java.security.KeyPair
-
-const val SMCB_KEYSTORE_PASSWORD = "tyqvHpFoHdu68yRE+0F4q/I"
+import kotlin.random.Random
+import kotlin.random.nextInt
 
 /**
  * Helper class to generate SMC-B tokens.
@@ -35,13 +34,11 @@ const val SMCB_KEYSTORE_PASSWORD = "tyqvHpFoHdu68yRE+0F4q/I"
  * Refers to keys and certificates found in smcb-certificates.p12 testing keystore. On the server side the same keystore is used as a truststore for
  * certificate validation.
  */
-object SMCBTokenHelper {
-  private val stream = SMCBTokenHelper::class.java.getResourceAsStream("/smcb-certificates.p12")!!
-  internal val keystoreService = KeystoreService(stream, SMCB_KEYSTORE_PASSWORD)
-
-  val intermediateCertificate = keystoreService.findCertificate(CRT_GEMATIK_INTERMEDIATE)!!
-  val leafCertificate = keystoreService.findCertificate(CRT_GEMATIK_LEAF)!!
-  val privateKey = keystoreService.getPrivateKey(CRT_GEMATIK_LEAF, SMCB_KEYSTORE_PASSWORD)
+@Suppress("unused")
+class SMCBTokenHelper(index: Int = Random.nextInt(0..5000)) {
+  val telematikId = TELEMATIK_ID + index.toLeafSuffix()
+  val leafCertificate = ClientCertificateService.getCertificate(index)
+  val privateKey = ClientCertificateService.getPrivateKey(index)
   val publicKey = privateKey.getPublicKey()
   val subjectKeyPair = KeyPair(publicKey, privateKey)
   val smcbTokenGenerator = SMCBTokenGenerator(subjectKeyPair)

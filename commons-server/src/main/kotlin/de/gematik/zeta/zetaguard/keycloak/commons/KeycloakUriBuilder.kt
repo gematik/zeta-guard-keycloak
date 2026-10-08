@@ -25,16 +25,20 @@
 
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ADMIN_REVOKE_SESSION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.INITIAL_ACCESS_TOKEN_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KEYCLOAK_CLIENT_REGISTRATION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KEYCLOAK_REALM_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OIDC_CLIENT_REGISTRATION_PATH
+import de.gematik.zeta.zetaguard.keycloak.commons.server.REVOCATION_FULL_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.USERINFO_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import jakarta.ws.rs.core.UriBuilder
 import java.net.URI
 import org.keycloak.constants.ServiceUrlConstants
 import org.keycloak.models.KeycloakUriInfo
+
+val REGEX_SESSION_ID = "\\{session-id}".toRegex()
 
 class KeycloakUriBuilder(private val uriBuilder: UriBuilder) {
   constructor(uriInfo: KeycloakUriInfo) : this(uriInfo.baseUriBuilder)
@@ -50,6 +54,12 @@ class KeycloakUriBuilder(private val uriBuilder: UriBuilder) {
 
   fun authUrl(realm: String = ZETA_REALM) = createUri(ServiceUrlConstants.AUTH_PATH, realm)
 
+  /** POST reports a token, GET subscribes to the block list. */
+  fun revocationUrl(realm: String = ZETA_REALM) = createUri(REVOCATION_FULL_PATH, realm)
+
+  fun adminSessionRevocationUrl(sessionId: String, realm: String = ZETA_REALM) =
+      createUri(ADMIN_REVOKE_SESSION_PATH, realm, REGEX_SESSION_ID to sessionId)
+
   fun userinfoUrl(realm: String = ZETA_REALM) = createUri(USERINFO_PATH, realm)
 
   fun initialAccessTokenUrl(realm: String = ZETA_REALM) = createUri(INITIAL_ACCESS_TOKEN_PATH, realm)
@@ -62,7 +72,11 @@ class KeycloakUriBuilder(private val uriBuilder: UriBuilder) {
 
   fun logoutUrl(realm: String = ZETA_REALM) = createUri(ServiceUrlConstants.TOKEN_SERVICE_LOGOUT_PATH, realm)
 
-  fun createUri(path: String, realm: String): URI = uriBuilder.path(path.replace("\\{realm-name}".toRegex(), realm)).build()
+  fun createUri(path: String, realm: String, vararg parameters: Pair<Regex, String>): URI {
+    val replacements = listOf(*parameters).plus("\\{realm-name}".toRegex() to realm)
+
+    return uriBuilder.path(replacements.fold(path) { acc, (regex, value) -> acc.replace(regex, value) }).build()
+  }
 
   fun build(): URI = uriBuilder.build()
 }

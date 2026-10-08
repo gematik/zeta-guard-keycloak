@@ -25,6 +25,7 @@
 
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toMinimalJWK
 import jakarta.ws.rs.HttpMethod
 import java.net.URI
 import org.keycloak.OAuth2Constants.DPOP_DEFAULT_ALGORITHM
@@ -41,17 +42,17 @@ object DPoPTokenGenerator : AbstractTokenGenerator() {
    * Inspired by [DPoPGenerator.generateRsaSignedDPoPProof]
    */
   fun generateDPoPToken(endpointURL: URI, accessToken: String): String {
-    val jwsRsaHeader = JWSHeader(DPOP_DEFAULT_ALGORITHM, DPOP_JWT_HEADER_TYPE, keys.jwk.keyId, keys.jwk)
+    val jwsRsaHeader = JWSHeader(DPOP_DEFAULT_ALGORITHM, DPOP_JWT_HEADER_TYPE, keys.jwk.keyId, keys.keypair.public.toMinimalJWK())
 
     return DPoPGenerator()
-      .generateSignedDPoPProof(
-        SecretGenerator.getInstance().generateSecureID(),
-        HttpMethod.POST,
-        endpointURL.toString(),
-        currentTime().toLong(),
-        jwsRsaHeader,
-        keys.keypair.private,
-        accessToken,
-      )
+        .generateSignedDPoPProof(
+            SecretGenerator.getInstance().generateSecureID(),
+            HttpMethod.POST,
+            endpointURL.toString(),
+            currentTime().toLong(),
+            jwsRsaHeader,
+            keys.keypair.private,
+            accessToken,
+        )
   }
 }

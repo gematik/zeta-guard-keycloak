@@ -25,6 +25,7 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.shouldBeTypeOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkAll
@@ -35,57 +36,51 @@ import org.apache.http.StatusLine
 import org.apache.http.client.methods.CloseableHttpResponse
 import org.apache.http.client.methods.HttpUriRequest
 import org.apache.http.impl.client.CloseableHttpClient
-import org.jboss.logging.Logger
 
 class OpaDecisionClientMappingTest :
-    FunSpec({
-      beforeSpec { unmockkAll() }
-      afterSpec { unmockkAll() }
-      val log: Logger = Logger.getLogger("test")
-      val cfg = OPAConfig(opaBaseUrl = "http://opa:8181/", decisionPath = "v1/data/policies/zeta/authz/decision")
+  FunSpec({
+    beforeSpec { unmockkAll() }
+    afterSpec { unmockkAll() }
+    val cfg = OPAConfig(opaBaseUrl = "http://opa:8181/", decisionPath = "v1/data/policies/zeta/authz/decision")
 
-      test("HTTP 4xx maps to Decision.Error") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val resp = mockResponse(400, null)
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Error) shouldBe true
-      }
+    test("HTTP 4xx maps to Decision.Error") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val resp = mockResponse(400, null)
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Error>()
+    }
 
-      test("HTTP 5xx maps to Decision.Error") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val resp = mockResponse(500, null)
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Error) shouldBe true
-      }
+    test("HTTP 5xx maps to Decision.Error") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val resp = mockResponse(500, null)
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Error>()
+    }
 
-      test("Invalid JSON on 200 maps to Decision.Error") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val entity = mockEntity("not json")
-        val resp = mockResponse(200, entity)
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Error) shouldBe true
-      }
+    test("Invalid JSON on 200 maps to Decision.Error") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val entity = mockEntity("not json")
+      val resp = mockResponse(200, entity)
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Error>()
+    }
 
-      test("Object decision allow=true maps to Decision.Allow (with ttl)") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body =
-            """
+    test("Object decision allow=true maps to Decision.Allow (with ttl)") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body =
+          """
               {"decision_id":"abc","result":{"allow":true,"ttl":{"access_token":300,"refresh_token":86400}}}
             """
-                .trimIndent()
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Allow) shouldBe true
-      }
+              .trimIndent()
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Allow>()
+    }
 
-      test("Object decision allow=false maps to Decision.Deny with reasons (object map)") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body =
-            """
+    test("Object decision allow=false maps to Decision.Deny with reasons (object map)") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body =
+          """
               {"decision_id":"abc","result":{"allow":false,"reasons":{
                 "Client product or version is not allowed": true,
                 "One or more requested audiences are not allowed": true,
@@ -93,91 +88,83 @@ class OpaDecisionClientMappingTest :
                 "User profession is not allowed": true
               }}}
             """
-                .trimIndent()
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Deny) shouldBe true
-      }
+              .trimIndent()
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Deny>()
+    }
 
-      test("Malformed object (missing allow) maps to Decision.Error") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body =
-            """
+    test("Malformed object (missing allow) maps to Decision.Error") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body =
+          """
               {"decision_id":"abc","result":{}}
             """
-                .trimIndent()
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Error) shouldBe true
-      }
+              .trimIndent()
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Error>()
+    }
 
-      test("Missing result field (bundle not loaded) maps to Decision.Error") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body = """{"decision_id":"d87fe326-9b8b-43de-9540-c613b20b32d2"}"""
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Error) shouldBe true
-      }
+    test("Missing result field (bundle not loaded) maps to Decision.Error") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body = """{"decision_id":"d87fe326-9b8b-43de-9540-c613b20b32d2"}"""
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Error>()
+    }
 
-      test("Boolean result true maps to Decision.Allow") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body = """{"decision_id":"abc","result":true}"""
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Allow) shouldBe true
-      }
+    test("Boolean result true maps to Decision.Allow") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body = """{"decision_id":"abc","result":true}"""
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Allow>()
+    }
 
-      test("Boolean result false maps to Decision.Deny") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body = """{"decision_id":"abc","result":false}"""
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Deny) shouldBe true
-      }
+    test("Boolean result false maps to Decision.Deny") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body = """{"decision_id":"abc","result":false}"""
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Deny>()
+    }
 
-      test("Unexpected result type (array) maps to Decision.Error") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body = """{"decision_id":"abc","result":[1,2,3]}"""
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Error) shouldBe true
-      }
+    test("Unexpected result type (array) maps to Decision.Error") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body = """{"decision_id":"abc","result":[1,2,3]}"""
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Error>()
+    }
 
-      test("Object decision allow=true with no TTL maps to Decision.Allow") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body = """{"decision_id":"abc","result":{"allow":true}}"""
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Allow) shouldBe true
-      }
+    test("Object decision allow=true with no TTL maps to Decision.Allow") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body = """{"decision_id":"abc","result":{"allow":true}}"""
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
 
-      test("Object decision allow=false with reasons as array maps to Decision.Deny") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        val body =
-            """
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Allow>()
+    }
+
+    test("Object decision allow=false with reasons as array maps to Decision.Deny") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val body =
+          """
               {"decision_id":"abc","result":{"allow":false,"reasons":["User profession is not allowed"]}}
             """
-                .trimIndent()
-        val resp = mockResponse(200, mockEntity(body))
-        every { httpClient.execute(any<HttpUriRequest>()) } returns resp
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Deny) shouldBe true
-      }
+              .trimIndent()
+      val resp = mockResponse(200, mockEntity(body))
+      every { httpClient.execute(any<HttpUriRequest>()) } returns resp
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Deny>()
+    }
 
-      test("Network exception maps to Decision.Error") {
-        val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-        every { httpClient.execute(any<HttpUriRequest>()) } throws IOException("connection refused")
-        val res = OpaDecisionClient.evaluate(httpClient, cfg, "{}", log)
-        (res is Decision.Error) shouldBe true
-      }
-    })
+    test("Network exception maps to Decision.Error") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      every { httpClient.execute(any<HttpUriRequest>()) } throws IOException("connection refused")
+      OpaDecisionClient.evaluate(httpClient, cfg, "{}").shouldBeTypeOf<Decision.Error>()
+    }
+  })
 
 private fun mockResponse(status: Int, entity: HttpEntity?): CloseableHttpResponse {
   val resp = mockk<CloseableHttpResponse>(relaxed = true)

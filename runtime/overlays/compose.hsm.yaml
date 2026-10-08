@@ -21,6 +21,7 @@ services:
       # startup.sh also uses them to generate hsm-keystore.properties when KC_HTTPS_KEY_STORE_* is set.
       HSM_PROXY_ENDPOINT: "hsm-sim:50051"
       HSM_PROXY_KEY_ID: "zeta-guard-keycloak-tls-es256-v1.p256"
+      HSM_PROXY_KEK_ID: "vau-db-kek-v1"
     depends_on:
       hsm-sim:
         condition: service_started

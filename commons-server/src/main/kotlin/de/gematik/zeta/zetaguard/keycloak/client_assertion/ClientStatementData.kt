@@ -1,6 +1,6 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
  * (C) tech@Spree GmbH, 2026, licensed for gematik GmbH
  * %%
@@ -46,15 +46,9 @@ data class ClientStatementData
 constructor(
     @field:JsonProperty(PROPERTY_CLIENT_SUBJECT) val clientId: String,
     @field:JsonProperty(PROPERTY_PLATFORM) val platform: Platform,
-
     @field:JsonProperty(PROPERTY_POSTURE_TYPE) val postureType: PostureType,
-
     @field:JsonProperty(PROPERTY_POSTURE)
-    @field:JsonTypeInfo(
-        use = JsonTypeInfo.Id.NAME,
-        include = JsonTypeInfo.As.EXTERNAL_PROPERTY,
-        property = PROPERTY_POSTURE_TYPE, visible = true
-    )
+    @field:JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.EXTERNAL_PROPERTY, property = PROPERTY_POSTURE_TYPE, visible = true)
     @field:JsonSubTypes(
         value =
             [
@@ -65,6 +59,5 @@ constructor(
             ]
     )
     val posture: Posture,
-
     @field:JsonProperty(PROPERTY_ATTESTATION_TIMESTAMP) val attestationTimestamp: Long,
 )

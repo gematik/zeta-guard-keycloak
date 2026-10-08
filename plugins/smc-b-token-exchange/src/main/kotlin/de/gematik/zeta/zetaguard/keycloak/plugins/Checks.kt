@@ -1,6 +1,6 @@
 /*-
  * #%L
- * referencevalidator-cli
+ * keycloak-zeta
  * %%
  * (C) tech@Spree GmbH, 2026, licensed for gematik GmbH
  * %%
@@ -54,9 +54,9 @@ internal fun checkSoftwarePosture(context: ZetaGuardTokenExchangeContext, postur
 }
 
 internal fun checkTPMPosture(
-  context: ZetaGuardTokenExchangeContext,
-  keystoreService: KeystoreService,
-  posture: TPMPosture
+    context: ZetaGuardTokenExchangeContext,
+    keystoreService: KeystoreService,
+    posture: TPMPosture,
 ): Either<KeycloakValidationError, Unit> = either {
   val tpmQuoteBytes = posture.tpmQuote.fromBase64()
   val tpmQuote = tpmQuoteBytes.deserializeQuote().mapLeft { invalidTPMQuote(it) }.bind()
@@ -76,12 +76,21 @@ internal fun checkTPMPosture(
   validateCertificateChain(keystoreService, certificateChain).mapLeft { invalidTpmCertificate(it) }.bind()
 }
 
-internal fun checkPostureType(clientStatementData: ClientStatementData): Either<KeycloakValidationError, Unit> = either {
+internal fun checkPostureTypeMatchesPlatform(clientStatementData: ClientStatementData): Either<KeycloakValidationError, Unit> = either {
   if (clientStatementData.postureType in listOf(PostureType.SOFTWARE, PostureType.TPM)) {
-    val platform = clientStatementData.posture.platformProductId.productPlatform
+    val platform = clientStatementData.posture.platformProductId?.productPlatform ?: Platform.LINUX // default to LINUX if not provided
 
     ensure(platform in listOf(Platform.WINDOWS, Platform.LINUX)) {
       invalidClientClaim("Invalid combination of »${clientStatementData.postureType}« and »${platform}«")
     }
   }
 }
+
+internal fun checkPostureType(clientStatementData: ClientStatementData, context: ZetaGuardTokenExchangeContext, tpmKeystoreService: KeystoreService) =
+    either {
+      when (clientStatementData.postureType) {
+        PostureType.SOFTWARE -> checkSoftwarePosture(context, clientStatementData.posture as SoftwarePosture).bind()
+        PostureType.TPM -> checkTPMPosture(context, tpmKeystoreService, clientStatementData.posture as TPMPosture).bind()
+        else -> raise(invalidClientAttestation("Client attestation check not implemented for »${clientStatementData.postureType}« posture type"))
+      }
+    }

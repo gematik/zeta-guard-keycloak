@@ -1,6 +1,7 @@
 #!/bin/bash
+set -eo pipefail
 
-echo "Create and configure 𝛇-Guard client scope"
+echo "🛠️ Create and configure 𝛇-Guard client scope"
 
 ./kcadm.sh create client-scopes -r zeta-guard -f "$KC_DIR"/scripts/zeta-guard-scope.json
 

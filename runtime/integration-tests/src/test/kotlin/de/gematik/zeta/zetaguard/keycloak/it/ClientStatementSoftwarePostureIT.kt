@@ -32,23 +32,26 @@ import de.gematik.zeta.zetaguard.keycloak.commons.createOtherClaims
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
-import io.kotest.core.spec.Order
 import io.kotest.matchers.string.shouldContain
 
-@Order(1)
 class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
   init {
     test("Invalid combination of posture type and platform") {
       val nonce = createNonce()
       val otherClaims = createOtherClaims(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys).toMutableMap()
       val invalidStatement =
-        clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, productId = AppleProductId("macos", listOf("bundle")))
+          clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, productId = AppleProductId("macos", listOf("bundle")))
       otherClaims[CLAIM_CLIENT_STATEMENT] = invalidStatement
 
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, otherClaims = otherClaims)
+      val jwt =
+          clientAssertionTokenGenerator.generateClientAssertion(
+              audiences = listOf(clientAssertionAudience),
+              nonceString = nonce,
+              otherClaims = otherClaims,
+          )
       val smcbToken = createSMCBToken(nonce)
 
-      keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid combination" }
+      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid combination" }
     }
 
     test("Invalid attestation challenge") { invalidAttestationChallenge(PostureType.SOFTWARE) }
@@ -59,10 +62,15 @@ class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
       val invalidStatement = clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, timeStampSeconds = 12)
       otherClaims[CLAIM_CLIENT_STATEMENT] = invalidStatement
 
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, otherClaims = otherClaims)
+      val jwt =
+          clientAssertionTokenGenerator.generateClientAssertion(
+              audiences = listOf(clientAssertionAudience),
+              nonceString = nonce,
+              otherClaims = otherClaims,
+          )
       val smcbToken = createSMCBToken(nonce)
 
-      keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid attestation timestamp" }
+      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid attestation timestamp" }
     }
   }
 }

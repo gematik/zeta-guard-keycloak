@@ -23,6 +23,8 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.refresh_token
 
+import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
+import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaConfigResolver
 import org.keycloak.Config
 import org.keycloak.OAuth2Constants
 import org.keycloak.models.KeycloakSession
@@ -30,16 +32,18 @@ import org.keycloak.models.KeycloakSessionFactory
 import org.keycloak.protocol.oidc.grants.OAuth2GrantTypeFactory
 
 class ZetaGuardRefreshTokenGrantTypeFactory : OAuth2GrantTypeFactory {
+  @Volatile internal var opaConfig: OPAConfig = OPAConfig()
+
   override fun getId() = OAuth2Constants.REFRESH_TOKEN // ← MUST match the built-in ID
 
   override fun getShortcut() = "zt" // Must not be longer than that
 
   override fun order() = 10 // Higher than default
 
-  override fun create(session: KeycloakSession) = ZetaGuardRefreshTokenGrantType()
+  override fun create(session: KeycloakSession) = ZetaGuardRefreshTokenGrantType(opaConfig)
 
   override fun init(config: Config.Scope) {
-    // No-op
+    opaConfig = OpaConfigResolver.normalize(OpaConfigResolver.fromScope(config))
   }
 
   override fun postInit(factory: KeycloakSessionFactory) {

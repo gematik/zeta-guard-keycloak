@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
+import de.spree.keycloak.commons.configuration.CONFIG_SETTINGS_ENABLE_COLUMN_ENCRYPTION
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import org.hibernate.cfg.CacheSettings.USE_QUERY_CACHE
@@ -34,6 +35,7 @@ import org.hibernate.cfg.JdbcSettings.JAKARTA_JDBC_PASSWORD
 import org.hibernate.cfg.JdbcSettings.JAKARTA_JDBC_URL
 import org.hibernate.cfg.JdbcSettings.JAKARTA_JDBC_USER
 import org.hibernate.cfg.JdbcSettings.SHOW_SQL
+import org.hibernate.cfg.ManagedBeanSettings.ALLOW_EXTENSIONS_IN_CDI
 import org.hibernate.jpa.boot.internal.EntityManagerFactoryBuilderImpl
 import org.hibernate.jpa.boot.internal.PersistenceUnitInfoDescriptor
 
@@ -54,6 +56,8 @@ class JpaEntityManagerFactory(host: String, port: Int, vararg entityClasses: Cla
           FORMAT_SQL to debugSQL.toString(),
           USE_SECOND_LEVEL_CACHE to "false",
           USE_QUERY_CACHE to "false",
+          CONFIG_SETTINGS_ENABLE_COLUMN_ENCRYPTION to "false",
+          ALLOW_EXTENSIONS_IN_CDI to "true"
       )
 
   fun createEntityManager(): EntityManager = getEntityManagerFactory().createEntityManager()

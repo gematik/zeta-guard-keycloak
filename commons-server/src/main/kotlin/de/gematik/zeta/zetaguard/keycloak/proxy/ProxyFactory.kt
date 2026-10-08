@@ -33,12 +33,12 @@ inline fun <reified T> createProxy(delegate: T, augmenter: MethodAugmenter<T>): 
   val interceptor = DelegatingInterceptor(delegate, augmenter)
 
   return ByteBuddy()
-    .subclass(targetClass)
-    .method(any()) // Catch every call to handle it in our logic
-    .intercept(MethodDelegation.to(interceptor))
-    .make()
-    .load(targetClass.classLoader, ClassLoadingStrategy.Default.INJECTION)
-    .getLoaded()
-    .getDeclaredConstructor()
-    .newInstance()
+      .subclass(targetClass)
+      .method(any()) // Catch every call to handle it in our logic
+      .intercept(MethodDelegation.to(interceptor))
+      .make()
+      .load(targetClass.classLoader, ClassLoadingStrategy.Default.INJECTION)
+      .getLoaded()
+      .getDeclaredConstructor()
+      .newInstance()
 }

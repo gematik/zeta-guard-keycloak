@@ -23,8 +23,8 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.adminevents
 
+import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService
-import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.DefaultEMCreator
 import io.kotest.core.spec.style.FunSpec
 import io.mockk.every
 import io.mockk.mockk

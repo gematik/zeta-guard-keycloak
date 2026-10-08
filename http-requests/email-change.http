@@ -1,0 +1,24 @@
+# Identity-scoped email change (A_29911/A_29912) — reduced: no step-up and no re-verification yet
+#
+# Authorization ([zeta-guard-client-management], A_30101): per-request private_key_jwt client assertion in the
+# Client-Assertion header (compact JWS only — no client_assertion_type), signed with the REGISTERED instance key (F2)
+# of a mobile client whose email binding is VERIFIED. Required headers/claims:
+#   typ: JWT (A_25338-01), iss = sub = client_id, aud = {{origin}}/realms/zeta-guard,
+#   htm = "POST", htu = {{origin}}/realms/zeta-guard/zeta/identity/email (RFC 9449 §4.2 binding),
+#   exp (max lifetime 60 s), single-use jti (replay cache shared with the token endpoint).
+#
+# The Client-Assertion header is at the same time the surviving factor of A_29911 (no pop/old_email_proof members).
+# idp_step_up is accepted but ignored; enforcing A_29911 later is a planned breaking change.
+# Current response: 202 {"status": "verified"} — once A_29911 is complete: OTP challenge → .../email/verify.
+POST {{origin}}/realms/zeta-guard/zeta/identity/email
+Content-Type: application/json
+Client-Assertion: {{client_assertion}}
+
+{
+  "new_email": "{{$random.email}}"
+}
+
+### Errors are RFC 9457 application/problem+json with a "code" member: popRequired (no Client-Assertion header),
+### invalidSignature (signature/iss/sub/typ), wrongAudience, invalidBinding (htm/htu mismatch), staleRequest
+### (expired, >60s lifetime, jti replay), invalidRequest (bad new_email), factorRequired (caller not a verified
+### mobile client of an identity).

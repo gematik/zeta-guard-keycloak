@@ -1,0 +1,386 @@
+[
+  {
+    "friendlyName": "CN=Komp-CA50 OCSP-Signer1 TEST-ONLY,O=arvato Systems GmbH NOT-VALID,C=DE",
+    "tspName": "arvato Systems GmbH"
+  },
+  {
+    "friendlyName": "CN=Komp-CA28 OCSP-Signer2 TEST-ONLY,O=arvato Systems GmbH NOT-VALID,C=DE",
+    "tspName": "arvato Systems GmbH"
+  },
+  {
+    "friendlyName": "CN=Komp-CA28 OCSP-Signer3 TEST-ONLY,O=arvato Systems GmbH NOT-VALID,C=DE",
+    "tspName": "arvato Systems GmbH"
+  },
+  {
+    "friendlyName": "CN=Komp-CA55 OCSP-Signer2 TEST-ONLY,O=arvato Systems GmbH NOT-VALID,C=DE",
+    "tspName": "arvato Systems GmbH"
+  },
+  {
+    "friendlyName": "CN=TSL-CA OCSP-Signer10 TEST-ONLY,O=arvato Systems GmbH NOT-VALID,C=DE",
+    "tspName": "arvato Systems GmbH"
+  },
+  {
+    "friendlyName": "CN=Komp-CA55 OCSP-Signer1 TEST-ONLY,O=arvato Systems GmbH NOT-VALID,C=DE",
+    "tspName": "arvato Systems GmbH"
+  },
+  {
+    "friendlyName": "CN=Komp-CA56 OCSP-Signer1 TEST-ONLY,O=arvato Systems GmbH NOT-VALID,C=DE",
+    "tspName": "arvato Systems GmbH"
+  },
+  {
+    "friendlyName": "CN=MESIG.SMCB-OCSP2 TEST-ONLY,O=medisign GmbH NOT-VALID,C=DE",
+    "tspName": "medisign"
+  },
+  {
+    "friendlyName": "CN=MESIG.HBA-OCSP10 TEST-ONLY,O=medisign GmbH NOT-VALID,C=DE",
+    "tspName": "medisign"
+  },
+  {
+    "friendlyName": "CN=MESIG.SMCB-OCSP10 TEST-ONLY,O=medisign GmbH NOT-VALID,C=DE",
+    "tspName": "medisign"
+  },
+  {
+    "friendlyName": "CN=MESIG.HBA-OCSP35 TEST-ONLY,O=medisign GmbH NOT-VALID,C=DE",
+    "tspName": "medisign"
+  },
+  {
+    "friendlyName": "CN=MESIG.SMCB-OCSP25 TEST-ONLY,O=medisign GmbH NOT-VALID,C=DE",
+    "tspName": "medisign"
+  },
+  {
+    "friendlyName": "CN=MESIG.SMCB-OCSP35 TEST-ONLY,O=medisign GmbH NOT-VALID,C=DE",
+    "tspName": "medisign"
+  },
+  {
+    "friendlyName": "CN=MESIG.SMCB.OCSP1 TEST-ONLY,O=medisign GmbH NOT-VALID,C=DE",
+    "tspName": "medisign"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_11_001 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_40 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_33 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_43 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_16_001 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_21_001 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_Inet_21_001 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_36 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_Inet_33 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_Inet_36 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_Inet_21 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_Inet_16_001 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_Inet_11_001 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=BITMARCK.EGK-OCSP_SIGNER_Inet_43 TEST-ONLY,O=BITMARCK Technik GmbH NOT-VALID,C=DE",
+    "tspName": "BITMARCK"
+  },
+  {
+    "friendlyName": "CN=kubus IT OCSP Signer 6 TEST-ONLY,O=kubus IT NOT-VALID,C=DE",
+    "tspName": "kubus IT GbR"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP7 TEST-ONLY,O=Eviden Germany GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.HBA-OCSP8 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP8 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=EVIDEN.SMCB-OCSP2 TEST-ONLY,O=Eviden Germany GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP9 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=EVIDEN.SMCB-OCSP1 TEST-ONLY,O=Eviden Germany GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP12 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP5 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.HBA-OCSP6 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.HBA-OCSP4-240319 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP4-240319 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP9-230119 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP28 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP3 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP203-230620 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP6 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP3-240319 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP7 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=EVIDEN.HBA-OCSP2 TEST-ONLY,O=Eviden Germany GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP6 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP8 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP18 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP4 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP11 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP29 TEST-ONLY,O=Eviden Germany GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP27 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP207 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP19 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP205 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP21 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.SMCB-OCSP5 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP30 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP13-230830 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP11-230620 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP17_20250805 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP10 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-OCSP31 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP1_20250120 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP2_20250120 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=ATOS.EGK-ALVI-OCSP4_20250120 TEST-ONLY,O=Atos Information Technology GmbH NOT-VALID,C=DE",
+    "tspName": "Atos Information Technology GmbH"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA34-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA7-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA33-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA32-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA31-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA3-OCSP-Signer-2 TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA6-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.HBA-CA6-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.HBA-CA5-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA5-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=D-Trust.SMCB-CA3-OCSP-Signer TEST-ONLY,O=D-Trust GmbH NOT-VALID,C=DE",
+    "tspName": "D-TRUST"
+  },
+  {
+    "friendlyName": "CN=TSYSI.EGK-OCSP-Signer8 TEST-ONLY,O=Deutsche Telekom Security GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.SMCB-OCSP-Signer3 TEST-ONLY,O=T-Systems International GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.SMCB-OCSP-Signer5 TEST-ONLY,O=Deutsche Telekom Security GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.SMCB-OCSP-Signer4 TEST-ONLY,O=Deutsche Telekom Security GmbH - G2 Los 3 NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.HBA-OCSP-Signer5 TEST-ONLY,O=Deutsche Telekom Security GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.SMCB-OCSP-Signer2 TEST-ONLY,O=T-Systems International GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.HBA-OCSP-Signer4 TEST-ONLY,O=Deutsche Telekom Security GmbH - G2 Los 3 NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.SMCB-OCSP-Signer2-1 TEST-ONLY,O=T-Systems International GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.SMCB-OCSP-Signer3-1 TEST-ONLY,O=T-Systems International GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.HBA-OCSP-Signer2-2 TEST-ONLY,O=T-Systems International GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.EGK-OCSP-Signer5-1 TEST-ONLY,O=T-Systems International GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=TSYSI.EGK-OCSP-Signer10-1 TEST-ONLY,O=Deutsche Telekom Security GmbH NOT-VALID,C=DE",
+    "tspName": "T-TeleSec"
+  },
+  {
+    "friendlyName": "CN=ehca OCSP Signer 57 ru ecc TEST-ONLY,O=gematik NOT-VALID,C=DE",
+    "tspName": "gematik"
+  },
+  {
+    "friendlyName": "CN=ehca OCSP Signer 61 nist TEST-ONLY,O=gematik NOT-VALID,C=DE",
+    "tspName": "gematik"
+  },
+  {
+    "friendlyName": "CN=ehca OCSP Signer 51 ecc TEST-ONLY,O=gematik NOT-VALID,C=DE",
+    "tspName": "gematik"
+  },
+  {
+    "friendlyName": "CN=ehca OCSP Signer 41 rsa TEST-ONLY,O=gematik NOT-VALID,C=DE",
+    "tspName": "gematik"
+  }
+]

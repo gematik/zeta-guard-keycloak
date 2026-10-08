@@ -49,16 +49,16 @@ object JsonUtil {
    */
   inline fun <reified T> String.toObjectWithCreator(map: Map<String, Any>): T {
     val mapper =
-      JsonSerialization.mapper.copy().apply {
-        val injectables = InjectableValues.Std()
+        JsonSerialization.mapper.copy().apply {
+          val injectables = InjectableValues.Std()
 
-        for (entry in map.entries) {
-          injectables.addValue(entry.value.javaClass, entry.value)
-          injectables.addValue(entry.key, entry.value)
+          for (entry in map.entries) {
+            injectables.addValue(entry.value.javaClass, entry.value)
+            injectables.addValue(entry.key, entry.value)
+          }
+
+          setInjectableValues(injectables)
         }
-
-        setInjectableValues(injectables)
-      }
 
     return mapper.readValue(this, T::class.java)
   }

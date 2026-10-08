@@ -25,6 +25,7 @@
 
 package de.gematik.zeta.zetaguard.keycloak.it
 
+import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_GENESIS_HASH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_HASHING_PEPPER
 import de.gematik.zeta.zetaguard.keycloak.commons.server.HASHING_PEPPER
@@ -37,35 +38,49 @@ import org.slf4j.LoggerFactory
 import org.testcontainers.containers.ComposeContainer
 import org.testcontainers.containers.output.Slf4jLogConsumer
 import org.testcontainers.containers.wait.strategy.Wait
+import org.testcontainers.containers.wait.strategy.Wait.forHttp
 
 object Docker {
   private var running = false
 
   internal val log: Logger = LoggerFactory.getLogger(this.javaClass)
 
-  private val docker: ComposeContainer =
-    ComposeContainer(File("./docker-compose-it.yml"))
-      .withEnv(ENV_GENESIS_HASH, GENESIS_HASH)
-      .withEnv(ENV_HASHING_PEPPER, HASHING_PEPPER)
-      .withLogConsumer("keycloak", Slf4jLogConsumer(log).withMdc("container", "keycloak"))
-      .withLogConsumer("keycloak-db", Slf4jLogConsumer(log).withMdc("container", "keycloak-db"))
-      .withLogConsumer("keycloak-config-cli", Slf4jLogConsumer(log).withMdc("container", "keycloak-config-cli"))
-      .withExposedService("keycloak", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofSeconds(240)))
-      .withExposedService("keycloak-db", 5432, Wait.forListeningPort())
-      .withExposedService("keycloak-config-cli", 0, WaitForTerminationStrategy)
-      .withRemoveVolumes(true)
-      .withPull(true)
+  val tracingEnabled: Boolean = System.getProperty("it.tracing", "false").toBoolean()
 
-  val kchost: String by lazy { if (running) docker.getServiceHost("keycloak", 8080) else "localhost" }
-  val kcport: Int by lazy { if (running) docker.getServicePort("keycloak", 8080) else 18080 }
-  val dbhost: String by lazy { if (running) docker.getServiceHost("keycloak-db", 5432) else "localhost" }
-  val dbport: Int by lazy { if (running) docker.getServicePort("keycloak-db", 5432) else 15432 }
+  private val STARTUP_TIMEOUT = Duration.ofMinutes(10)!! // Gitlab may be veeeeery slow
+
+  private val composeFiles =
+      listOfNotNull(
+          File("./docker-compose-it.yml"),
+          if (tracingEnabled) File("./docker-compose-tracing-it.yml") else null,
+      )
+
+  private val docker: ComposeContainer =
+      ComposeContainer(composeFiles)
+          .withEnv(ENV_GENESIS_HASH, GENESIS_HASH)
+          .withEnv(ENV_HASHING_PEPPER, HASHING_PEPPER)
+          .withLogConsumer("keycloak", Slf4jLogConsumer(log).withMdc("container", "keycloak"))
+          .withLogConsumer("keycloak-db", Slf4jLogConsumer(log).withMdc("container", "keycloak-db"))
+          .withLogConsumer("keycloak-config-cli", Slf4jLogConsumer(log).withMdc("container", "keycloak-config-cli"))
+          .withExposedService("keycloak", 8080, Wait.forListeningPort().withStartupTimeout(STARTUP_TIMEOUT))
+          .withExposedService("keycloak-db", 5432, Wait.forListeningPort())
+          .withExposedService("keycloak-config-cli", 0, WaitForTerminationStrategy.withStartupTimeout(Duration.ofSeconds(240)))
+          .let { if (tracingEnabled) it.withExposedService("lgtm", 3200, forHttp("/ready").withStartupTimeout(STARTUP_TIMEOUT)) else it }
+          .withRemoveVolumes(true)
+          .withPull(true)
+
+  val kchost: String by lazy { if (running) docker.getServiceHost("keycloak", 8080) else KeycloakWebClient.kchost }
+  val kcport: Int by lazy { if (running) docker.getServicePort("keycloak", 8080) else KeycloakWebClient.kcport }
+  val dbhost: String by lazy { if (running) docker.getServiceHost("keycloak-db", 5432) else KeycloakWebClient.dbhost }
+  val dbport: Int by lazy { if (running) docker.getServicePort("keycloak-db", 5432) else KeycloakWebClient.dbport }
   val jdbcUrl: String by lazy { "jdbc:postgresql://$dbhost:$dbport/keycloak?ssl=false&user=zeta-guard&password=geheim" }
+  val tempoHost: String by lazy { if (running && tracingEnabled) docker.getServiceHost("lgtm", 3200) else "localhost" }
+  val tempoPort: Int by lazy { if (running && tracingEnabled) docker.getServicePort("lgtm", 3200) else 3200 }
 
   fun start() {
-    log.info("Starting Docker compose ..." + running())
+    log.info("Starting Docker compose ... (${running()})")
 
-    if (!running) {
+    if (!running && !KeycloakWebClient.remoteHost) {
       try {
         docker.start()
         running = true
@@ -77,7 +92,7 @@ object Docker {
   }
 
   fun stop() {
-    log.info("Shutdown Docker compose ..." + running())
+    log.info("Shutdown Docker compose ... (${running()})")
 
     if (running) {
       try {

@@ -1,6 +1,7 @@
 #!/bin/bash
+set -eo pipefail
 
-echo "Setup 𝛇-Guard client registration policies"
+echo "🛠️ Setup 𝛇-Guard client registration policies"
 
 ./kcadm.sh get components -r zeta-guard --fields "id,providerId,parentId" > components.json
 

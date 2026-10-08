@@ -46,11 +46,11 @@ class AdminEventLoggerProvider(private val adminEventLogService: AdminEventLogSt
    */
   override fun onEvent(adminEvent: AdminEvent, includeRepresentation: Boolean) {
     log.infof(
-      "Admin Event Occurred: realm=%s, operationType=%s, resourceType=%s, resourcePath=%s",
-      adminEvent.realmName,
-      adminEvent.operationType,
-      adminEvent.resourceType,
-      adminEvent.resourcePath,
+        "Admin Event Occurred: realm=%s, operationType=%s, resourceType=%s, resourcePath=%s",
+        adminEvent.realmName,
+        adminEvent.operationType,
+        adminEvent.resourceType,
+        adminEvent.resourcePath,
     )
 
     if (includeRepresentation) {
@@ -65,12 +65,14 @@ class AdminEventLoggerProvider(private val adminEventLogService: AdminEventLogSt
     val savedPreviousHash = if (GENESIS_HASH == previousHash) GENESIS_MARKER else previousHash
 
     adminEventLogService.saveAdminEventLog(
-      AdminEventLog(
-        id = SecretGenerator.getInstance().generateSecureID(),
-        event = json,
-        createdAt = createdAt,
-        previousHash = savedPreviousHash,
-        currentHash = currentHash))
+        AdminEventLog(
+            id = SecretGenerator.getInstance().generateSecureID(),
+            event = json,
+            createdAt = createdAt,
+            previousHash = savedPreviousHash,
+            currentHash = currentHash,
+        )
+    )
   }
 
   override fun onEvent(event: Event) {

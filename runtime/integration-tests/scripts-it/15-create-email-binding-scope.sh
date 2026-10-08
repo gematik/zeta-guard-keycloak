@@ -1,0 +1,1 @@
+../scripts-repository/15-create-email-binding-scope.sh

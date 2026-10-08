@@ -23,15 +23,21 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.hsm.tokensigning
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import java.security.KeyStore
+import org.keycloak.Config
 import org.keycloak.component.ComponentModel
+import org.keycloak.crypto.Algorithm
+import org.keycloak.crypto.KeyUse
+import org.keycloak.models.KeycloakSession
 import org.keycloak.provider.ProviderConfigProperty
 
 class HsmTokenSigningKeyProviderFactoryTest : FunSpec() {
@@ -42,10 +48,19 @@ class HsmTokenSigningKeyProviderFactoryTest : FunSpec() {
 
     test("getHelpText returns non-empty string") { HsmTokenSigningKeyProviderFactory().getHelpText() shouldNotBe "" }
 
-    test("init and close are no-ops") {
+    test("init reads failClosed=true by default and close is a no-op") {
       val f = HsmTokenSigningKeyProviderFactory()
-      f.init(mockk(relaxed = true))
+      val scope = mockk<Config.Scope> { every { getBoolean(HsmTokenSigningKeyProviderFactory.CONFIG_FAIL_CLOSED, true) } returns true }
+      f.init(scope)
+      f.failClosed shouldBe true
       f.close()
+    }
+
+    test("init reads failClosed=false from SPI scope (operator opt-out)") {
+      val f = HsmTokenSigningKeyProviderFactory()
+      val scope = mockk<Config.Scope> { every { getBoolean(HsmTokenSigningKeyProviderFactory.CONFIG_FAIL_CLOSED, true) } returns false }
+      f.init(scope)
+      f.failClosed shouldBe false
     }
 
     // ── Config properties (Admin UI support) ────────────────────────────────
@@ -113,7 +128,51 @@ class HsmTokenSigningKeyProviderFactoryTest : FunSpec() {
       result.isFailure shouldBe true
       result.exceptionOrNull()!!.message shouldBe "HSM keyId not configured"
     }
+
+    // ── createFallbackKeys (fail-closed guard) ──────────────────────────────
+
+    test("createFallbackKeys returns false when failClosed=false (operator opt-out)") {
+      val factory = guardFactory(failClosed = false)
+      factory.createFallbackKeys(mockk(), KeyUse.SIG, Algorithm.ES256) shouldBe false
+    }
+
+    test("createFallbackKeys returns false when realm has no HSM provider component (bootstrap fall-through)") {
+      val factory = guardFactory(failClosed = true, realmHasHsmProvider = false)
+      factory.createFallbackKeys(mockk(), KeyUse.SIG, Algorithm.ES256) shouldBe false
+    }
+
+    test("createFallbackKeys returns false for non-SIG key use (e.g. ENC)") {
+      val factory = guardFactory(failClosed = true)
+      factory.createFallbackKeys(mockk(), KeyUse.ENC, Algorithm.ES256) shouldBe false
+    }
+
+    test("createFallbackKeys throws HsmUnavailableException for ES256 SIG when failClosed") {
+      val factory = guardFactory(failClosed = true)
+      val ex = shouldThrow<HsmUnavailableException> { factory.createFallbackKeys(mockk(), KeyUse.SIG, Algorithm.ES256) }
+      ex.message shouldContain "ES256"
+      ex.message shouldContain "Software fallback is disabled by policy"
+    }
+
+    test("createFallbackKeys throws HsmUnavailableException for RS256 SIG when failClosed (no RSA software fallback)") {
+      val factory = guardFactory(failClosed = true)
+      val ex = shouldThrow<HsmUnavailableException> { factory.createFallbackKeys(mockk(), KeyUse.SIG, Algorithm.RS256) }
+      ex.message shouldContain "RS256"
+    }
+
+    test("createFallbackKeys throws HsmUnavailableException for any SIG algorithm when failClosed") {
+      val factory = guardFactory(failClosed = true)
+      listOf(Algorithm.PS256, Algorithm.ES384, "EdDSA").forEach { alg ->
+        shouldThrow<HsmUnavailableException> { factory.createFallbackKeys(mockk(), KeyUse.SIG, alg) }
+      }
+    }
   }
+
+  /** Test factory: overrides `hsmEnforcingRealmName` to bypass mockk's KeycloakContext proxy issue. */
+  private fun guardFactory(failClosed: Boolean, realmHasHsmProvider: Boolean = true): HsmTokenSigningKeyProviderFactory =
+      object : HsmTokenSigningKeyProviderFactory() {
+            override fun hsmEnforcingRealmName(session: KeycloakSession): String? = if (realmHasHsmProvider) "<test>" else null
+          }
+          .also { it.failClosed = failClosed }
 
   /** Creates a factory with buildKeyStore stubbed to avoid real gRPC. */
   private fun testableFactory(): HsmTokenSigningKeyProviderFactory {

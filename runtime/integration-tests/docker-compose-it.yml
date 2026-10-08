@@ -22,6 +22,10 @@ services:
       retries: 5
 
   keycloak:
+    # Keycloak writes logs and the jacoco exec file into the mounted ./target. Under rootless Docker the
+    # image's own user maps to an unprivileged host uid, leaving those files undeletable for `mvn clean`;
+    # set DOCKER_USER=0 there.
+    user: ${DOCKER_USER:-keycloak}
     image: ${IMAGE_NAME:-zeta/zeta-guard/keycloak-zeta}:${IMAGE_TAG:-latest}
     # 'container_name' property set for service 'keycloak' but this property is not supported by Testcontainers, consider removing it
     environment:
@@ -39,7 +43,7 @@ services:
       KC_HEALTH_ENABLED: true
       KC_HOSTNAME: http://localhost:18080
       KC_HTTP_ENABLED: true
-      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
+      KC_TRACING_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_SIMULATION_BASE_URL: "http://opa-simulation:8181"
       # https://www.keycloak.org/docs/latest/upgrading/#maximum-length-of-the-parameters-in-the-oidc-token-endpoint
@@ -50,14 +54,37 @@ services:
       # Where to find SMC-B certificates and how to read them
       SMCB_KEYSTORE_LOCATION: /opt/keycloak/conf/smcb-certificates.p12
       SMCB_KEYSTORE_PASSWORD: "tyqvHpFoHdu68yRE+0F4q/I"
+      SMCB_KEYSTORE_META_LOCATION: /opt/keycloak/conf/smcb-certificates-meta.json
       SMCB_USER_MAX_CLIENTS: 20
+      ZETA_OIDC_FLOW_ENABLED: ${ZETA_OIDC_FLOW_ENABLED:-false}
       TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm-certificates.p12
       TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+      # OCSP_KEYSTORE_LOCATION: /opt/keycloak/conf/ocsp-signers.p12
+      # OCSP_KEYSTORE_PASSWORD: "oGxkNU73WYIGpNTfWgeU"
+      # OCSP_KEYSTORE_META_LOCATION: /opt/keycloak/conf/ocsp-signers-meta.json
       CLIENT_REGISTRATION_TTL: "PT4S"
+      SMCB_IDLE_CLIENT_TTL: "PT4S"
+      SMCB_IDLE_USER_TTL: "PT4S"
       CLIENT_REGISTRATION_SCHEDULER_INTERVAL: "PT3S"
+      # Exercise the truststore reload loop on every IT run: it hashes the truststores every few seconds and must keep
+      # finding them unchanged. A broken schedule, read or comparison therefore shows up in the whole suite.
+      TRUSTSTORE_RELOAD_INTERVAL: "PT5S"
       HSM_PROXY_ENDPOINT: "hsm-sim:50051"
       HSM_PROXY_KEY_ID: "zeta-guard-keycloak-tls-es256-v1.p256"
       HSM_PROXY_TOKEN_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
+      # HsmTokenSigningKeyProviderFactory's fail-closed guard defaults to ON
+      # (HsmTokenSigningKeyProviderFactory.failClosed = true). No env var needed in the IT;
+      # set KC_SPI_KEYS_ZETA_HSM_TOKEN_SIGNING_FAIL_CLOSED=false to relax for debugging.
+      # NOTE: KC_SPI_KEYS_ZETA_HSM_TOKEN_SIGNING_ENABLED is reserved by Keycloak's SPI loader
+      # (DefaultKeycloakSessionFactory.isEnabled) — do not use it to control the guard.
+      HSM_PROXY_KEK_ID: "vau-db-kek-v1"
+      SPREE_INTEGRITY_PROVIDER_ENABLED: true
+      SPREE_ENABLE_INTEGRITY_CHECK: true
+      SPREE_SHUTDOWN_ON_ERROR: true
+      SPREE_ENCRYPTED_REALM: "zeta-guard"
+      SPREE_BOOTSTRAP_INTERVAL: "PT30S"
+    env_file:
+      - ../conf/spree-keychain.env
     ports:
       - "127.0.0.1:18080:8080" # api port
       - "19000:9000" # mgmt
@@ -65,7 +92,10 @@ services:
       - zeta-guard
     volumes:
       - ../smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
+      - ../smcb-certificates-meta.json:/opt/keycloak/conf/smcb-certificates-meta.json
       - ../tpm-certificates.p12:/opt/keycloak/conf/tpm-certificates.p12
+      - ../ocsp-signers.p12:/opt/keycloak/conf/ocsp-signers.p12
+      - ../ocsp-signers-meta.json:/opt/keycloak/conf/ocsp-signers-meta.json
       - ./target/classes/libs/jacoco-agent.jar:/opt/keycloak/bin/jacoco-agent.jar
       - ./target:/opt/keycloak/data
     # Give KC more time to write logs and jacoco exec file
@@ -96,13 +126,22 @@ services:
       IMPORT_FILES: "/config/*"
       # See https://github.com/adorsys/keycloak-config-cli?tab=readme-ov-file#variable-substitution
       IMPORT_VARSUBSTITUTION_ENABLED: true
-      KC_EVENT_LISTENER: zeta-guard-admin-events
       ADMIN_EVENT_LOGGING_ENABLED: true
       ADMIN_EVENT_LOGGING_DETAILS_ENABLED: true
       # HSM token signing — registers KeyProvider and removes software signing keys
       HSM_TOKEN_SIGNING_ENABLED: "true"
       HSM_TOKEN_SIGNING_ENDPOINT: "hsm-sim:50051"
       HSM_TOKEN_SIGNING_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
+      POSTGRES_HOST: keycloak-db
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: zeta-guard
+      POSTGRES_PASSWORD: geheim
+      SPREE_INTEGRITY_PROVIDER_ENABLED: true
+      SPREE_ENABLE_INTEGRITY_CHECK: true
+      SPREE_ENABLE_INTEGRITY_TABLE_CHECK: true
+      SPREE_ENCRYPTED_REALM: "zeta-guard"
+      ZETA_OIDC_FLOW_ENABLED: ${ZETA_OIDC_FLOW_ENABLED:-false}
     networks:
       - zeta-guard
     volumes:

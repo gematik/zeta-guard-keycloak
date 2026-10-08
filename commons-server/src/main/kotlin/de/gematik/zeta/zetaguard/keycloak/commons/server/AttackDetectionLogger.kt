@@ -23,41 +23,64 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
+import io.opentelemetry.semconv.ServerAttributes
+import java.time.ZoneId
 import org.jboss.logging.Logger
-import org.jboss.logging.MDC
+import org.keycloak.models.KeycloakSession
 
 enum class CapecAttackMechanics(val id: Int, val attackName: String) {
-    AUTHENTICATION_BYPASS(115, "Authentication Bypass")
+  AUTHENTICATION_BYPASS(115, "Authentication Bypass")
 }
 
 private const val ATTACK_DETECTION_CAPEC_ID = "attackDetection.capecId"
-
 private const val ATTACK_DETECTION_CAPEC_NAME = "attackDetection.capecName"
-
 private const val ATTACK_DETECTION_DETAIL = "attackDetection.detail"
-
 private const val ATTACK_DETECTION_ORIGIN = "attackDetection.origin"
-
 private const val ATTACK_DETECTION_CLIENT_IP = "attackDetection.clientIP"
 
+private const val ATTACK_TRACER = "zetaguard.attackDetection"
+
 object AttackDetectionLogger {
-  
   private val logger = Logger.getLogger(AttackDetectionLogger::class.java)
 
-  fun warnWithMDC(cause: Throwable, attack: CapecAttackMechanics, clientIP: String) {
-    MDC.put(ATTACK_DETECTION_CAPEC_ID, attack.id)
-    MDC.put(ATTACK_DETECTION_CAPEC_NAME, attack.attackName)
-    MDC.put(ATTACK_DETECTION_DETAIL, cause.message ?: "no detail available")
-    MDC.put(ATTACK_DETECTION_ORIGIN, cause.stackTrace[0] ?: "no detail available")
-    MDC.put(ATTACK_DETECTION_CLIENT_IP, clientIP)
-    try {
-      logger.warn("Möglicher Angriff detektiert")
-    } finally {
-      MDC.remove(ATTACK_DETECTION_CAPEC_ID)
-      MDC.remove(ATTACK_DETECTION_CAPEC_NAME)
-      MDC.remove(ATTACK_DETECTION_DETAIL)
-      MDC.remove(ATTACK_DETECTION_ORIGIN)
-      MDC.remove(ATTACK_DETECTION_CLIENT_IP)
-    }
-  }
+  fun warn(attack: CapecAttackMechanics, message: String, cause: Any?, clientIP: String) = logger.warn(
+      message = "Possible attack detected",
+      attributes = mapOf(
+          ATTACK_DETECTION_CAPEC_ID to attack.id,
+          ATTACK_DETECTION_CAPEC_NAME to attack.attackName,
+          ATTACK_DETECTION_DETAIL to message,
+          ATTACK_DETECTION_ORIGIN to (cause ?: "no details available"),
+          ATTACK_DETECTION_CLIENT_IP to clientIP,
+      ),
+  )
+}
+
+fun KeycloakSession.reportAttack(cause: Throwable, attack: CapecAttackMechanics, clientIP: String) {
+  val message = cause.message ?: "unknown"
+  val cause = cause.stackTrace[0]
+
+  AttackDetectionLogger.warn(attack, message, cause, clientIP)
+  reportAttack(attack, message, clientIP)
+}
+
+fun KeycloakSession.reportAttack(cause: KeycloakError, attack: CapecAttackMechanics, clientIP: String) {
+  val message = cause.errorDescription
+
+  AttackDetectionLogger.warn(attack, message, cause, clientIP)
+  reportAttack(attack, message, clientIP)
+}
+
+fun KeycloakSession.reportAttack(attack: CapecAttackMechanics, message: String, clientIP: String) {
+  val span = getTracer(ATTACK_TRACER)
+      .spanBuilder(attack.name)
+      .setAttribute(AttackDetectionAttributes.CAPEC_NAME, attack.attackName)
+      .setAttribute(AttackDetectionAttributes.CAPEC_ID, attack.id.toLong())
+      .setAttribute(AttackDetectionAttributes.DETAIL, message)
+      .setAttribute(AttackDetectionAttributes.ORIGIN, "no details available")
+      .setAttribute(AttackDetectionAttributes.CLIENT_IP, clientIP)
+      .setAttribute(ServerAttributes.SERVER_ADDRESS, serverHost)
+      .startSpan()
+      .addEvent(attack.attackName, currentTime().atZone(ZoneId.systemDefault()).toInstant())
+
+  span.end()
 }

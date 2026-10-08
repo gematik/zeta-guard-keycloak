@@ -43,9 +43,19 @@ class HttpHeaderUtilTest : ZetaGuardFunSpec() {
         "for=\"[2001:db8:cafe::17]:4711\"".toForwardedHeader() shouldBe "2001:db8:cafe::17"
       }
 
+      test("should extract IP regardless of pair order") {
+        // RFC 7239 does not constrain the order of the pairs within an element
+        "proto=http;for=192.168.0.1".toForwardedHeader() shouldBe "192.168.0.1"
+        "by=203.0.113.43;for=192.0.2.60;host=example.com".toForwardedHeader() shouldBe "192.0.2.60"
+        "host=example.com;proto=https;for=\"[2001:db8:cafe::17]:4711\"".toForwardedHeader() shouldBe "2001:db8:cafe::17"
+      }
+
       test("should return null for invalid Forwarded header") {
         "invalid".toForwardedHeader() shouldBe null
         "proto=http".toForwardedHeader() shouldBe null
+        // a "for=" that is not an address must not be passed through as one
+        "for=hello-world".toForwardedHeader() shouldBe null
+        "for=".toForwardedHeader() shouldBe null
       }
     }
 
@@ -75,9 +85,21 @@ class HttpHeaderUtilTest : ZetaGuardFunSpec() {
 
       test("should trim whitespace") { "  192.168.0.1  ".toIPAddress() shouldBe "192.168.0.1" }
 
+      test("should handle bare IPv6 variants") {
+        "::1".toIPAddress() shouldBe "::1"
+        "fe80::1%eth0".toIPAddress() shouldBe "fe80::1%eth0"
+        "2001:db8:0:0:0:0:0:1".toIPAddress() shouldBe "2001:db8:0:0:0:0:0:1"
+      }
+
       test("should return null for blank string") {
         "".toIPAddress() shouldBe null
         "   ".toIPAddress() shouldBe null
+      }
+
+      test("should return null for anything that is not an address") {
+        "hello-world".toIPAddress() shouldBe null
+        "not-an-ip".toIPAddress() shouldBe null
+        "unknown".toIPAddress() shouldBe null
       }
     }
   }

@@ -24,8 +24,8 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.adminevents
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ADMIN_EVENTS_PROVIDER_ID
+import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService
-import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.DefaultEMCreator
 import org.keycloak.Config
 import org.keycloak.events.EventListenerProvider
 import org.keycloak.events.EventListenerProviderFactory

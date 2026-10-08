@@ -25,15 +25,16 @@ package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import io.kotest.assertions.arrow.core.shouldBeRight
-import io.kotest.core.spec.Order
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldNotBe
 
-@Order(1)
 class NonceCreationIT : FunSpec() {
+  val keycloakWebClient = KeycloakWebClient.instance()
+
   init {
+    afterSpec { keycloakWebClient.close() }
+
     test("Create nonce") {
-      val keycloakWebClient = KeycloakWebClient()
       val nonce1 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
       val nonce2 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
 

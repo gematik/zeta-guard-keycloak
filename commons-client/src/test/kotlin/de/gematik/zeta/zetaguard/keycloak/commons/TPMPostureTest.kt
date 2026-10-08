@@ -51,7 +51,7 @@ import tss.tpm.TPMS_QUOTE_INFO
 
 class TPMPostureTest : ZetaGuardFunSpec() {
   init {
-      val keystoreServiceWithoutIntermediate: KeystoreService = mockk()
+    val keystoreServiceWithoutIntermediate: KeystoreService = mockk()
 
     beforeTest {
       every { keystoreServiceWithoutIntermediate.findIssuerCertificate(leafCertificate) } returns null
