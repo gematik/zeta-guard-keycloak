@@ -33,7 +33,7 @@ mvn clean install -DskipTests
 To build the project, run:
 
 ```shell
-    ./mvnw clean install
+    ./mvnw clean install -P integration-tests
 ```
 
 # How to run Keycloak

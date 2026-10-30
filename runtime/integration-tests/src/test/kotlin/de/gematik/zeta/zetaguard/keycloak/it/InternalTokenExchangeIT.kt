@@ -47,7 +47,7 @@ import org.keycloak.util.TokenUtil.TOKEN_TYPE_BEARER
 class InternalTokenExchangeIT : FunSpec() {
   init {
     test("Internal token exchange with explicit client scopes/audiences") {
-      val keycloakWebClient = KeycloakWebClient()
+      val keycloakWebClient = KeycloakWebClient.instance()
       val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = CLIENT_A_SCOPE).shouldBeRight().reponseObject
 
       accessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
@@ -79,7 +79,7 @@ class InternalTokenExchangeIT : FunSpec() {
     }
 
     test("Token exchange without client scopes/audiences") {
-      val keycloakWebClient = KeycloakWebClient()
+      val keycloakWebClient = KeycloakWebClient.instance()
       val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().reponseObject
       val accessToken = accessTokenResponse.token.toAccessToken()
 

@@ -34,13 +34,13 @@ class AdminEventLoggerTest : AbstractAdminEventLoggerTest() {
     context("AdminEventLogger") {
       test("basic persistence") {
         val adminEventLog =
-          AdminEventLog(
-            id = "jens",
-            createdAt = Instant.now(),
-            event = """{"event":"test_event"}""",
-            previousHash = "previousHash123",
-            currentHash = "currentHash123",
-          )
+            AdminEventLog(
+                id = "jens",
+                createdAt = Instant.now(),
+                event = """{"event":"test_event"}""",
+                previousHash = "previousHash123",
+                currentHash = "currentHash123",
+            )
 
         adminEventLogStorageService.saveAdminEventLog(adminEventLog)
         newTransaction()

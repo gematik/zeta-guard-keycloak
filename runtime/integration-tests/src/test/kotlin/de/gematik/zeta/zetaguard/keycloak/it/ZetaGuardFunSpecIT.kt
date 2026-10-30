@@ -26,12 +26,14 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
+import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.smcbTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
 import de.gematik.zeta.zetaguard.keycloak.commons.createOtherClaims
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.toIDTokenInfo
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeRight
@@ -40,32 +42,31 @@ import io.kotest.matchers.string.shouldContain
 import org.keycloak.jose.jws.Algorithm
 
 abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
-  protected val keycloakWebClient = KeycloakWebClient()
-  private val baseUri = keycloakWebClient.uriBuilder().build().toString()
-  protected val smcbTokenAudience = listOf("$baseUri/")
+  protected val keycloakWebClient = KeycloakWebClient.instance()
+  protected val smcbTokenAudience = listOf(keycloakWebClient.uriBuilder().tokenUrl().toString())
   protected val clientAssertionAudience = keycloakWebClient.uriBuilder().realmUrl().toString()
+
+  init {
+    // SMC-B tokens bind to the keys actually presented in the exchange: the registered client key and the DPoP key.
+    smcbTokenGenerator.defaultClientKeyJkt = clientAssertionTokenGenerator.keys.jwkThumbPrint.toBase64()
+    smcbTokenGenerator.defaultDpopKeyJkt = DPoPTokenGenerator.keys.jwkThumbPrint.toBase64()
+  }
 
   protected fun createNonce(): String = keycloakWebClient.getNonce().shouldBeRight().reponseObject
 
   protected fun createSMCBToken(nonce: String): String =
-    smcbTokenGenerator.generateSMCBToken(nonceString = nonce, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
+      smcbTokenGenerator.generateSMCBToken(nonceString = nonce, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
 
   protected fun invalidAttestationChallenge(postureType: PostureType) {
     val realNonce = createNonce()
     val fakeNonce = "Nr-VgJg0IBOFKmDwmaeCvg"
-    val otherClaims =
-      createOtherClaims(
-        ZETA_CLIENT,
-        fakeNonce,
-        clientAssertionTokenGenerator.keys,
-        postureType = postureType,
-      )
+    val otherClaims = createOtherClaims(ZETA_CLIENT, fakeNonce, clientAssertionTokenGenerator.keys, postureType = postureType)
     val invalidJWT =
-      clientAssertionTokenGenerator.generateClientAssertion(
-        audiences = listOf(clientAssertionAudience),
-        nonceString = fakeNonce,
-        otherClaims = otherClaims,
-      )
+        clientAssertionTokenGenerator.generateClientAssertion(
+            audiences = listOf(clientAssertionAudience),
+            nonceString = fakeNonce,
+            otherClaims = otherClaims,
+        )
     val smcbToken = createSMCBToken(realNonce)
 
     keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = invalidJWT) {
@@ -75,7 +76,7 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
 }
 
 fun String.checkTokenHeader() {
-    val (_, header) = toIDTokenInfo()
-    header.type shouldBe "JWT"
-    header.algorithm shouldBe Algorithm.ES256
+  val (_, header) = toIDTokenInfo()
+  header.type shouldBe "JWT"
+  header.algorithm shouldBe Algorithm.ES256
 }

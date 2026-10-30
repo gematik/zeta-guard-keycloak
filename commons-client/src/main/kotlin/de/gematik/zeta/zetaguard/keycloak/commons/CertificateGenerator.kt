@@ -67,14 +67,14 @@ const val DN_PRAXIS = "CN=Praxis Dr. Eisenbart,STREET=Goethestr. 5,L=Essen,ST=No
  */
 object CertificateGenerator {
   fun buildCertificate(
-    subjectName: String,
-    subjectKeyPair: KeyPair,
-    issuerName: String,
-    issuerKeyPair: KeyPair,
-    isCA: Boolean,
-    isRootCA: Boolean = false,
-    createAdmissionExtension: Boolean = true,
-    sans: List<GeneralName>? = null,
+      subjectName: String,
+      subjectKeyPair: KeyPair,
+      issuerName: String,
+      issuerKeyPair: KeyPair,
+      isCA: Boolean,
+      isRootCA: Boolean = false,
+      createAdmissionExtension: Boolean = true,
+      sans: List<GeneralName>? = null,
   ): X509Certificate {
     val certBuilder = createCertificateBuilder(subjectName, issuerName, subjectKeyPair.public)
     val extUtils = JcaX509ExtensionUtils()

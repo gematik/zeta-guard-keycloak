@@ -23,12 +23,10 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.accesstoken
 
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientInstanceData
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
 import de.gematik.zeta.zetaguard.keycloak.commons.expirationDate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ACCESSTOKEN_MAPPERPROVIDER_ID
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_ASSESSMENT_DATA
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_DATA
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCB_CONTEXT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_ID
@@ -52,8 +50,11 @@ import org.keycloak.protocol.oidc.mappers.OIDCAccessTokenResponseMapper
 import org.keycloak.protocol.oidc.mappers.OIDCIDTokenMapper
 import org.keycloak.protocol.oidc.mappers.OIDCRefreshTokenMapper
 import org.keycloak.provider.ProviderConfigProperty
+import org.keycloak.representations.AccessToken
 import org.keycloak.representations.IDToken
 import org.keycloak.representations.RefreshToken
+import org.keycloak.representations.dpop.DPoP
+import org.keycloak.services.util.DPoPUtil
 
 /**
  * Map SMC-B based values into generated token claims as specified by
@@ -63,18 +64,18 @@ import org.keycloak.representations.RefreshToken
  * Realm configuration in 12-create-zeta-guard-scope.sh
  */
 class ZetaGuardAccessTokenMapper :
-  AbstractOIDCProtocolMapper(), OIDCAccessTokenMapper, OIDCIDTokenMapper, OIDCRefreshTokenMapper, OIDCAccessTokenResponseMapper {
+    AbstractOIDCProtocolMapper(), OIDCAccessTokenMapper, OIDCIDTokenMapper, OIDCRefreshTokenMapper, OIDCAccessTokenResponseMapper {
   override fun getDisplayCategory() = TOKEN_MAPPER_CATEGORY
 
   override fun getDisplayType() = "\uD835\uDF75-Guard Access Token Mapper"
 
   override fun getHelpText() =
-    """
-    Map SMC-B based values into generated token:
-    - Subject (Telematik-ID)
-    - Expiration
-    """
-      .trimIndent()
+      """
+      Map SMC-B based values into generated token:
+      - Subject (Telematik-ID)
+      - Expiration
+      """
+          .trimIndent()
 
   override fun getConfigProperties() = listOf<ProviderConfigProperty>()
 
@@ -88,23 +89,32 @@ class ZetaGuardAccessTokenMapper :
   override fun getPriority() = PRIORITY_SCRIPT_MAPPER * 2
 
   override fun setClaim(
-    token: IDToken,
-    mappingModel: ProtocolMapperModel,
-    userSession: UserSessionModel,
-    keycloakSession: KeycloakSession,
-    clientSessionCtx: ClientSessionContext,
+      token: IDToken,
+      mappingModel: ProtocolMapperModel,
+      userSession: UserSessionModel,
+      keycloakSession: KeycloakSession,
+      clientSessionCtx: ClientSessionContext,
   ) {
-    setClaims(userSession, token) { it.accessTokenTTL }
+    setClaims(userSession, token, clientSessionCtx) { it.accessTokenTTL }
   }
 
   override fun transformRefreshToken(
-    token: RefreshToken,
-    mappingModel: ProtocolMapperModel,
-    session: KeycloakSession,
-    userSession: UserSessionModel,
-    clientSession: ClientSessionContext,
+      token: RefreshToken,
+      mappingModel: ProtocolMapperModel,
+      session: KeycloakSession,
+      userSession: UserSessionModel,
+      clientSession: ClientSessionContext,
   ): RefreshToken {
-    setClaims(userSession, token) { it.refreshTokenTTL }
+    setClaims(userSession, token, clientSession) { it.refreshTokenTTL }
+
+    // to conform with A_25663 the thumbprint of DPoP-Key is added to refresh token,
+    // Keycloak does this on its own only for public clients,
+    // also see https://datatracker.ietf.org/doc/html/rfc9449 section 3. point B.
+    val dPoP = session.getAttribute(DPoPUtil.DPOP_SESSION_ATTRIBUTE, DPoP::class.java)
+    if (dPoP != null) {
+      val confirmation = token.confirmation ?: AccessToken.Confirmation().also { token.confirmation = it }
+      confirmation.keyThumbprint = dPoP.thumbprint
+    }
 
     return token
   }
@@ -112,25 +122,27 @@ class ZetaGuardAccessTokenMapper :
   /**
    * Set expiration TTLs, dynamically determined via OPA.
    *
-   * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25664
-   * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_28527
+   * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25664 https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_28527
    */
-  private fun setClaims(userSession: UserSessionModel, token: IDToken, ttlMapper: (ZetaGuardTokenExchangeData) -> Duration) {
+  private fun setClaims(
+      userSession: UserSessionModel,
+      token: IDToken,
+      clientSessionCtx: ClientSessionContext,
+      ttlMapper: (ZetaGuardTokenExchangeData) -> Duration,
+  ) {
     val contextString = userSession.getNote(ATTRIBUTE_SMCB_CONTEXT) ?: error("SMC-B context not found")
-    val clientDataString = userSession.getNote(ATTRIBUTE_CLIENT_ASSESSMENT_DATA) ?: error("Client assessment data not found")
     val clientStatementString = userSession.getNote(ATTRIBUTE_CLIENT_STATEMENT_DATA) ?: error("Client statement data not found")
     val exchangeData = contextString.toObject<ZetaGuardTokenExchangeData>()
-    val clientData = clientDataString.toObject<ClientInstanceData>()
     val clientStatement = clientStatementString.toObject<ClientStatementData>()
 
     token.subject(exchangeData.telematikID)
     token.expirationDate(ttlMapper(exchangeData))
 
-    token.otherClaims[CLAIM_CLIENT_ID] = clientData.clientId
+    token.otherClaims[CLAIM_CLIENT_ID] = clientSessionCtx.clientSession.client.clientId
     token.otherClaims[CLAIM_PROFESSION_OID] = exchangeData.professionOID
     token.otherClaims[CLAIM_PRODUCT_ID] = clientStatement.posture.productId
     token.otherClaims[CLAIM_PRODUCT_VERSION] = clientStatement.posture.productVersion
-    token.otherClaims[CLAIM_PLATFORM] = clientStatement.posture.platformProductId.productPlatform.value
+    token.otherClaims[CLAIM_PLATFORM] = clientStatement.platform.value
     token.otherClaims[CLAIM_COMMON_NAME] = exchangeData.subjectCommonName
     token.otherClaims[CLAIM_ORGANIZATION_NAME] = exchangeData.subjectOrganisation
     token.otherClaims[CLAIM_IP_ADDRESS] = exchangeData.clientIP

@@ -40,24 +40,23 @@ const val TPM_DESERIALIZATION_FAILED = "Could not read TPM quote"
 
 fun ByteArray.deserializeQuote() = either {
   Either.catch { TPMS_ATTEST.fromBytes(this@deserializeQuote) }
-    .mapLeft {
-      logger.error(TPM_DESERIALIZATION_FAILED, it)
-      TPM_DESERIALIZATION_FAILED
-    }
-    .bind()
+      .mapLeft {
+        logger.error(TPM_DESERIALIZATION_FAILED, it)
+        TPM_DESERIALIZATION_FAILED
+      }
+      .bind()
 }
 
 fun ByteArray.validateQuoteSignature(signature: ByteArray, publicKey: PublicKey) = either {
   val result =
-    Either.catch { publicKey.createVerifierContext().verify(this@validateQuoteSignature, signature) }
-      .mapLeft {
-        logger.error(SIGNATURE_VALIDATION_FAILED, it)
-        SIGNATURE_VALIDATION_FAILED
-      }
-      .bind()
+      Either.catch { publicKey.createVerifierContext().verify(this@validateQuoteSignature, signature) }
+          .mapLeft {
+            logger.error(SIGNATURE_VALIDATION_FAILED, it)
+            SIGNATURE_VALIDATION_FAILED
+          }
+          .bind()
 
   ensure(result) { SIGNATURE_VALIDATION_FAILED }
 
   SimpleSuccess
 }
-

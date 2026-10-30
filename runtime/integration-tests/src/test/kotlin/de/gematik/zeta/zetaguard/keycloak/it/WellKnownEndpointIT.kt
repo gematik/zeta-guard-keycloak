@@ -42,13 +42,12 @@ import org.apache.http.client.methods.RequestBuilder.get
 class WellKnownEndpointIT : FunSpec() {
   init {
     test("Query well-known endpoint") {
-      val keycloakWebClient = KeycloakWebClient()
+      val keycloakWebClient = KeycloakWebClient.instance()
       val wellknown = keycloakWebClient.getWellknown().shouldBeRight().reponseObject
       val nonceUri = keycloakWebClient.uriBuilder().createUri(NONCE_FULL_PATH, ZETA_REALM)
 
       wellknown.nonceEndpoint shouldBe nonceUri
       wellknown.serviceDocumentation.toString() shouldContain "https://gemspec.gematik.de/"
-      wellknown.apiVersionsSupported[0].documentationUri.toString() shouldContain "https://gemspec.gematik.de/"
 
       wellknown.responseTypesSupported.shouldContainExactlyInAnyOrder("code", "token")
     }

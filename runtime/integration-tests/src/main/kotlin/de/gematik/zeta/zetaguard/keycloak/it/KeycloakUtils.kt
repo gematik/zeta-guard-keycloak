@@ -29,7 +29,6 @@ import jakarta.ws.rs.core.Response.Status.CONFLICT
 import jakarta.ws.rs.core.Response.Status.CREATED
 import org.keycloak.admin.client.resource.UsersResource
 import org.keycloak.representations.idm.CredentialRepresentation
-import org.keycloak.representations.idm.RoleRepresentation
 import org.keycloak.representations.idm.UserRepresentation
 
 object KeycloakUtils {
@@ -65,29 +64,4 @@ object KeycloakUtils {
                 }
             )
       }
-
-  fun addRoles(
-      userData: UserData,
-      usersResource: UsersResource,
-      clientId: String,
-      realmRoles: List<RoleRepresentation>,
-      clientRoles: List<RoleRepresentation>,
-  ) {
-    val users = usersResource.search(userData.userName)
-
-    if (users.size == 1) {
-      val user = users[0]
-      val userResource = usersResource[user.id]
-
-      if (realmRoles.isNotEmpty()) {
-        userResource.roles().realmLevel().add(realmRoles)
-      }
-
-      if (clientRoles.isNotEmpty()) {
-        userResource.roles().clientLevel(clientId).add(clientRoles)
-      }
-    } else {
-      error("User not found ${userData.userName}")
-    }
-  }
 }

@@ -69,13 +69,13 @@ class ZetaGuardWellKnownProviderFactory : WellKnownProviderFactory {
     internal val DEFAULT_URI = URI("https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/gemSpec_ZETA_V1.1.0/")
 
     internal fun serviceDocumentationUri(getEnv: () -> String? = defaultgetenv): URI =
-      if (this::serviceUri.isInitialized) {
-        serviceUri
-      } else {
-        getEnv()
-          .toURI()
-          .mapLeft { log.warn("Environment variable »$ENV_SERVICE_DOCUMENTATION_URI« contains no valid URI: ${it.message}") }
-          .fold(ifLeft = { DEFAULT_URI }, ifRight = { it })
-      }
+        if (this::serviceUri.isInitialized) {
+          serviceUri
+        } else {
+          getEnv()
+              .toURI()
+              .mapLeft { log.warn("Environment variable »$ENV_SERVICE_DOCUMENTATION_URI« contains no valid URI: ${it.message}") }
+              .fold(ifLeft = { DEFAULT_URI }, ifRight = { it })
+        }
   }
 }

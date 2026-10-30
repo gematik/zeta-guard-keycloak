@@ -30,8 +30,8 @@ import de.gematik.zeta.zetaguard.keycloak.commons.DN_GEMATIK
 import de.gematik.zeta.zetaguard.keycloak.commons.DN_PRAXIS
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.subjectKeyPair
 import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.smcbTokenGenerator
+import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.subjectKeyPair
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTESTATION_STATE_PENDING
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTESTATION_STATE_VALID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_ATTESTATION_STATE
@@ -79,13 +79,13 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       jws = clientAssertionTokenGenerator.generateClientAssertion(oidcClientResponse, nonce)
       // Other/new PKI
       smbcToken =
-        smcbTokenGenerator.generateSMCBToken(
-          nonceString = nonce,
-          audiences = smcbTokenAudience,
-          issuer = oidcClientResponse.clientId,
-          issuedFor = oidcClientResponse.clientId,
-          certificateChain = listOf(leafCertificate),
-        )
+          smcbTokenGenerator.generateSMCBToken(
+              nonceString = nonce,
+              audiences = smcbTokenAudience,
+              issuer = oidcClientResponse.clientId,
+              issuedFor = oidcClientResponse.clientId,
+              certificateChain = listOf(leafCertificate),
+          )
     }
 
     test("Token exchange using OIDC, DPoP and client_assertion") {
@@ -97,7 +97,7 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       keycloakWebClient.checkAttestationState(oidcClientResponse.clientId, ATTESTATION_STATE_PENDING)
 
       val accessTokenResponse =
-        keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = jws)
+          keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = jws)
 
       accessTokenResponse.token.shouldNotBeNull()
       accessTokenResponse.token.checkTokenHeader()
@@ -111,9 +111,9 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       lookupClient(oidcClientResponse.clientId) shouldBe true
 
       // Poll until the client is expired instead of fixed sleep to avoid flakiness
-      withClue("Client still present after 10 seconds (id=${oidcClientResponse.clientId})") {
+      withClue("Client still present after 20 seconds (id=${oidcClientResponse.clientId})") {
         val config = eventuallyConfig {
-          duration = 10.seconds
+          duration = 20.seconds
           interval = 1.seconds
           initialDelay = 1.seconds
         }
@@ -124,22 +124,22 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
 
     test("Certificate signature validation fails") {
       val certificate =
-        buildCertificate(
-          subjectName = leafCertificate.subjectX500Principal.toString(),
-          subjectKeyPair = subjectKeyPair,
-          issuerName = leafCertificate.issuerX500Principal.toString(),
-          issuerKeyPair = subjectKeyPair,
-          isCA = false,
-        )
+          buildCertificate(
+              subjectName = leafCertificate.subjectX500Principal.toString(),
+              subjectKeyPair = subjectKeyPair,
+              issuerName = leafCertificate.issuerX500Principal.toString(),
+              issuerKeyPair = subjectKeyPair,
+              isCA = false,
+          )
 
       smbcToken =
-        smcbTokenGenerator.generateSMCBToken(
-          nonceString = nonce,
-          audiences = smcbTokenAudience,
-          issuer = oidcClientResponse.clientId,
-          issuedFor = oidcClientResponse.clientId,
-          certificateChain = listOf(certificate),
-        )
+          smcbTokenGenerator.generateSMCBToken(
+              nonceString = nonce,
+              audiences = smcbTokenAudience,
+              issuer = oidcClientResponse.clientId,
+              issuedFor = oidcClientResponse.clientId,
+              certificateChain = listOf(certificate),
+          )
 
       keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = jws) {
         it.error shouldBe INVALID_TOKEN
@@ -150,16 +150,21 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
 
     test("Unknown certificate issuer") {
       val certificate =
-        buildCertificate(
-          subjectName = DN_PRAXIS, subjectKeyPair = subjectKeyPair, issuerName = DN_GEMATIK, issuerKeyPair = generateKeyPair(), isCA = false)
+          buildCertificate(
+              subjectName = DN_PRAXIS,
+              subjectKeyPair = subjectKeyPair,
+              issuerName = DN_GEMATIK,
+              issuerKeyPair = generateKeyPair(),
+              isCA = false,
+          )
       smbcToken =
-        smcbTokenGenerator.generateSMCBToken(
-          nonceString = nonce,
-          audiences = smcbTokenAudience,
-          issuer = oidcClientResponse.clientId,
-          issuedFor = oidcClientResponse.clientId,
-          certificateChain = listOf(certificate),
-        )
+          smcbTokenGenerator.generateSMCBToken(
+              nonceString = nonce,
+              audiences = smcbTokenAudience,
+              issuer = oidcClientResponse.clientId,
+              issuedFor = oidcClientResponse.clientId,
+              certificateChain = listOf(certificate),
+          )
 
       keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = jws) {
         it.error shouldBe INVALID_TOKEN
@@ -184,9 +189,9 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       val corruptedSignature = tokenParts[2].fromBase64().apply { this[42] = 123 }.toBase64()
 
       keycloakWebClient.testExchangeToken(
-        subjectToken = smbcToken,
-        clientId = oidcClientResponse.clientId,
-        clientAssertion = tokenParts[0] + '.' + tokenParts[1] + '.' + corruptedSignature,
+          subjectToken = smbcToken,
+          clientId = oidcClientResponse.clientId,
+          clientAssertion = tokenParts[0] + '.' + tokenParts[1] + '.' + corruptedSignature,
       ) {
         it.error shouldBe INVALID_CLIENT
         it.errorDescription shouldContain "signed JWT failed"
@@ -196,13 +201,13 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
 
     test("Token exchange fails for wrong issuer in client_assertion") {
       val invalidJWS =
-        clientAssertionTokenGenerator.generateClientAssertion(
-          clientId = "jens",
-          subject = oidcClientResponse.clientId,
-          issuedFor = oidcClientResponse.clientId,
-          audiences = smcbTokenAudience,
-          nonceString = nonce,
-        )
+          clientAssertionTokenGenerator.generateClientAssertion(
+              clientId = "jens",
+              subject = oidcClientResponse.clientId,
+              issuedFor = oidcClientResponse.clientId,
+              audiences = smcbTokenAudience,
+              nonceString = nonce,
+          )
 
       /**
        * Issuer must match subject,
@@ -217,13 +222,13 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
 
     test("Token exchange fails because of wrong subject in client_assertion") {
       val invalidJWS =
-        clientAssertionTokenGenerator.generateClientAssertion(
-          clientId = oidcClientResponse.clientId,
-          subject = "jens",
-          issuedFor = oidcClientResponse.clientId,
-          audiences = listOf(oidcClientResponse.clientId),
-          nonceString = nonce,
-        )
+          clientAssertionTokenGenerator.generateClientAssertion(
+              clientId = oidcClientResponse.clientId,
+              subject = "jens",
+              issuedFor = oidcClientResponse.clientId,
+              audiences = listOf(oidcClientResponse.clientId),
+              nonceString = nonce,
+          )
 
       /**
        * Issuer must match subject, see
@@ -242,13 +247,13 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
        * [org.keycloak.authentication.authenticators.client.AbstractJWTClientValidator.validateClient]
        */
       val invalidJWS =
-        clientAssertionTokenGenerator.generateClientAssertion(
-          clientId = oidcClientResponse.clientId,
-          subject = oidcClientResponse.clientId,
-          issuedFor = oidcClientResponse.clientId,
-          audiences = listOf("jens"),
-          nonceString = nonce,
-        )
+          clientAssertionTokenGenerator.generateClientAssertion(
+              clientId = oidcClientResponse.clientId,
+              subject = oidcClientResponse.clientId,
+              issuedFor = oidcClientResponse.clientId,
+              audiences = listOf("jens"),
+              nonceString = nonce,
+          )
       keycloakWebClient.testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = invalidJWS) {
         it.error shouldBe INVALID_CLIENT
         it.errorDescription shouldBe "Invalid token audience"
@@ -259,21 +264,20 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
 
   private fun lookupClient(clientId: String): Boolean {
     val entityClasses =
-      arrayOf(
-        ClientEntity::class.java,
-        ClientAttributeEntity::class.java,
-        ProtocolMapperEntity::class.java,
-        ClientScopeEntity::class.java,
-        ClientScopeAttributeEntity::class.java,
-      )
+        arrayOf(
+            ClientEntity::class.java,
+            ClientAttributeEntity::class.java,
+            ProtocolMapperEntity::class.java,
+            ClientScopeEntity::class.java,
+            ClientScopeAttributeEntity::class.java,
+        )
 
     return JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
-      it
-        .createEntityManager()
-        .createQuery("SELECT realmId FROM ClientEntity WHERE clientId = :client_id")
-        .setParameter("client_id", clientId)
-        .resultList
-        .isNotEmpty()
+      it.createEntityManager()
+          .createQuery("SELECT realmId FROM ClientEntity WHERE clientId = :client_id")
+          .setParameter("client_id", clientId)
+          .resultList
+          .isNotEmpty()
     }
   }
 

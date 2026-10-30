@@ -33,7 +33,7 @@ import io.kotest.matchers.shouldNotBe
 class NonceCreationIT : FunSpec() {
   init {
     test("Create nonce") {
-      val keycloakWebClient = KeycloakWebClient()
+      val keycloakWebClient = KeycloakWebClient.instance()
       val nonce1 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
       val nonce2 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
 

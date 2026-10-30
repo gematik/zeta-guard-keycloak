@@ -46,6 +46,7 @@ data class ZetaGuardWellKnownConfiguration(
     @field:JsonProperty("scopes_supported")
     @field:JsonPropertyDescription("The scopes supported by the authorization server.")
     val scopesSupported: List<String>,
+    @field:JsonProperty("registration_endpoint") @field:JsonPropertyDescription("The client registration endpoint.") val registrationEndpoint: URI,
     @field:JsonProperty("response_types_supported")
     @field:JsonPropertyDescription("The response types supported by the authorization server.")
     val responseTypesSupported: List<String>,
@@ -62,15 +63,9 @@ data class ZetaGuardWellKnownConfiguration(
     @field:JsonPropertyDescription("The signing algorithms supported at the token endpoint.")
     val tokenEndpointAuthSigningAlgValuesSupported: List<String>,
     @field:JsonProperty("service_documentation") @field:JsonPropertyDescription("A URL to the service documentation.") val serviceDocumentation: URI,
-    @field:JsonProperty("ui_locales_supported")
-    @field:JsonPropertyDescription("The UI locales supported by the authorization server.")
-    val uiLocalesSupported: List<String>,
     @field:JsonProperty("code_challenge_methods_supported")
     @field:JsonPropertyDescription("The code challenge methods supported for PKCE.")
     val codeChallengeMethodsSupported: List<String>,
-    @field:JsonProperty("api_versions_supported")
-    @field:JsonPropertyDescription("An array listing the supported API versions for this protected resource.")
-    val apiVersionsSupported: List<ApiVersionsSupported>,
 ) {
   // JSON deserialization
   @Suppress("unused")
@@ -83,14 +78,13 @@ data class ZetaGuardWellKnownConfiguration(
           openidProvidersEndpoint = URI.create(""),
           jwksUri = URI.create(""),
           scopesSupported = listOf(),
+          registrationEndpoint = URI.create(""),
           responseTypesSupported = listOf(),
           responseModesSupported = listOf(),
           grantTypesSupported = listOf(),
           tokenEndpointAuthMethodsSupported = listOf(),
           tokenEndpointAuthSigningAlgValuesSupported = listOf(),
           serviceDocumentation = URI.create(""),
-          uiLocalesSupported = listOf(),
           codeChallengeMethodsSupported = listOf(),
-          apiVersionsSupported = listOf(),
       )
 }

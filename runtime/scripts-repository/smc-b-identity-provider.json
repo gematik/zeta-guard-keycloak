@@ -29,7 +29,7 @@
     "clientId": "smc-b-client",
     "uiLocales": "false",
     "doNotStoreUsers": "false",
-    "disableNonce": "false",
+    "disableNonce": "true",
     "sendClientIdOnLogout": "false",
     "pkceEnabled": "false",
     "authorizationUrl": "http://localhost:18080/realms/zeta-guard/protocol/openid-connect/token",

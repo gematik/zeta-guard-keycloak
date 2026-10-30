@@ -32,13 +32,38 @@ import java.time.Duration
  * Used, e.g., to generate access and refresh tokens
  */
 data class ZetaGuardTokenExchangeData
-@ConstructorProperties("telematikID", "professionOID", "subjectOrganisation", "subjectCommonName", "clientIP", "accessTokenTTL", "refreshTokenTTL")
+@ConstructorProperties(
+    "authenticationMethodsReferences",
+    "clientId",
+    "clientPlatform",
+    "clientRegistrationTimestamp",
+    "postureType",
+    "previousIpAddress",
+    "telematikID",
+    "professionOID",
+    "subjectOrganisation",
+    "subjectCommonName",
+    "clientIP",
+    "accessTokenTTL",
+    "refreshTokenTTL",
+    "audiences",
+    "scopes",
+)
 constructor(
-  val telematikID: String,
-  val professionOID: String,
-  val subjectOrganisation: String,
-  val subjectCommonName: String,
-  val clientIP: String,
-  val accessTokenTTL: Duration,
-  val refreshTokenTTL: Duration
+    val authenticationMethodsReferences: List<String>,
+    val clientId: String,
+    val clientPlatform: String,
+    val clientRegistrationTimestamp: Long,
+    val postureType: String,
+    val previousIpAddress: String,
+    val telematikID: String,
+    val professionOID: String,
+    val subjectOrganisation: String,
+    val subjectCommonName: String,
+    val clientIP: String,
+    val accessTokenTTL: Duration,
+    val refreshTokenTTL: Duration,
+    // Nullable -> session notes written before these fields existed.
+    val audiences: List<String>? = null,
+    val scopes: List<String>? = null,
 )

@@ -41,12 +41,12 @@ import tss.tpm.TPM_ALG_ID
 import tss.tpm.TPM_GENERATED
 
 fun generatePCRS(): Map<Int, ByteArray> =
-  mapOf(
-    0 to "BIOS_v1.2.3".toByteArray().toHash(),
-    2 to "OptionROMs".toByteArray().toHash(),
-    4 to "Bootloader".toByteArray().toHash(),
-    7 to "SecureBootEnabled".toByteArray().toHash(),
-  )
+    mapOf(
+        0 to "BIOS_v1.2.3".toByteArray().toHash(),
+        2 to "OptionROMs".toByteArray().toHash(),
+        4 to "Bootloader".toByteArray().toHash(),
+        7 to "SecureBootEnabled".toByteArray().toHash(),
+    )
 
 fun computePcrDigest(pcrSelection: IntArray, pcrs: Map<Int, ByteArray>): ByteArray {
   val byteArrays = pcrSelection.map { pcrs[it]!! }.toTypedArray()
@@ -60,15 +60,13 @@ fun generateTpmQuote(attestationChallenge: ByteArray): TPMS_ATTEST {
   val pcrDigest = computePcrDigest(pcrSelection, pcrs)
 
   return TPMS_ATTEST(
-    TPM_GENERATED.VALUE,
-    "signature".toByteArray(),
-    attestationChallenge,
-    TPMS_CLOCK_INFO(System.currentTimeMillis(), 0, 0, 0),
-    0x00010002,
-    TPMS_QUOTE_INFO(
-      arrayOf(TPMS_PCR_SELECTION(TPM_ALG_ID.SHA256, pcrSelection)),
-      pcrDigest,
-    ))
+      TPM_GENERATED.VALUE,
+      "signature".toByteArray(),
+      attestationChallenge,
+      TPMS_CLOCK_INFO(System.currentTimeMillis(), 0, 0, 0),
+      0x00010002,
+      TPMS_QUOTE_INFO(arrayOf(TPMS_PCR_SELECTION(TPM_ALG_ID.SHA256, pcrSelection)), pcrDigest),
+  )
 }
 
 fun generateTpmPosture(attestationChallenge: ByteArray, keyPair: KeyPair, certificateChain: List<X509Certificate>): TPMPosture {
@@ -77,16 +75,16 @@ fun generateTpmPosture(attestationChallenge: ByteArray, keyPair: KeyPair, certif
   val signature = signer.sign(quote)
 
   return TPMPosture(
-    LinuxProductId("packaging", "app-id"),
-    PRODUCT_ID,
-    PRODUCT_VERSION,
-    "Linux",
-    "6.4",
-    "aarch64",
-    keyPair.public.toDER(),
-    quote.toBase64(),
-    signature.toBase64(),
-    "events",
-    certificateChain.map { it.toDER() },
+      LinuxProductId("packaging", "app-id"),
+      PRODUCT_ID,
+      PRODUCT_VERSION,
+      "Linux",
+      "6.4",
+      "aarch64",
+      keyPair.public.toDER(),
+      quote.toBase64(),
+      signature.toBase64(),
+      "events",
+      certificateChain.map { it.toDER() },
   )
 }

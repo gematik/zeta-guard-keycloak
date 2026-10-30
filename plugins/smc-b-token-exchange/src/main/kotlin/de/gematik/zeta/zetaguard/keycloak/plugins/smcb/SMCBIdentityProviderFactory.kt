@@ -40,17 +40,19 @@ class SMCBIdentityProviderFactory : AbstractIdentityProviderFactory<SMCBIdentity
 
   override fun getId() = SMCB_IDENTITY_PROVIDER_ID
 
-  override fun create(session: KeycloakSession, model: IdentityProviderModel) = SMCBIdentityProvider(session, OIDCIdentityProviderConfig(model))
+  override fun create(session: KeycloakSession, model: IdentityProviderModel) = SMCBIdentityProvider(session, createOIDCIdentityProviderConfig(model))
 
   override fun parseConfig(session: KeycloakSession, config: String): MutableMap<String, String?> =
       OIDCIdentityProviderFactoryWrapper.parseConfig(session, config)
 
-  override fun createConfig(): OIDCIdentityProviderConfig {
-    val identityProviderConfig =
-        OIDCIdentityProviderConfig().apply {
-          /** See [org.keycloak.broker.oidc.OIDCIdentityProvider.preprocessFederatedIdentity] */
-          isDisableNonce = true // We will handle this ourselves
-        }
-    return identityProviderConfig
-  }
+  override fun createConfig(): OIDCIdentityProviderConfig = createOIDCIdentityProviderConfig(null)
+
+  // Configuration may also be done database operations in identity_provider_config
+  private fun createOIDCIdentityProviderConfig(identityProviderModel: IdentityProviderModel?) =
+      OIDCIdentityProviderConfig(identityProviderModel).apply {
+        /** See [org.keycloak.broker.oidc.OIDCIdentityProvider.preprocessFederatedIdentity] */
+        isDisableNonce = true // We will handle this ourselves
+        /** See [org.keycloak.protocol.oidc.tokenexchange.AbstractTokenExchangeProvider.importUserFromExternalIdentity] */
+        isTransientUsers = false // true: Do not create federated users (Feature must be enabled via ./kc.sh build --feature-transient-users=enabled)
+      }
 }

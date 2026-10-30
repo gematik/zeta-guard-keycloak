@@ -45,6 +45,7 @@ class ZetaGuardWellKnownConfigurationTest : FunSpec() {
               URI.create("http://localhost:8080"),
               URI.create("http://localhost:8080"),
               listOf("jens"),
+              URI.create("http://localhost:8080/client-registrations"),
               listOf("jens"),
               listOf("jens"),
               listOf("jens"),
@@ -52,13 +53,10 @@ class ZetaGuardWellKnownConfigurationTest : FunSpec() {
               listOf("jens"),
               URI.create("http://localhost:8080"),
               listOf("jens"),
-              listOf("jens"),
-              listOf(ApiVersionsSupported()),
           )
 
       val json = mapper.writeValueAsString(config)
       json shouldContain "\"nonce_endpoint\":\"$uri\""
-      json shouldContain "\"status\":\"alpha\""
 
       val (
           issuer,
@@ -68,20 +66,17 @@ class ZetaGuardWellKnownConfigurationTest : FunSpec() {
           openidProvidersEndpoint,
           jwksUri,
           scopesSupported,
+          registrationEndpoint,
           responseTypesSupported,
           responseModesSupported,
           grantTypesSupported,
           tokenEndpointAuthMethodsSupported,
           tokenEndpointAuthSigningAlgValuesSupported,
           serviceDocumentation,
-          uiLocalesSupported,
-          codeChallengeMethodsSupported,
-          api) =
+          codeChallengeMethodsSupported) =
           mapper.readValue(json, ZetaGuardWellKnownConfiguration::class.java)
 
       nonceEndpoint shouldBe uri
-      api.size shouldBe 1
-      api[0].status shouldBe Status.alpha
     }
 
     test("URI parsing return default on error") {

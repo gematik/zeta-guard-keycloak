@@ -107,38 +107,6 @@
     },
     {
       "vulnerability": {
-        "name": "CVE-2026-33870"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http@4.1.130.Final"
-        },
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http2@4.1.130.Final"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-04-24T15:41:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-33871"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http@4.1.130.Final"
-        },
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http2@4.1.130.Final"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-04-24T15:41:00Z"
-    },
-    {
-      "vulnerability": {
         "name": "CVE-2025-28164"
       },
       "products": [
@@ -195,144 +163,6 @@
     },
     {
       "vulnerability": {
-        "name": "CVE-2026-4046"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/glibc"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-common"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-langpack-en"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-4437"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/glibc"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-common"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-langpack-en"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-5450"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/glibc"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-common"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-langpack-en"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-5928"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/glibc"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-common"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-langpack-en"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-22021"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-23865"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-41254"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-2100"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/p11-kit-trust"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-04-30T14:03:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-5435"
-      },
-      "products": [
-        {
-          "@id": "pkg:rpm/redhat/glibc"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-common"
-        },
-        {
-          "@id": "pkg:rpm/redhat/glibc-langpack-en"
-        }
-      ],
-      "status": "under_investigation",
-      "timestamp": "2026-05-05T09:39:00Z"
-    },
-    {
-      "vulnerability": {
         "name": "CVE-2026-42198"
       },
       "products": [
@@ -344,61 +174,6 @@
       "status_notes": "Die Schwachstelle ist nur ausnutzbar, wenn ein Angreifer die verwendete Datenbank des Clients (hier Keycloak-Server) kontrollieren kann. Da die Datenbank hier nicht durch Nutzer konfigurierbar ist, müsste entweder die Postgres-Instanz übernommen werden oder ein MITM-Angriff durchgeführt werden. Beides ist innerhalb des Cluster äußerst unwahrscheinlich.",
       "justification": "vulnerable_code_not_in_execute_path",
       "timestamp": "2026-05-06T10:40:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42583"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-04T15:51:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42579"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-dns"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-04T15:51:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42584"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-04T15:51:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42587"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http"
-        },
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http2"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-04T15:51:00Z"
     },
     {
       "vulnerability": {
@@ -466,84 +241,6 @@
       "status": "fixed",
       "status_notes": "Das betroffene Paket wird im Basis-Image (registry.access.redhat.com/ubi9-micro) des Keycloak-Images installiert. Da bisher keine Version des Images mit nicht betroffener Version von libcap2 veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
       "timestamp": "2026-05-04T16:41:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-39852"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.quarkus/quarkus-vertx-http"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-08T15:51:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-41417"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-11T11:15:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42580"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-11T11:15:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42581 "
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-11T11:15:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42581"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-11T11:15:00Z"
-    },
-    {
-      "vulnerability": {
-        "name": "CVE-2026-42585"
-      },
-      "products": [
-        {
-          "@id": "pkg:maven/io.netty/netty-codec-http"
-        }
-      ],
-      "status": "fixed",
-      "status_notes": "Die betroffenen Pakete werden von Keycloak verwendet. Da bisher kein Fix released wurde, wird die Jar-Datei in Keycloak-Image überschrieben. Siehe dazu docker-keycloak-harden/Dockerfile",
-      "timestamp": "2026-05-11T11:15:00Z"
     },
     {
       "vulnerability": {
@@ -666,7 +363,122 @@
       ],
       "status": "affected",
       "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-5278"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/coreutils-single"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Coreutils ist eine Sammlung von grundlegenden Shell-Commandos bzw. -Werkzeugen (https://www.gnu.org/software/coreutils/). Das betroffene Werkzeug ist sort (/usr/bin/sort). Keycloak ruft sort nicht auf. Damit ein Angreifer sort mit benutzerdefinierten Parametern aufrufen könnte, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben. Diese Bedingung ist nicht zutreffend.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5435"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Es werden ausschließlich Java-Programme ausgeführt, die nicht direkt auf Funktionen aus dynamischen Bibliotheken angewiesen sind. Es wird kein JNI (Java Native Interface) oder JNA (Java Native Access) verwendet. Eine dynamische Bibliothek importiert die betroffene Funktion fp_nquery(): '/usr/lib64/libresolv.so.2'. JVM-bezogene Executables und dynamische Bibliotheken importieren die anderen betroffenen dynamischen Bibliotheken nicht. Damit ein Angreifer die betroffene Bibliothek mit benutzerdefinierten Parametern aufrufen kann, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben. Diese Bedingung ist nicht zutreffend.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5450"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "affected",
+      "status_notes": "Die betroffene Funktionen-Familie von scanf() wird in diversen Executables und Libraries genutzt. Daher kann nicht ausgeschlossen werden, dass die Schwachstelle im Rahmen der hohen Angriffskomplexität ausgenutzt werden kann. Die Schwachstelle wird von der NVD als Critical eingestuft (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H). Doch Red Hat bietet eine gut begründete Analyse (https://access.redhat.com/security/cve/cve-2026-5450), durch die diese Schwachstelle einen CVSS3.1-Score von 5 (Medium) erhält (CVSS:3.1/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:H). ",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5928"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Es werden ausschließlich Java-Programme ausgeführt, die nicht direkt auf Funktionen aus dynamischen Bibliotheken angewiesen sind. Es wird kein JNI (Java Native Interface) oder JNA (Java Native Access) verwendet. Keine Executable und keine dynamische Bibliothek importieren die betroffene Funktion ungetwc()",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-45292"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.opentelemetry/opentelemetry-api"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut Vendor Advisory (https://github.com/open-telemetry/opentelemetry-java/security/advisories/GHSA-rcgg-9c38-7xpx) kann der Attack Vector geschlossen werden, wenn der Anwendungsserver selber Limits für Header Size setzt. Quarkus setzt per default quarkus.http.limits.max-header-size=20k und für HTTP/2 quarkus.http.limits.max-header-list-size=8192. Die defaults werden weder durch Umgebungsvariablen noch durch eine /conf/quarkus.properties angepasst. Dadurch wird die Größe des baggage-Headers von opentelemetry-api begrenzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-02T08:38:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41254"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die betroffenen Java-Funktionen sind ICC_Profile.getInstance(bytes) und ICC_Profile.toRGB() (https://abhinavagarwal07.github.io/posts/lcms2-cubesize-overflow/). Die beiden Funktionen werden in keiner Jar-Datei im Zeta-Keycloak-Image gefunden. Verifiziert mit grep.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-05T14:42:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5958"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/sed"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "In keinem Skript im Zeta-Keycloak-Image wird sed mit den Parameter -i und --follow-symlinks aufgerufen. Mit grep getestet.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-05T14:42:00Z"
     }
   ],
-  "timestamp": "2026-05-11T11:15:00Z"
+  "timestamp": "2026-06-05T14:42:00Z"
 }

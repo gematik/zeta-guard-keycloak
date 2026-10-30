@@ -71,10 +71,7 @@ class HsmTokenSigningIT : FunSpec() {
 
     test("zeta-guard token kid matches ES256 key in JWKS") {
       val jwks = fetchJwks(baseUrl, mapper, realm = ZETA_GUARD)
-      val es256Kid =
-          jwks.keys
-              .first { it.algorithm == Algorithm.ES256 && it.publicKeyUse == "sig" }
-              .keyId
+      val es256Kid = jwks.keys.first { it.algorithm == Algorithm.ES256 && it.publicKeyUse == "sig" }.keyId
 
       val accessToken = obtainZetaGuardToken(baseUrl, mapper)
       val jws = JWSInput(accessToken)
@@ -128,11 +125,7 @@ class HsmTokenSigningIT : FunSpec() {
   private fun fetchJwks(baseUrl: String, mapper: ObjectMapper, realm: String): JSONWebKeySet {
     val url = "$baseUrl/realms/$realm/protocol/openid-connect/certs"
     val response =
-        HttpClients.createDefault().use { client ->
-          client.execute(RequestBuilder.get(url).build()) { resp ->
-            resp.entity.content.readBytes()
-          }
-        }
+        HttpClients.createDefault().use { client -> client.execute(RequestBuilder.get(url).build()) { resp -> resp.entity.content.readBytes() } }
     return mapper.readValue(response, JSONWebKeySet::class.java)
   }
 
@@ -140,23 +133,9 @@ class HsmTokenSigningIT : FunSpec() {
       obtainToken(baseUrl, mapper, realm = "master", clientId = "admin-cli", username = "zeta", password = "sigma")
 
   private fun obtainZetaGuardToken(baseUrl: String, mapper: ObjectMapper): String =
-      obtainToken(
-          baseUrl,
-          mapper,
-          realm = "zeta-guard",
-          clientId = "initial-client",
-          username = "user1",
-          password = "password",
-      )
+      obtainToken(baseUrl, mapper, realm = "zeta-guard", clientId = "initial-client", username = "user1", password = "password")
 
-  private fun obtainToken(
-      baseUrl: String,
-      mapper: ObjectMapper,
-      realm: String,
-      clientId: String,
-      username: String,
-      password: String,
-  ): String {
+  private fun obtainToken(baseUrl: String, mapper: ObjectMapper, realm: String, clientId: String, username: String, password: String): String {
     val url = "$baseUrl/realms/$realm/protocol/openid-connect/token"
     val request =
         RequestBuilder.post(url)
@@ -167,10 +146,7 @@ class HsmTokenSigningIT : FunSpec() {
             .addParameter("password", password)
             .build()
 
-    val body =
-        HttpClients.createDefault().use { client ->
-          client.execute(request) { resp -> resp.entity.content.readBytes() }
-        }
+    val body = HttpClients.createDefault().use { client -> client.execute(request) { resp -> resp.entity.content.readBytes() } }
 
     val tree = mapper.readTree(body)
     val accessToken = tree["access_token"]?.asText()

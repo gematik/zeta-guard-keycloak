@@ -47,7 +47,6 @@ services:
       # https://www.informatik-aktuell.de/betrieb/sicherheit/token-exchange-mit-keycloak.html
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_SUCCESS_LEVEL: "info"
       KC_SPI_EVENTS_LISTENER_JBOSS_LOGGING_ERROR_LEVEL: "warn"
-      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_SIMULATION_BASE_URL: "http://opa-simulation:8181"
       # https://www.keycloak.org/docs/latest/upgrading/#maximum-length-of-the-parameters-in-the-oidc-token-endpoint
@@ -60,6 +59,8 @@ services:
       SMCB_KEYSTORE_PASSWORD: "tyqvHpFoHdu68yRE+0F4q/I"
       TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm-certificates.p12
       TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+      # OCSP_KEYSTORE_LOCATION: /opt/keycloak/conf/ocsp-signers.p12
+      # OCSP_KEYSTORE_PASSWORD: "oGxkNU73WYIGpNTfWgeU"
     ports:
       - "127.0.0.1:18787:8787" # debug port
       - "127.0.0.1:18080:8080" # api port
@@ -68,6 +69,7 @@ services:
     volumes:
       - ./smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
       - ./tpm-certificates.p12:/opt/keycloak/conf/tpm-certificates.p12
+      - ./ocsp-signers.p12:/opt/keycloak/conf/ocsp-signers.p12
       - ./target:/opt/keycloak/data
     healthcheck:
       # No curl in Keycloak 🙄

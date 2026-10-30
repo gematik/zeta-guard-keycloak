@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
+import de.spree.keycloak.commons.configuration.CONFIG_JPA_ENABLE_ATTRIBUTECONVERTERS
 import jakarta.persistence.EntityManager
 import jakarta.persistence.EntityManagerFactory
 import org.hibernate.cfg.CacheSettings.USE_QUERY_CACHE
@@ -54,6 +55,7 @@ class JpaEntityManagerFactory(host: String, port: Int, vararg entityClasses: Cla
           FORMAT_SQL to debugSQL.toString(),
           USE_SECOND_LEVEL_CACHE to "false",
           USE_QUERY_CACHE to "false",
+          CONFIG_JPA_ENABLE_ATTRIBUTECONVERTERS to "false",
       )
 
   fun createEntityManager(): EntityManager = getEntityManagerFactory().createEntityManager()

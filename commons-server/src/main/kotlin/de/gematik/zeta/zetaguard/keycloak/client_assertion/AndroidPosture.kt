@@ -47,41 +47,38 @@ class AndroidPosture
     PROPERTY_KEYGUARD_MANAGER,
     PROPERTY_BIOMETRIC_MANAGER,
     PROPERTY_DEVICE_POLICY_MANAGER,
-    PROPERTY_KEY_ATTESTATION_CERTIFICATE_CHAIN
+    PROPERTY_KEY_ATTESTATION_CERTIFICATE_CHAIN,
 )
 constructor(
     platformProductId: AndroidProductId,
     productId: String,
     productVersion: String,
     @field:JsonPropertyDescription("Android build information, see https://developer.android.com/reference/android/os/Build")
-  @field:JsonProperty(PROPERTY_BUILD)
-  val build: Build,
+    @field:JsonProperty(PROPERTY_BUILD)
+    val build: Build,
     @field:JsonProperty(PROPERTY_RO) val ro: Ro,
     @field:JsonProperty(PROPERTY_PACKAGE_MANAGER) val packageManager: PackageManager,
     @field:JsonProperty(PROPERTY_KEYGUARD_MANAGER) val keyguardManager: KeyguardManager,
     @field:JsonProperty(PROPERTY_BIOMETRIC_MANAGER) val biometricManager: BiometricManager,
     @field:JsonProperty(PROPERTY_DEVICE_POLICY_MANAGER) val devicePolicyManager: DevicePolicyManager,
     @field:JsonPropertyDescription("The certificate chain from the Android Key Attestation")
-  @field:JsonProperty(PROPERTY_KEY_ATTESTATION_CERTIFICATE_CHAIN)
-  val keyAttestationCertificateChain: List<String>
+    @field:JsonProperty(PROPERTY_KEY_ATTESTATION_CERTIFICATE_CHAIN)
+    val keyAttestationCertificateChain: List<String>,
 ) : Posture(platformProductId, productId, productVersion)
 
 data class Build
 @ConstructorProperties("version", "manufacturer", "product", "model", "board")
 constructor(
-  @field:JsonProperty("version") val version: Version,
-  @field:JsonProperty("manufacturer") val manufacturer: String,
-  @field:JsonProperty("product") var product: String,
-  @field:JsonProperty("model") val model: String,
-  @field:JsonProperty("board") val board: String
+    @field:JsonProperty("version") val version: Version,
+    @field:JsonProperty("manufacturer") val manufacturer: String,
+    @field:JsonProperty("product") var product: String,
+    @field:JsonProperty("model") val model: String,
+    @field:JsonProperty("board") val board: String,
 )
 
 data class Version
 @ConstructorProperties("sdk_init", "security_patch")
-constructor(
-  @field:JsonProperty("sdk_init") val sdkInit: Long,
-  @field:JsonProperty("security_patch") val securityPatch: String,
-)
+constructor(@field:JsonProperty("sdk_init") val sdkInit: Long, @field:JsonProperty("security_patch") val securityPatch: String)
 
 data class Crypto @ConstructorProperties("state") constructor(@field:JsonProperty("state") val state: Boolean)
 
@@ -94,8 +91,8 @@ constructor(@field:JsonProperty("crypto") val crypto: Crypto, @field:JsonPropert
 data class BiometricManager
 @ConstructorProperties("deviceCredential", "biometricStrong")
 constructor(
-  @field:JsonProperty("deviceCredential") val deviceCredential: Boolean,
-  @field:JsonProperty("biometricStrong") val biometricStrong: Boolean
+    @field:JsonProperty("deviceCredential") val deviceCredential: Boolean,
+    @field:JsonProperty("biometricStrong") val biometricStrong: Boolean,
 )
 
 data class DevicePolicyManager
@@ -108,6 +105,6 @@ data class KeyguardManager @ConstructorProperties("isDeviceSecure") constructor(
 data class PackageManager
 @ConstructorProperties("feature_verified_boot", "mainline_patch_level")
 constructor(
-  @field:JsonProperty("feature_verified_boot") val featureVerifiedBoot: Boolean,
-  @field:JsonProperty("mainline_patch_level") val mainlinePatchLevel: String,
+    @field:JsonProperty("feature_verified_boot") val featureVerifiedBoot: Boolean,
+    @field:JsonProperty("mainline_patch_level") val mainlinePatchLevel: String,
 )

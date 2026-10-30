@@ -39,7 +39,6 @@ services:
       KC_HEALTH_ENABLED: true
       KC_HOSTNAME: http://localhost:18080
       KC_HTTP_ENABLED: true
-      KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED: true
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_DECISION_PATH: "/v1/data/policies/zeta/authz/decision"
       KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_SIMULATION_BASE_URL: "http://opa-simulation:8181"
       # https://www.keycloak.org/docs/latest/upgrading/#maximum-length-of-the-parameters-in-the-oidc-token-endpoint
@@ -53,11 +52,26 @@ services:
       SMCB_USER_MAX_CLIENTS: 20
       TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm-certificates.p12
       TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+      # OCSP_KEYSTORE_LOCATION: /opt/keycloak/conf/ocsp-signers.p12
+      # OCSP_KEYSTORE_PASSWORD: "oGxkNU73WYIGpNTfWgeU"
       CLIENT_REGISTRATION_TTL: "PT4S"
       CLIENT_REGISTRATION_SCHEDULER_INTERVAL: "PT3S"
       HSM_PROXY_ENDPOINT: "hsm-sim:50051"
       HSM_PROXY_KEY_ID: "zeta-guard-keycloak-tls-es256-v1.p256"
       HSM_PROXY_TOKEN_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
+      # HsmTokenSigningKeyProviderFactory's fail-closed guard defaults to ON
+      # (HsmTokenSigningKeyProviderFactory.failClosed = true). No env var needed in the IT;
+      # set KC_SPI_KEYS_ZETA_HSM_TOKEN_SIGNING_FAIL_CLOSED=false to relax for debugging.
+      # NOTE: KC_SPI_KEYS_ZETA_HSM_TOKEN_SIGNING_ENABLED is reserved by Keycloak's SPI loader
+      # (DefaultKeycloakSessionFactory.isEnabled) — do not use it to control the guard.
+      HSM_PROXY_KEK_ID: "vau-db-kek-v1"
+      SPREE_INTEGRITY_ENABLED: true
+      SPREE_ENABLE_INTEGRITY_CHECK: true
+      SPREE_SHUTDOWN_ON_ERROR: true
+      SPREE_ENCRYPTED_REALM: "zeta-guard"
+      SPREE_BOOTSTRAP_INTERVAL: "PT30S"
+    env_file:
+      - ../conf/spree-keychain.env
     ports:
       - "127.0.0.1:18080:8080" # api port
       - "19000:9000" # mgmt
@@ -66,6 +80,7 @@ services:
     volumes:
       - ../smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
       - ../tpm-certificates.p12:/opt/keycloak/conf/tpm-certificates.p12
+      - ../ocsp-signers.p12:/opt/keycloak/conf/ocsp-signers.p12
       - ./target/classes/libs/jacoco-agent.jar:/opt/keycloak/bin/jacoco-agent.jar
       - ./target:/opt/keycloak/data
     # Give KC more time to write logs and jacoco exec file
@@ -103,6 +118,9 @@ services:
       HSM_TOKEN_SIGNING_ENABLED: "true"
       HSM_TOKEN_SIGNING_ENDPOINT: "hsm-sim:50051"
       HSM_TOKEN_SIGNING_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
+      SPREE_INTEGRITY_ENABLED: true
+      SPREE_ENABLE_INTEGRITY_CHECK: true
+      SPREE_ENCRYPTED_REALM: "zeta-guard"
     networks:
       - zeta-guard
     volumes:

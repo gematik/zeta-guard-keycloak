@@ -27,7 +27,6 @@ import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakUriBuilder
 import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PATH
 import de.gematik.zeta.zetaguard.keycloak.plugins.wellknown.ZetaGuardWellKnownProviderFactory.Companion.serviceDocumentationUri
 import java.net.URI
-import java.util.Locale
 import org.keycloak.models.KeycloakSession
 import org.keycloak.protocol.oidc.OIDCWellKnownProviderFactory.PROVIDER_ID
 import org.keycloak.protocol.oidc.representations.OIDCConfigurationRepresentation
@@ -47,22 +46,21 @@ class ZetaGuardWellKnownProvider(private val session: KeycloakSession) : WellKno
     val noncePath = frontendUriInfo.baseUriBuilder.path(RealmsResource::class.java).path(NONCE_PATH).build(realm.name)
 
     return ZetaGuardWellKnownConfiguration(
-      issuer = URI.create(wellknown.issuer),
-      authorizationEndpoint = URI.create(wellknown.authorizationEndpoint),
-      tokenEndpoint = URI.create(wellknown.tokenEndpoint),
-      nonceEndpoint = noncePath,
-      openidProvidersEndpoint = KeycloakUriBuilder(frontendUriInfo).clientRegistrationOIDCUrl(realm.name),
-      serviceDocumentation = serviceDocumentationUri(),
-      jwksUri = URI.create(wellknown.jwksUri),
-      scopesSupported = wellknown.scopesSupported,
-      responseTypesSupported = listOf("code", "token"),
-      responseModesSupported = wellknown.responseModesSupported,
-      grantTypesSupported = wellknown.grantTypesSupported,
-      tokenEndpointAuthMethodsSupported = wellknown.tokenEndpointAuthMethodsSupported,
-      tokenEndpointAuthSigningAlgValuesSupported = wellknown.tokenEndpointAuthSigningAlgValuesSupported,
-      uiLocalesSupported = listOf(Locale.GERMAN, Locale.ENGLISH).map { it.toString() },
-      codeChallengeMethodsSupported = wellknown.codeChallengeMethodsSupported,
-      apiVersionsSupported = listOf(ApiVersionsSupported(documentationUri = serviceDocumentationUri())),
+        issuer = URI.create(wellknown.issuer),
+        authorizationEndpoint = URI.create(wellknown.authorizationEndpoint),
+        tokenEndpoint = URI.create(wellknown.tokenEndpoint),
+        nonceEndpoint = noncePath,
+        registrationEndpoint = KeycloakUriBuilder(frontendUriInfo).clientRegistrationOIDCUrl(realm.name),
+        openidProvidersEndpoint = KeycloakUriBuilder(frontendUriInfo).clientRegistrationOIDCUrl(realm.name),
+        serviceDocumentation = serviceDocumentationUri(),
+        jwksUri = URI.create(wellknown.jwksUri),
+        scopesSupported = wellknown.scopesSupported,
+        responseTypesSupported = listOf("code", "token"),
+        responseModesSupported = wellknown.responseModesSupported,
+        grantTypesSupported = wellknown.grantTypesSupported,
+        tokenEndpointAuthMethodsSupported = wellknown.tokenEndpointAuthMethodsSupported,
+        tokenEndpointAuthSigningAlgValuesSupported = wellknown.tokenEndpointAuthSigningAlgValuesSupported,
+        codeChallengeMethodsSupported = wellknown.codeChallengeMethodsSupported,
     )
   }
 

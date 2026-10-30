@@ -23,6 +23,9 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
+import io.kotest.assertions.json.shouldContainJsonKey
+import io.kotest.assertions.json.shouldContainJsonKeyValue
+import io.kotest.assertions.json.shouldNotContainJsonKey
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
@@ -38,9 +41,14 @@ class OpaPayloadBuilderTest :
                     audiences = null,
                     grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
                     ipAddress = "127.0.0.1",
-                    professionOid = null,
-                    productId = null,
-                    productVersion = null,
+                    userProfessionOid = null,
+                    clientProductId = null,
+                    clientProductVersion = null,
+                    clientId = null,
+                    clientPlatform = null,
+                    clientRegistrationTimestamp = null,
+                    authenticationMethodsReferences = emptyList(),
+                    previousIpAddress = null,
                 )
             )
         val node = JsonSerialization.mapper.readTree(json)
@@ -56,9 +64,14 @@ class OpaPayloadBuilderTest :
                     audiences = listOf(" ", "  "),
                     grantType = null,
                     ipAddress = null,
-                    professionOid = null,
-                    productId = null,
-                    productVersion = null,
+                    userProfessionOid = null,
+                    clientProductId = null,
+                    clientProductVersion = null,
+                    clientId = null,
+                    clientPlatform = null,
+                    clientRegistrationTimestamp = null,
+                    authenticationMethodsReferences = emptyList(),
+                    previousIpAddress = null,
                 )
             )
         val node = JsonSerialization.mapper.readTree(json)
@@ -74,9 +87,14 @@ class OpaPayloadBuilderTest :
                     audiences = listOf(" audience-1 ", "audience-2"),
                     grantType = null,
                     ipAddress = null,
-                    professionOid = null,
-                    productId = null,
-                    productVersion = null,
+                    userProfessionOid = null,
+                    clientProductId = null,
+                    clientProductVersion = null,
+                    clientId = null,
+                    clientPlatform = null,
+                    clientRegistrationTimestamp = null,
+                    authenticationMethodsReferences = emptyList(),
+                    previousIpAddress = null,
                 )
             )
         val node = JsonSerialization.mapper.readTree(json)
@@ -93,13 +111,19 @@ class OpaPayloadBuilderTest :
                     audiences = null,
                     grantType = null,
                     ipAddress = null,
-                    professionOid = "1.2.3",
-                    productId = null,
-                    productVersion = null,
+                    userIdentifier = "007",
+                    userProfessionOid = "1.2.3",
+                    clientProductId = null,
+                    clientProductVersion = null,
+                    clientId = null,
+                    clientPlatform = null,
+                    clientRegistrationTimestamp = null,
+                    authenticationMethodsReferences = emptyList(),
+                    previousIpAddress = null,
                 )
             )
-        val withProf = JsonSerialization.mapper.readTree(withProfJson)
-        withProf["input"]["user_info"]["professionOID"].asText() shouldBe "1.2.3"
+        withProfJson.shouldContainJsonKeyValue("$.input.user_info.identifier", "007")
+        withProfJson.shouldContainJsonKeyValue("$.input.user_info.professionOID", "1.2.3")
 
         val withoutProfJson =
             OpaPayloadBuilder.build(
@@ -108,13 +132,20 @@ class OpaPayloadBuilderTest :
                     audiences = null,
                     grantType = null,
                     ipAddress = null,
-                    professionOid = "",
-                    productId = null,
-                    productVersion = null,
+                    userIdentifier = "",
+                    userProfessionOid = "",
+                    clientProductId = null,
+                    clientProductVersion = null,
+                    clientId = null,
+                    clientPlatform = null,
+                    clientRegistrationTimestamp = null,
+                    authenticationMethodsReferences = emptyList(),
+                    previousIpAddress = null,
                 )
             )
-        val withoutProf = JsonSerialization.mapper.readTree(withoutProfJson)
-        withoutProf["input"]["user_info"].shouldBeNull()
+        withoutProfJson shouldContainJsonKey "$.input.user_info"
+        withoutProfJson shouldNotContainJsonKey "$.input.user_info.identifier"
+        withoutProfJson shouldNotContainJsonKey "$.input.user_info.professionOID"
       }
 
       test("ip blank -> ip_address omitted; ip present -> included") {
@@ -125,9 +156,14 @@ class OpaPayloadBuilderTest :
                     audiences = null,
                     grantType = null,
                     ipAddress = "10.0.0.1",
-                    professionOid = null,
-                    productId = null,
-                    productVersion = null,
+                    userProfessionOid = null,
+                    clientProductId = null,
+                    clientProductVersion = null,
+                    clientId = null,
+                    clientPlatform = null,
+                    clientRegistrationTimestamp = null,
+                    authenticationMethodsReferences = emptyList(),
+                    previousIpAddress = null,
                 )
             )
         val withIp = JsonSerialization.mapper.readTree(withIpJson)
@@ -140,12 +176,61 @@ class OpaPayloadBuilderTest :
                     audiences = null,
                     grantType = null,
                     ipAddress = "",
-                    professionOid = null,
-                    productId = null,
-                    productVersion = null,
+                    userProfessionOid = null,
+                    clientProductId = null,
+                    clientProductVersion = null,
+                    clientId = null,
+                    clientPlatform = null,
+                    clientRegistrationTimestamp = null,
+                    authenticationMethodsReferences = emptyList(),
+                    previousIpAddress = null,
                 )
             )
         val withoutIp = JsonSerialization.mapper.readTree(withoutIpJson)
         withoutIp["input"]["authorization_request"]["ip_address"].shouldBeNull()
+      }
+
+      test("should have each mandatory field") {
+        val json =
+            OpaPayloadBuilder.build(
+                OpaPayloadBuilder.PayloadParams(
+                    scopes = listOf("scope #1", "scope #2"),
+                    audiences = listOf("audience #1", "audience #2"),
+                    grantType = "grantType",
+                    ipAddress = "10.0.0.1",
+                    clientProductId = "clientProductId",
+                    clientProductVersion = "clientProductVersion",
+                    clientId = "clientId",
+                    clientPlatform = "clientPlatform",
+                    clientRegistrationTimestamp = 1,
+                    postureType = "postureType",
+                    userIdentifier = "userIdentifier",
+                    userProfessionOid = "userProfessionOid",
+                    authenticationMethodsReferences = listOf("method #1", "method #2"),
+                    previousIpAddress = "10.0.0.2",
+                )
+            )
+
+        json.shouldContainJsonKeyValue("$.input.authorization_request.amr[0]", "method #1")
+        json shouldNotContainJsonKey "$.input.authorization_request.aud"
+        json.shouldContainJsonKeyValue("$.input.authorization_request.audience[0]", "audience #1")
+        json.shouldContainJsonKeyValue("$.input.authorization_request.grant_type", "grantType")
+        json.shouldContainJsonKeyValue("$.input.authorization_request.ip_address", "10.0.0.1")
+        json.shouldContainJsonKeyValue("$.input.authorization_request.previous_ip_address", "10.0.0.2")
+        json.shouldContainJsonKeyValue("$.input.authorization_request.scopes[0]", "scope #1")
+
+        json shouldContainJsonKey "$.input.client_registration_data.attestation_result"
+        json.shouldContainJsonKeyValue("$.input.client_registration_data.client_id", "clientId")
+        json shouldContainJsonKey "$.input.client_registration_data.device_info"
+        json.shouldContainJsonKeyValue("$.input.client_registration_data.platform", "clientPlatform")
+        json.shouldContainJsonKeyValue("$.input.client_registration_data.posture_type", "postureType")
+        json.shouldContainJsonKeyValue("$.input.client_registration_data.product_id", "clientProductId")
+        json.shouldContainJsonKeyValue("$.input.client_registration_data.product_version", "clientProductVersion")
+        json.shouldContainJsonKeyValue("$.input.client_registration_data.registration_timestamp", 1)
+
+        json.shouldContainJsonKeyValue("$.input.user_info.identifier", "userIdentifier")
+        json.shouldContainJsonKeyValue("$.input.user_info.professionOID", "userProfessionOid")
+
+        json.shouldContainJsonKeyValue("$.input.version", "1.0")
       }
     })

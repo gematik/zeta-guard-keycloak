@@ -50,10 +50,11 @@ class AttestationUtilTest : ZetaGuardFunSpec() {
       val thumbprint = generateKeyPair().toJWK().toThumbprint()
       val nonceBytes = ByteArray(16).apply { SECURE_RANDOM.nextBytes(this) }
       val attestationChallenge = shouldNotThrowAny { calculateAttestationChallenge(thumbprint, nonceBytes) }
-      val bytes = ByteArray(thumbprint.size + nonceBytes.size).apply {
-          thumbprint.copyInto(this, destinationOffset = 0)
-          nonceBytes.copyInto(this, destinationOffset = thumbprint.size)
-      }
+      val bytes =
+          ByteArray(thumbprint.size + nonceBytes.size).apply {
+            thumbprint.copyInto(this, destinationOffset = 0)
+            nonceBytes.copyInto(this, destinationOffset = thumbprint.size)
+          }
 
       attestationChallenge shouldBe bytes.toHash().toBase64()
     }

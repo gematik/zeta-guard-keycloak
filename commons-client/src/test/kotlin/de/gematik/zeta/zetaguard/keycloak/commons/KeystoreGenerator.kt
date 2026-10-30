@@ -24,7 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.EC_CURVE_P256
-import de.gematik.zeta.zetaguard.keycloak.commons.server.setupBouncyCastle
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.setupSecurityProviders
 import java.io.File
 import java.security.KeyStore
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
@@ -32,7 +32,7 @@ import org.keycloak.common.util.KeystoreUtil.KeystoreFormat.PKCS12
 
 @Suppress("ReplaceSizeCheckWithIsNotEmpty")
 fun main(@Suppress("unused") args: Array<String>) {
-  setupBouncyCastle()
+  setupSecurityProviders()
 
   val password = if (args.size > 0) args[0] else SMCB_KEYSTORE_PASSWORD
   val rootCertName = if (args.size > 1) args[1] else CRT_GEMATIK_ROOT

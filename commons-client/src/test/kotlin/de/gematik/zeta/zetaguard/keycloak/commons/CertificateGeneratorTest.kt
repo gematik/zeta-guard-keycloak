@@ -116,14 +116,15 @@ class CertificateGeneratorTest : ZetaGuardFunSpec() {
       with(objectUnderTest) {
         val keyPair = generateKeyPair()
         val unrelatedCertificate =
-          buildCertificate(
-            subjectName = CRT_GEMATIK_ROOT_DN,
-            subjectKeyPair = keyPair,
-            issuerName = CRT_GEMATIK_ROOT_DN,
-            issuerKeyPair = keyPair,
-            isCA = true,
-            isRootCA = true,
-            createAdmissionExtension = false)
+            buildCertificate(
+                subjectName = CRT_GEMATIK_ROOT_DN,
+                subjectKeyPair = keyPair,
+                issuerName = CRT_GEMATIK_ROOT_DN,
+                issuerKeyPair = keyPair,
+                isCA = true,
+                isRootCA = true,
+                createAdmissionExtension = false,
+            )
 
         validateCertificateChain(unrelatedCertificate, listOf(leafCert, intermediateCert)).shouldBeLeft() shouldContain "validation failed"
       }
@@ -158,39 +159,40 @@ class CertificateGeneratorTest : ZetaGuardFunSpec() {
 }
 
 class CertificateChain(
-  curve: String = CURVE_BRAINPOOL,
-  rootDN: String = CRT_GEMATIK_ROOT_DN,
-  intermediateDN: String = CRT_GEMATIK_INTERMEDIATE_DN,
-  leafDN: String = CRT_GEMATIK_LEAF_DN,
+    curve: String = CURVE_BRAINPOOL,
+    rootDN: String = CRT_GEMATIK_ROOT_DN,
+    intermediateDN: String = CRT_GEMATIK_INTERMEDIATE_DN,
+    leafDN: String = CRT_GEMATIK_LEAF_DN,
 ) {
   val rootKeyPair = generateKeyPair(curve)
   val rootCert =
-    buildCertificate(
-      subjectName = rootDN,
-      subjectKeyPair = rootKeyPair,
-      issuerName = rootDN,
-      issuerKeyPair = rootKeyPair,
-      isCA = true,
-      isRootCA = true,
-      createAdmissionExtension = false)
+      buildCertificate(
+          subjectName = rootDN,
+          subjectKeyPair = rootKeyPair,
+          issuerName = rootDN,
+          issuerKeyPair = rootKeyPair,
+          isCA = true,
+          isRootCA = true,
+          createAdmissionExtension = false,
+      )
 
   val intermediateKeyPair = generateKeyPair(curve)
   val intermediateCert =
-    buildCertificate(
-      subjectName = intermediateDN,
-      subjectKeyPair = intermediateKeyPair,
-      issuerName = rootCert.subjectX500Principal.name,
-      issuerKeyPair = rootKeyPair,
-      isCA = true,
-    )
+      buildCertificate(
+          subjectName = intermediateDN,
+          subjectKeyPair = intermediateKeyPair,
+          issuerName = rootCert.subjectX500Principal.name,
+          issuerKeyPair = rootKeyPair,
+          isCA = true,
+      )
 
   val leafKeyPair = generateKeyPair(curve)
   val leafCert =
-    buildCertificate(
-      subjectName = leafDN,
-      subjectKeyPair = leafKeyPair,
-      issuerName = intermediateCert.subjectX500Principal.name,
-      issuerKeyPair = intermediateKeyPair,
-      isCA = false,
-    )
+      buildCertificate(
+          subjectName = leafDN,
+          subjectKeyPair = leafKeyPair,
+          issuerName = intermediateCert.subjectX500Principal.name,
+          issuerKeyPair = intermediateKeyPair,
+          isCA = false,
+      )
 }

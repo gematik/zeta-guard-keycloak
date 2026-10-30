@@ -59,6 +59,6 @@ class NonceProvider(private val session: KeycloakSession, private val nonceFacto
   override fun getResource() = this
 
   override fun close() {
-      // No-op
+    // No-op
   }
 }
