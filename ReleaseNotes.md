@@ -2,6 +2,18 @@
 
 # Release Notes ZETA PDP
 
+## Release 1.3.3
+
+### changed:
+- **Hardened Dynamic Client Registration against privilege escalation (CVE-2026-15572).**
+  Keycloak's native client-registration endpoints (`default`, `install`,
+  `saml2-entity-descriptor`) are disabled, and the RFC 7592 update/delete operations
+  (`PUT`/`DELETE`) are removed from the OIDC registration — only `POST`/`GET` on
+  `/clients-registrations/openid-connect` remain. This closes the mapper type-swap on
+  update (an allowed mapper type could be swapped to a disallowed one such as
+  `oidc-hardcoded-role-mapper` via the update endpoint, injecting privileged roles) and
+  the broad `ClientRepresentation` registration surface it relied on.
+
 ## Release 1.3.2
 
 ### changed:
