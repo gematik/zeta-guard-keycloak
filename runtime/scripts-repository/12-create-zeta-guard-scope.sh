@@ -1,5 +1,4 @@
 #!/bin/bash
-set -eo pipefail
 
 echo "🛠️ Create and configure 𝛇-Guard client scope"
 

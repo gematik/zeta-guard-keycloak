@@ -29,8 +29,10 @@ import de.gematik.zeta.zetaguard.keycloak.commons.clientStatementData
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
+import io.kotest.core.spec.Order
 import io.kotest.matchers.string.shouldContain
 
+@Order(1)
 class ClientStatementDataIT : ZetaGuardFunSpecIT() {
   init {
     test("Missing claims") {
@@ -43,7 +45,7 @@ class ClientStatementDataIT : ZetaGuardFunSpecIT() {
           )
       val smcbToken = createSMCBToken(nonce)
 
-      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain CLAIM_CLIENT_STATEMENT }
+      keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain CLAIM_CLIENT_STATEMENT }
     }
 
     test("Token exchange succeeds without 'client-self-assessment' claim") {
@@ -57,7 +59,7 @@ class ClientStatementDataIT : ZetaGuardFunSpecIT() {
               otherClaims = otherClaims,
           )
 
-      testExchangeToken(smcbToken, clientAssertion = jwt)
+      keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt)
     }
   }
 }

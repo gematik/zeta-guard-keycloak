@@ -28,9 +28,8 @@ import org.keycloak.services.clientregistration.oidc.OIDCClientRegistrationProvi
 import org.keycloak.services.clientregistration.oidc.OIDCClientRegistrationProviderFactory
 
 /**
- * Registers [ZetaGuardOIDCClientRegistrationProvider] under the built-in provider id `openid-connect`,
- * replacing Keycloak's stock provider via a higher [order]. See the provider for the rationale
- * (CVE-2026-15572 / ZF-0285).
+ * Registers [ZetaGuardOIDCClientRegistrationProvider] under the built-in provider id `openid-connect`, replacing Keycloak's stock provider via a
+ * higher [order]. See the provider for the rationale (CVE-2026-15572 / ZF-0285).
  */
 class ZetaGuardOIDCClientRegistrationProviderFactory : OIDCClientRegistrationProviderFactory() {
   override fun create(session: KeycloakSession) = ZetaGuardOIDCClientRegistrationProvider(OIDCClientRegistrationProvider(session))

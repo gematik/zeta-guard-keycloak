@@ -26,9 +26,12 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
+import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
+import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.smcbTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
+import io.kotest.core.spec.Order
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.net.URI
@@ -54,6 +57,7 @@ import org.keycloak.events.Errors
  * keycloak-zeta/runtime/integration-tests; an automated container-stop test is intentionally omitted here to avoid the kind of cross-IT pollution
  * observed with HsmUnreachableIT.
  */
+@Order(3)
 class RefreshTokenOpaIT : ZetaGuardFunSpecIT() {
   private val http: HttpClient = HttpClient.newHttpClient()
   private val opaBase = "http://localhost:18181"
@@ -87,26 +91,14 @@ class RefreshTokenOpaIT : ZetaGuardFunSpecIT() {
   private fun exchange() = run {
     val nonce = createNonce()
     val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-    val smcb =
-        smcb.smcbTokenGenerator.generateSMCBToken(
-            nonceString = nonce,
-            audiences = smcbTokenAudience,
-            subject = smcb.telematikId,
-            certificateChain = listOf(smcb.leafCertificate),
-        )
-    testExchangeToken(smcb, clientAssertion = jwt)
+    val smcb = smcbTokenGenerator.generateSMCBToken(nonceString = nonce, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
+    keycloakWebClient.testExchangeToken(smcb, clientAssertion = jwt)
   }
 
   private fun refresh(encodedRefreshToken: String) = run {
     val nonce = createNonce()
     val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-    val smcb =
-        smcb.smcbTokenGenerator.generateSMCBToken(
-            nonceString = nonce,
-            audiences = smcbTokenAudience,
-            subject = smcb.telematikId,
-            certificateChain = listOf(smcb.leafCertificate),
-        )
+    val smcb = smcbTokenGenerator.generateSMCBToken(nonceString = nonce, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
     val dPoP = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcb)
     keycloakWebClient.refreshToken(encodedRefreshToken, jwt, dPoP)
   }
@@ -133,7 +125,6 @@ class RefreshTokenOpaIT : ZetaGuardFunSpecIT() {
     putValue(path, trimmed)
   }
 
-  @Suppress("SameParameterValue")
   private fun <T> withOpaValue(path: String, jsonValue: String, block: () -> T): T {
     val snap = snapshot(path)
     try {

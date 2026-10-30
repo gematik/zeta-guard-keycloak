@@ -24,24 +24,20 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import io.kotest.core.spec.Order
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.security.Signature
-import org.apache.http.HttpHeaders.CONTENT_TYPE
 import org.apache.http.client.methods.RequestBuilder
 import org.apache.http.entity.ContentType.APPLICATION_FORM_URLENCODED
 import org.apache.http.impl.client.HttpClients
-import org.keycloak.OAuth2Constants.PASSWORD
-import org.keycloak.OAuth2Constants.USERNAME
 import org.keycloak.crypto.Algorithm
 import org.keycloak.crypto.ECDSAAlgorithm
 import org.keycloak.jose.jwk.JSONWebKeySet
 import org.keycloak.jose.jwk.JWKParser
 import org.keycloak.jose.jws.JWSInput
-import org.keycloak.protocol.oidc.OIDCLoginProtocol.CLIENT_ID_PARAM
-import org.keycloak.protocol.oidc.OIDCLoginProtocol.GRANT_TYPE_PARAM
 
 private const val ZETA_GUARD = "zeta-guard"
 
@@ -50,6 +46,7 @@ private const val ZETA_GUARD = "zeta-guard"
  * - `HSM_PROXY_TOKEN_KEY_ID` set in docker-compose-it.yml
  * - `zeta-guard-realm.json` sets `defaultSignatureAlgorithm: ES256`
  */
+@Order(1)
 class HsmTokenSigningIT : FunSpec() {
 
   init {
@@ -142,11 +139,11 @@ class HsmTokenSigningIT : FunSpec() {
     val url = "$baseUrl/realms/$realm/protocol/openid-connect/token"
     val request =
         RequestBuilder.post(url)
-            .addHeader(CONTENT_TYPE, APPLICATION_FORM_URLENCODED.mimeType)
-            .addParameter(GRANT_TYPE_PARAM, PASSWORD)
-            .addParameter(CLIENT_ID_PARAM, clientId)
-            .addParameter(USERNAME, username)
-            .addParameter(PASSWORD, password)
+            .addHeader("Content-Type", APPLICATION_FORM_URLENCODED.mimeType)
+            .addParameter("grant_type", "password")
+            .addParameter("client_id", clientId)
+            .addParameter("username", username)
+            .addParameter("password", password)
             .build()
 
     val body = HttpClients.createDefault().use { client -> client.execute(request) { resp -> resp.entity.content.readBytes() } }

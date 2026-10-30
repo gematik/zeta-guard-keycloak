@@ -1,1 +1,0 @@
-../scripts-repository/17-add-zeta-guard-revocation-event-listener.sh

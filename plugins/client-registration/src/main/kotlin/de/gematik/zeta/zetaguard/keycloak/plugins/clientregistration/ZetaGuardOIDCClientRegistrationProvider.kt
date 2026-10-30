@@ -37,18 +37,15 @@ import org.keycloak.services.clientregistration.ClientRegistrationProvider
 import org.keycloak.services.clientregistration.oidc.OIDCClientRegistrationProvider
 
 /**
- * Keycloak's OIDC dynamic client registration, with the RFC 7592 client-configuration resource
- * endpoints removed: only preflight, create (POST) and read (GET) are exposed; update (PUT) and
- * delete (DELETE) are intentionally dropped.
+ * Keycloak's OIDC dynamic client registration, with the RFC 7592 client-configuration resource endpoints removed: only preflight, create (POST) and
+ * read (GET) are exposed; update (PUT) and delete (DELETE) are intentionally dropped.
  *
- * Companion to [ZetaGuardDefaultClientRegistrationProvider]: closes the same RFC 7592 update/delete
- * surface on the `openid-connect` endpoint for parity (CVE-2026-15572 / ZF-0285). ZETA registers
- * clients once and does not use RFC 7592 update/delete.
+ * Companion to [ZetaGuardDefaultClientRegistrationProvider]: closes the same RFC 7592 update/delete surface on the `openid-connect` endpoint for
+ * parity (CVE-2026-15572 / ZF-0285). ZETA registers clients once and does not use RFC 7592 update/delete.
  *
  * Every retained method delegates to the wrapped Keycloak provider.
  */
-class ZetaGuardOIDCClientRegistrationProvider(private val delegate: OIDCClientRegistrationProvider) :
-    ClientRegistrationProvider by delegate {
+class ZetaGuardOIDCClientRegistrationProvider(private val delegate: OIDCClientRegistrationProvider) : ClientRegistrationProvider by delegate {
 
   @OPTIONS fun preflight(): Response = delegate.preflight()
 

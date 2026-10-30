@@ -28,19 +28,23 @@ package de.gematik.zeta.zetaguard.keycloak.it
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
 import de.gematik.zeta.zetaguard.keycloak.commons.PROFESSION_OID
+import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.leafCertificate
+import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.smcbTokenGenerator
+import de.gematik.zeta.zetaguard.keycloak.commons.TELEMATIK_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.expirationDate
 import de.gematik.zeta.zetaguard.keycloak.commons.issuedAt
+import de.gematik.zeta.zetaguard.keycloak.commons.now
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_IP_ADDRESS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
-import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import de.gematik.zeta.zetaguard.keycloak.commons.toRefreshToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
+import io.kotest.core.spec.Order
 import io.kotest.matchers.date.shouldBeAfter
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
@@ -50,6 +54,7 @@ import org.keycloak.representations.AccessToken
 import org.keycloak.representations.AccessTokenResponse
 import org.keycloak.representations.RefreshToken
 
+@Order(1)
 class RefreshTokenIT : ZetaGuardFunSpecIT() {
   lateinit var accessTokenResponse1: AccessTokenResponse
   lateinit var accessToken1: AccessToken
@@ -60,14 +65,9 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
       val nonce1 = createNonce()
       val jwt1 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce1)
       val smcbToken1 =
-          smcb.smcbTokenGenerator.generateSMCBToken(
-              nonceString = nonce1,
-              subject = smcb.telematikId,
-              audiences = smcbTokenAudience,
-              certificateChain = listOf(smcb.leafCertificate),
-          )
+          smcbTokenGenerator.generateSMCBToken(nonceString = nonce1, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
 
-      accessTokenResponse1 = testExchangeToken(smcbToken1, clientAssertion = jwt1)
+      accessTokenResponse1 = keycloakWebClient.testExchangeToken(smcbToken1, clientAssertion = jwt1)
 
       accessTokenResponse1.token.shouldNotBeNull().checkTokenHeader()
       accessTokenResponse1.refreshToken.shouldNotBeNull().checkTokenHeader()
@@ -78,7 +78,7 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
       accessToken1.isExpired shouldBe false
       refreshToken1.isExpired shouldBe false
 
-      val now = currentTime().plusSeconds(1)
+      val now = now().plusSeconds(1)
       accessToken1.expirationDate().isAfter(now) shouldBe true
       refreshToken1.expirationDate().isAfter(now) shouldBe true
       accessToken1.issuedAt().isBefore(now) shouldBe true
@@ -88,12 +88,7 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
     test("Get new access token response via OIDC refresh token") {
       val nonce2 = createNonce()
       val smcbToken2 =
-          smcb.smcbTokenGenerator.generateSMCBToken(
-              nonceString = nonce2,
-              subject = smcb.telematikId,
-              audiences = smcbTokenAudience,
-              certificateChain = listOf(smcb.leafCertificate),
-          )
+          smcbTokenGenerator.generateSMCBToken(nonceString = nonce2, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
       val jwt2 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce2)
       val dPoPToken2 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken2)
       val accessTokenResponse2 = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().reponseObject
@@ -102,7 +97,7 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
 
       val refreshToken2 = accessTokenResponse2.refreshToken.toRefreshToken()
       refreshToken2.expirationDate() shouldBeAfter refreshToken1.expirationDate()
-      refreshToken2.subject shouldBe smcb.telematikId
+      refreshToken2.subject shouldBe TELEMATIK_ID
       refreshToken2.otherClaims[CLAIM_PROFESSION_OID] shouldBe
           refreshToken1.otherClaims[CLAIM_PROFESSION_OID] shouldBe
           accessToken1.otherClaims[CLAIM_PROFESSION_OID] shouldBe
@@ -130,12 +125,7 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
     test("Refresh token rotation") {
       val nonce2 = createNonce()
       val smcbToken2 =
-          smcb.smcbTokenGenerator.generateSMCBToken(
-              nonceString = nonce2,
-              subject = smcb.telematikId,
-              audiences = smcbTokenAudience,
-              certificateChain = listOf(smcb.leafCertificate),
-          )
+          smcbTokenGenerator.generateSMCBToken(nonceString = nonce2, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
       val jwt2 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce2)
       val dPoPToken2 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken2)
       val accessTokenResponse = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().reponseObject
@@ -144,12 +134,7 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
 
       val nonce3 = createNonce()
       val smcbToken3 =
-          smcb.smcbTokenGenerator.generateSMCBToken(
-              nonceString = nonce3,
-              subject = smcb.telematikId,
-              audiences = smcbTokenAudience,
-              certificateChain = listOf(smcb.leafCertificate),
-          )
+          smcbTokenGenerator.generateSMCBToken(nonceString = nonce3, audiences = smcbTokenAudience, certificateChain = listOf(leafCertificate))
       val jwt3 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce2)
       val dPoPToken3 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken3)
 

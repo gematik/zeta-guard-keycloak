@@ -38,9 +38,8 @@ import org.keycloak.representations.oidc.OIDCClientRepresentation
 import org.keycloak.services.clientregistration.oidc.OIDCClientRegistrationProvider
 
 /**
- * ZF-0285 / CVE-2026-15572: the RFC 7592 update/delete resource endpoints are the attack surface
- * (the "Allowed Protocol Mapper Types" policy re-checks a mapper's type only on create, not on
- * update, so an attacker could register an allowed mapper and swap its type via PUT). These wrappers
+ * ZF-0285 / CVE-2026-15572: the RFC 7592 update/delete resource endpoints are the attack surface (the "Allowed Protocol Mapper Types" policy
+ * re-checks a mapper's type only on create, not on update, so an attacker could register an allowed mapper and swap its type via PUT). These wrappers
  * keep create (POST) and read (GET) and drop update (PUT) and delete (DELETE).
  */
 class ClientRegistrationResourceEndpointsTest : FunSpec() {

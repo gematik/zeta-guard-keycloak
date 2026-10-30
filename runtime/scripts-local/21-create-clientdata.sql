@@ -1,1 +1,0 @@
-../scripts-repository/21-create-clientdata.sql

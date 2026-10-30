@@ -30,6 +30,7 @@ import jakarta.ws.rs.Path
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
+import org.keycloak.models.KeycloakSession
 import org.keycloak.services.cors.Cors
 import org.keycloak.services.resource.RealmResourceProvider
 import org.keycloak.services.util.CacheControlUtil
@@ -39,7 +40,7 @@ import org.keycloak.services.util.CacheControlUtil
  *
  * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/gemSpec_ZETA_V1.1.0/#5.5.2.5.1
  */
-class NonceProvider(private val nonceFactory: NonceFactory) : RealmResourceProvider {
+class NonceProvider(private val session: KeycloakSession, private val nonceFactory: NonceFactory) : RealmResourceProvider {
   @OPTIONS
   @Path("{any:.*}")
   fun preflight(): Response =
@@ -49,7 +50,8 @@ class NonceProvider(private val nonceFactory: NonceFactory) : RealmResourceProvi
   @Path("")
   @Produces(MediaType.TEXT_PLAIN)
   fun createNonce(): Response {
-    val value = nonceFactory.createNonce().nonceValue
+    val address = session.context.connection?.remoteAddr ?: "<unknown>"
+    val value = nonceFactory.createNonce(address).nonceValue
 
     return Response.ok().entity(value).build()
   }

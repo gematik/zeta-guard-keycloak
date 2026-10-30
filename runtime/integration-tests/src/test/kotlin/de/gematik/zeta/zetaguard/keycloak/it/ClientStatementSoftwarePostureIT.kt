@@ -32,8 +32,10 @@ import de.gematik.zeta.zetaguard.keycloak.commons.createOtherClaims
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
+import io.kotest.core.spec.Order
 import io.kotest.matchers.string.shouldContain
 
+@Order(1)
 class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
   init {
     test("Invalid combination of posture type and platform") {
@@ -51,7 +53,7 @@ class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
           )
       val smcbToken = createSMCBToken(nonce)
 
-      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid combination" }
+      keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid combination" }
     }
 
     test("Invalid attestation challenge") { invalidAttestationChallenge(PostureType.SOFTWARE) }
@@ -70,7 +72,7 @@ class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
           )
       val smcbToken = createSMCBToken(nonce)
 
-      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid attestation timestamp" }
+      keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid attestation timestamp" }
     }
   }
 }

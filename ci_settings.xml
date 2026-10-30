@@ -38,7 +38,6 @@
    
             <properties>
                 <spotless.skip>false</spotless.skip>
-                <ktfmt.skip>false</ktfmt.skip>
             </properties>
 
             <repositories>

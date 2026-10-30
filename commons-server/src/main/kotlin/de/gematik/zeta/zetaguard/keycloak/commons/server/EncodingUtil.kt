@@ -33,10 +33,8 @@ import java.net.URI
 import java.security.MessageDigest
 import java.time.Duration
 import java.time.LocalDateTime
-import java.time.Period
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import kotlinx.datetime.DateTimePeriod
 import org.keycloak.common.util.Base64Url
 import org.keycloak.models.KeycloakUriInfo
 
@@ -59,15 +57,7 @@ fun LocalDateTime.toISO8601(): String = format(DateTimeFormatter.ISO_DATE_TIME)
 
 fun String.toLocalDateTime(): LocalDateTime = LocalDateTime.parse(this, DateTimeFormatter.ISO_DATE_TIME)
 
-fun String.toDateTimePeriod() = DateTimePeriod.parse(this)
-
-fun DateTimePeriod.toPeriod(): Period = Period.of(years, months, days)
-
-fun DateTimePeriod.toDuration(): Duration = Duration.ofSeconds(hours * 3600L + minutes * 60L + seconds)
-
-fun LocalDateTime.plus(period: DateTimePeriod): LocalDateTime = plus(period.toPeriod()).plus(period.toDuration())
-
-fun LocalDateTime.minus(period: DateTimePeriod): LocalDateTime = minus(period.toPeriod()).minus(period.toDuration())
+fun String.toDuration(): Duration = Duration.parse(this)
 
 fun currentTime(): LocalDateTime = LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS)
 

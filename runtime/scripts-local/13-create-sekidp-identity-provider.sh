@@ -1,1 +1,0 @@
-../scripts-repository/13-create-sekidp-identity-provider.sh

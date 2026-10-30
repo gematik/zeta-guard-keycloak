@@ -34,6 +34,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
+import io.kotest.core.spec.Order
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
@@ -42,13 +43,11 @@ import io.kotest.matchers.string.shouldContain
 import org.keycloak.OAuth2Constants.ACCESS_TOKEN_TYPE
 import org.keycloak.util.TokenUtil.TOKEN_TYPE_BEARER
 
+@Order(1)
 class InternalTokenExchangeIT : FunSpec() {
-  val keycloakWebClient = KeycloakWebClient.instance()
-
   init {
-    afterSpec { keycloakWebClient.close() }
-
     test("Internal token exchange with explicit client scopes/audiences") {
+      val keycloakWebClient = KeycloakWebClient.instance()
       val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = CLIENT_A_SCOPE).shouldBeRight().reponseObject
 
       accessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
@@ -80,6 +79,7 @@ class InternalTokenExchangeIT : FunSpec() {
     }
 
     test("Token exchange without client scopes/audiences") {
+      val keycloakWebClient = KeycloakWebClient.instance()
       val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().reponseObject
       val accessToken = accessTokenResponse.token.toAccessToken()
 

@@ -25,18 +25,15 @@ package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.commons.OcspUtil.CLOCK_SKEW_MS
 import de.gematik.zeta.zetaguard.keycloak.commons.OcspUtil.MAX_EXPIRES
-import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreMetaService
+import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.slot
 import io.mockk.verify
 import java.io.ByteArrayInputStream
-import java.io.IOException
 import java.security.cert.CertificateFactory
 import java.security.cert.X509Certificate
 import java.util.Date
@@ -53,262 +50,163 @@ import org.bouncycastle.util.encoders.Base64
 class OcspUtilTest : ZetaGuardFunSpec() {
   init {
 
-    val httpClient = mockk<CloseableHttpClient>(relaxed = true)
-    val signers = mockk<KeystoreMetaService>()
-    val issuers = mockk<KeystoreMetaService>()
-
-    beforeTest {
-      OcspUtil.clearCache()
-      clearMocks(httpClient)
-      clearMocks(signers)
-      every { signers.hasCertificate(any<X509Certificate>()) } returns true
-      every { signers.getTsp(any()) } returns "gematik"
-      clearMocks(issuers)
-      every { issuers.getRevokedSince(any()) } returns null
-      every { issuers.getTsp(any()) } returns "gematik"
-    }
+    beforeTest { OcspUtil.clearCache() }
 
     test("disabled") {
-      val result = OcspUtil.checkRevoked(praxisRevoked, issuers, null, httpClient, praxisRevokedDate)
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val result = OcspUtil.checkRevoked(praxisRevoked, praxisRevokedIssuer, null, httpClient, praxisRevokedDate)
       var status = result.shouldBeRight()
       status shouldBe CertStatus.Unknown
     }
 
-    test("unknown issuer") {
-      every { issuers.findIssuerCertificate(any()) } returns null
-
-      val result = OcspUtil.checkRevoked(praxisRevoked, issuers, signers, httpClient, praxisRevokedDate)
-      var error = result.shouldBeLeft()
-      error shouldContain "could not determine issuer"
-    }
-
     test("revoked") {
-      every { issuers.findIssuerCertificate(praxisRevoked) } returns praxisRevokedIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, praxisRevokedResponse)
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
 
-      val result = OcspUtil.checkRevoked(praxisRevoked, issuers, signers, httpClient, praxisRevokedDate)
+      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, praxisRevokedResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
+
+      val result = OcspUtil.checkRevoked(praxisRevoked, praxisRevokedIssuer, signers, httpClient, praxisRevokedDate)
       var error = result.shouldBeLeft()
       error shouldContain "Certificate has been revoked"
     }
 
     test("good") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
+
       every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
-      var status = result.shouldBeRight()
-      status shouldBe CertStatus.Good
-    }
-
-    test("request timeout applied") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      val request = slot<HttpPost>()
-      every { httpClient.execute(capture(request)) } returns FakeHttp(200, guardGoodResponse)
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate, config = OcspConfig(connectTimeoutMs = 1234, readTimeoutMs = 5678))
-      result.shouldBeRight() shouldBe CertStatus.Good
-
-      val config = request.captured.config
-      config.connectTimeout shouldBe 1234
-      config.connectionRequestTimeout shouldBe 1234
-      config.socketTimeout shouldBe 5678
-    }
-
-    test("after CA revoked") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { issuers.getRevokedSince(guardGoodIssuer) } returns Date(guardGood.notBefore.time - 1L) // revoked before cert
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
-      var error = result.shouldBeLeft()
-      error shouldContain "issued after CA revocation"
-    }
-
-    test("before CA revoked") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { issuers.getRevokedSince(guardGoodIssuer) } returns Date(guardGood.notBefore.time + 1L) // revoked after cert
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, guardGoodDate)
       var status = result.shouldBeRight()
       status shouldBe CertStatus.Good
     }
 
     test("cached response") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
+      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
+
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, guardGoodDate)
       var status = result.shouldBeRight()
       status shouldBe CertStatus.Good
 
-      val result2 = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
+      val result2 = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, guardGoodDate)
       var status2 = result2.shouldBeRight()
       status2 shouldBe CertStatus.Good
 
       verify(exactly = 1) { httpClient.execute(any<HttpPost>()) }
     }
 
-    test("no response fails closed when failClosed=true") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
+    test("no response") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
+
       every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(400, ByteArray(0))
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate, config = OcspConfig(failClosed = true))
-      var error = result.shouldBeLeft()
-      error shouldContain "could not be determined"
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, guardGoodDate)
+      var status = result.shouldBeRight()
+      status shouldBe CertStatus.Unknown
     }
 
-    test("malformed response fails closed when failClosed=true") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
+    test("malformed response") {
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
+
       every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, ByteArray(0))
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate, config = OcspConfig(failClosed = true))
-      var error = result.shouldBeLeft()
-      error shouldContain "could not be determined"
-    }
-
-    test("unreachable responder fails closed when failClosed=true") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } throws IOException("Connection timed out")
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate, config = OcspConfig(failClosed = true))
-      var error = result.shouldBeLeft()
-      error shouldContain "could not be determined"
-    }
-
-    test("unreachable responder allowed by default (fail-open)") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } throws IOException("Connection timed out")
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, guardGoodDate)
       var status = result.shouldBeRight()
       status shouldBe CertStatus.Unknown
-    }
-
-    test("no response allowed by default (fail-open)") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(400, ByteArray(0))
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
-      var status = result.shouldBeRight()
-      status shouldBe CertStatus.Unknown
-    }
-
-    test("malformed response allowed by default (fail-open)") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, ByteArray(0))
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
-      var status = result.shouldBeRight()
-      status shouldBe CertStatus.Unknown
-    }
-
-    test("revoked denied even in fail-open (default)") {
-      every { issuers.findIssuerCertificate(praxisRevoked) } returns praxisRevokedIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, praxisRevokedResponse)
-
-      val result = OcspUtil.checkRevoked(praxisRevoked, issuers, signers, httpClient, praxisRevokedDate, config = OcspConfig(failClosed = false))
-      var error = result.shouldBeLeft()
-      error shouldContain "Certificate has been revoked"
     }
 
     test("certID mismatch") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, praxisRevokedResponse)
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
+      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, praxisRevokedResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
+
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, guardGoodDate)
       var error = result.shouldBeLeft()
       error shouldContain "response does not match request"
     }
 
     test("too new") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, Date(Long.MIN_VALUE))
+      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
+
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, Date(Long.MIN_VALUE))
       var error = result.shouldBeLeft()
       error shouldContain "response is out of date"
     }
 
     test("too old") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, Date(Long.MAX_VALUE))
+      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
+
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, Date(Long.MAX_VALUE))
       var error = result.shouldBeLeft()
       error shouldContain "response is out of date"
     }
 
     test("early clock skew") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
+
       every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
 
       val responseTime = Date(1780401940000L - 1L) // 1ms before thisUpdate in response
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, responseTime)
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, responseTime)
       var status = result.shouldBeRight()
       status shouldBe CertStatus.Good
 
       val responseTime2 = Date(1780401940000L - CLOCK_SKEW_MS - 1L) // 1ms before thisUpdate minus clock skew
-      val result2 = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, responseTime2)
+      val result2 = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, responseTime2)
       var error2 = result2.shouldBeLeft()
       error2 shouldContain "response is out of date"
     }
 
     test("late clock skew") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
+
       every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
+      every { signers.hasCertificate(any<X509Certificate>()) } returns true
 
       val responseTime = Date(1780401940000L + MAX_EXPIRES.toMillis() + 1L) // 1ms after thisUpdate plus max duration
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, responseTime)
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, responseTime)
       var status = result.shouldBeRight()
       status shouldBe CertStatus.Good
 
       val responseTime2 = Date(1780401940000L + MAX_EXPIRES.toMillis() + CLOCK_SKEW_MS + 1L) // 1ms after thisUpdate plus max duration and clock skew
-      val result2 = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, responseTime2)
+      val result2 = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, responseTime2)
       var error2 = result2.shouldBeLeft()
       error2 shouldContain "response is out of date"
     }
 
     test("signer not trusted") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
+      val httpClient = mockk<CloseableHttpClient>(relaxed = true)
+      val signers = mockk<KeystoreService>()
+
       every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
       every { signers.hasCertificate(any<X509Certificate>()) } returns false
 
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
+      val result = OcspUtil.checkRevoked(guardGood, guardGoodIssuer, signers, httpClient, guardGoodDate)
       var error = result.shouldBeLeft()
       error shouldContain "signer is not trusted"
-    }
-
-    test("TSP match") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
-      every { issuers.getTsp(any()) } returns "gematik"
-      every { signers.getTsp(any()) } returns "gematik"
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
-      var status = result.shouldBeRight()
-      status shouldBe CertStatus.Good
-    }
-
-    test("TSP mismatch") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
-      every { issuers.getTsp(any()) } returns "gematik"
-      every { signers.getTsp(any()) } returns "invalid"
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
-      var error = result.shouldBeLeft()
-      error shouldContain "does not match issuer TSP"
-    }
-
-    test("TSP unknown") {
-      every { issuers.findIssuerCertificate(any()) } returns guardGoodIssuer
-      every { httpClient.execute(any<HttpPost>()) } returns FakeHttp(200, guardGoodResponse)
-      every { issuers.getTsp(any()) } returns "gematik"
-      every { signers.getTsp(any()) } returns null
-
-      val result = OcspUtil.checkRevoked(guardGood, issuers, signers, httpClient, guardGoodDate)
-      var error = result.shouldBeLeft()
-      error shouldContain "does not match issuer TSP"
     }
   }
 
@@ -363,7 +261,7 @@ class OcspUtilTest : ZetaGuardFunSpec() {
 
   val praxisRevokedDate = Date(1779263728000L) // May 20 7:55:28 2026 GMT
 
-  val praxisRevokedResponse: ByteArray =
+  val praxisRevokedResponse =
       Base64.decode(
           """
             MIIEdgoBAKCCBG8wggRrBgkrBgEFBQcwAQEEggRcMIIEWDCCAVihVzBVMQswCQYDVQQGEwJERTEa
@@ -439,7 +337,7 @@ class OcspUtilTest : ZetaGuardFunSpec() {
 
   val guardGoodDate = Date(1780402662000) // Jun 2  12:17:42 2026 GMT
 
-  val guardGoodResponse: ByteArray =
+  val guardGoodResponse =
       Base64.decode(
           """
             MIIEZwoBAKCCBGAwggRcBgkrBgEFBQcwAQEEggRNMIIESTCCAUihWDBWMQswCQYDVQQGEwJERTEa
@@ -471,7 +369,7 @@ class OcspUtilTest : ZetaGuardFunSpec() {
   }
 
   private class FakeHttp(statusCode: Int, content: ByteArray) :
-    BasicHttpResponse(BasicStatusLine(HttpVersion.HTTP_1_1, statusCode, null)), CloseableHttpResponse {
+      BasicHttpResponse(BasicStatusLine(HttpVersion.HTTP_1_1, statusCode, null)), CloseableHttpResponse {
     init {
       this.entity = ByteArrayEntity(content, ContentType.APPLICATION_OCTET_STREAM)
     }

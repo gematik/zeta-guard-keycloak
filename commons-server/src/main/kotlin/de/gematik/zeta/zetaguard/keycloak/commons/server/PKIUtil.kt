@@ -100,18 +100,6 @@ fun KeyPair.toJWK(): JWK = public.toJWK()
 
 fun PublicKey.toJWK(): JWK = JWKBuilder.create().ec(this)
 
-/**
- * A DPoP proof header must embed only the mandatory public-key JWK members (RFC 7638: kty/crv/x/y for EC). Keycloak's [JWKBuilder] always
- * populates `kid` and `use` (and sometimes `alg`); strip them so the embedded JWK stays schema-compliant. A fresh JWK is built from the public key,
- * so shared/cached instances are not mutated.
- */
-fun PublicKey.toMinimalJWK(): JWK =
-    toJWK().apply {
-      keyId = null
-      algorithm = null
-      publicKeyUse = null
-    }
-
 fun generatePKIData(): PKIData = PKIData(generateKeyPair())
 
 /**
@@ -167,15 +155,12 @@ fun PublicKey.createVerifierContext(): SignatureVerifierContext {
   }
 }
 
-fun KeyPair.createSignerContext(includeKid: Boolean = true): SignatureSignerContext {
+fun KeyPair.createSignerContext(): SignatureSignerContext {
   val jwk = public.createJWK()
   val key =
       getKeyWrapper(jwk, true).apply {
         publicKey = public
         privateKey = private
-        // JWKBuilder auto-populates a kid that JWSBuilder would otherwise emit as the JOSE `kid` header.
-        // Clearing it produces a token without `header.kid` (verified via x5c, so no kid is needed).
-        if (!includeKid) kid = null
       }
 
   return when (public) {

@@ -42,7 +42,7 @@ import org.apache.commons.lang3.builder.ToStringStyle.NO_FIELD_NAMES_STYLE
  * @property previousHash The hash of the previous log entry, used for integrity verification.
  * @property currentHash The hash of the current log entry, calculated from the event data and timestamp.
  */
-@Suppress("JpaDataSourceORMInspection", "JpaEntityWithValAttributesInspection", "KotlinRedundantDefaultConstructorJpaCompilerPluginInspection")
+@Suppress("JpaDataSourceORMInspection", "JpaEntityWithValAttributesInspection")
 @Entity
 @Table(name = "ADMIN_EVENT_LOG")
 class AdminEventLog(

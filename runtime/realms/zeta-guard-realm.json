@@ -992,35 +992,6 @@
             "100"
           ]
         }
-      },
-      {
-        "name": "ecdsa-generated",
-        "providerId": "ecdsa-generated",
-        "subComponents": {},
-        "config": {
-          "priority": [
-            "100"
-          ],
-          "ecdsaEllipticCurveKey": [
-            "P-256"
-          ],
-          "ecGenerateCertificate": [
-            "true"
-          ]
-        }
-      },
-      {
-        "name": "ecdh-generated",
-        "providerId": "ecdh-generated",
-        "subComponents": {},
-        "config": {
-          "priority": [
-            "100"
-          ],
-          "ecdhAlgorithm": [
-            "ECDH-ES"
-          ]
-        }
       }
     ]
   },
@@ -1709,7 +1680,7 @@
       "alias": "VERIFY_PROFILE",
       "name": "Verify Profile",
       "providerId": "VERIFY_PROFILE",
-      "enabled": false,
+      "enabled": true,
       "defaultAction": false,
       "priority": 90,
       "config": {}

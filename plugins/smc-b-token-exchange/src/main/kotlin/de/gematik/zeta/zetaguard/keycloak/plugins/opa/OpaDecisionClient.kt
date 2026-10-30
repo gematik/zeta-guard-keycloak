@@ -24,7 +24,6 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import com.fasterxml.jackson.databind.JsonNode
-import de.gematik.zeta.zetaguard.keycloak.plugins.logger
 import java.nio.charset.StandardCharsets
 import org.apache.http.HttpHeaders
 import org.apache.http.HttpStatus.SC_OK
@@ -37,7 +36,7 @@ import org.jboss.logging.Logger
 import org.keycloak.util.JsonSerialization
 
 object OpaDecisionClient {
-  fun evaluate(httpClient: CloseableHttpClient, opaConfig: OPAConfig, bodyJson: String): Decision {
+  fun evaluate(httpClient: CloseableHttpClient, opaConfig: OPAConfig, bodyJson: String, log: Logger): Decision {
     val effective = OpaConfigResolver.normalize(opaConfig)
     val url = effective.opaBaseUrl + effective.decisionPath
     val request = buildRequest(url, effective, bodyJson)
@@ -47,25 +46,25 @@ object OpaDecisionClient {
       httpClient.execute(request).use { response ->
         val status = response.statusLine?.statusCode ?: -1
         val dur = System.currentTimeMillis() - start
-        logger.infof("OPA TokenPolicy status=%d (dur=%dms)", status, dur)
+        log.infof("OPA TokenPolicy status=%d (dur=%dms)", status, dur)
 
         when (status) {
           SC_OK -> {
             val entity = response.entity ?: return Decision.Error(null)
             val bytes = entity.content.use { it.readBytes() }
 
-            parseDecision(bytes, logger)
+            parseDecision(bytes, log)
           }
 
           else -> {
             val body = response.entity?.content?.use { it.readBytes() }?.let { String(it) } ?: "<no body>"
-            logger.warnf("OPA TokenPolicy unexpected HTTP %d response: %s", status, body)
+            log.warnf("OPA TokenPolicy unexpected HTTP %d response: %s", status, body)
             Decision.Error(null)
           }
         }
       }
     } catch (ex: Exception) {
-      logger.warn("OPA TokenPolicy error calling OPA", ex)
+      log.warn("OPA TokenPolicy error calling OPA", ex)
       Decision.Error(ex)
     }
   }

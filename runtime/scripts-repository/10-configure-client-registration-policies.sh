@@ -1,5 +1,4 @@
 #!/bin/bash
-set -eo pipefail
 
 echo "🛠️ Setup 𝛇-Guard client registration policies"
 

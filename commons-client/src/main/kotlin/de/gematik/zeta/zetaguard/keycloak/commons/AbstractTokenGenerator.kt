@@ -40,12 +40,6 @@ import org.keycloak.util.TokenUtil.TOKEN_TYPE_BEARER
 abstract class AbstractTokenGenerator(subjectKeyPair: KeyPair = generateKeyPair()) {
   val keys = PKIData(subjectKeyPair)
 
-  /**
-   * Optional token content/shape. [includeTokenType] and [includeKid] default to `true` (current behavior); the SMC-B subject token opts out of
-   * both so it stays compliant with subject-token-smb.yaml (no `payload.typ`, no `header.kid`).
-   */
-  data class TokenOptions(val otherClaims: Map<String, Any> = mapOf(), val includeTokenType: Boolean = true, val includeKid: Boolean = true)
-
   protected fun generateToken(
       issuer: String,
       subject: String,
@@ -53,9 +47,9 @@ abstract class AbstractTokenGenerator(subjectKeyPair: KeyPair = generateKeyPair(
       issuedFor: String,
       audiences: List<String>,
       certificateChain: List<X509Certificate> = listOf(),
-      options: TokenOptions = TokenOptions(),
+      otherClaims: Map<String, Any> = mapOf(),
   ): String {
-    val signer = keys.keypair.createSignerContext(includeKid = options.includeKid)
+    val signer = keys.keypair.createSignerContext()
 
     return JWSBuilder()
         .type(OAuth2Constants.JWT)
@@ -63,14 +57,14 @@ abstract class AbstractTokenGenerator(subjectKeyPair: KeyPair = generateKeyPair(
         .jsonContent(
             IDToken().apply {
               id(UUID.randomUUID().toString())
-              if (options.includeTokenType) type(TOKEN_TYPE_BEARER)
+              type(TOKEN_TYPE_BEARER)
               issuer(issuer)
               issuedFor(issuedFor)
               subject(subject)
               audience(*audiences.toTypedArray())
               expirationDate(Duration.ofDays(10))
               issuedNow()
-              options.otherClaims.forEach { setOtherClaims(it.key, it.value) }
+              otherClaims.forEach { setOtherClaims(it.key, it.value) }
               nonce = nonceString
             }
         )

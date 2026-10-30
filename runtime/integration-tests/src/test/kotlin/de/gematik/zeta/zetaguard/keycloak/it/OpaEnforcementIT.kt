@@ -24,7 +24,10 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
+import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper
+import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper.smcbTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
+import io.kotest.core.spec.Order
 import io.kotest.matchers.shouldBe
 import java.net.URI
 import java.net.http.HttpClient
@@ -35,6 +38,7 @@ import org.apache.http.entity.ContentType.APPLICATION_JSON
 
 private const val POLICY_DENIED = "policy_denied"
 
+@Order(2)
 class OpaEnforcementIT : ZetaGuardFunSpecIT() {
   private val http: HttpClient = HttpClient.newHttpClient()
   private val opaBase = "http://localhost:18181"
@@ -44,14 +48,13 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
       val nonce = createNonce()
       val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
       val smcb =
-          smcb.smcbTokenGenerator.generateSMCBToken(
+          smcbTokenGenerator.generateSMCBToken(
               nonceString = nonce,
-              subject = smcb.telematikId,
               audiences = smcbTokenAudience,
-              certificateChain = listOf(smcb.leafCertificate),
+              certificateChain = listOf(SMCBTokenHelper.leafCertificate),
           )
 
-      testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE)
+      keycloakWebClient.testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE)
     }
 
     test("OPA deny: scopes not allowed") {
@@ -59,14 +62,13 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
         val nonce = createNonce()
         val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
         val smcb =
-            smcb.smcbTokenGenerator.generateSMCBToken(
+            smcbTokenGenerator.generateSMCBToken(
                 nonceString = nonce,
-                subject = smcb.telematikId,
                 audiences = smcbTokenAudience,
-                certificateChain = listOf(smcb.leafCertificate),
+                certificateChain = listOf(SMCBTokenHelper.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        keycloakWebClient.testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
           it.statusCode shouldBe 403
           it.error shouldBe org.keycloak.events.Errors.ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -79,14 +81,13 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
         val nonce = createNonce()
         val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
         val smcb =
-            smcb.smcbTokenGenerator.generateSMCBToken(
+            smcbTokenGenerator.generateSMCBToken(
                 nonceString = nonce,
-                subject = smcb.telematikId,
                 audiences = smcbTokenAudience,
-                certificateChain = listOf(smcb.leafCertificate),
+                certificateChain = listOf(SMCBTokenHelper.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        keycloakWebClient.testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
           it.statusCode shouldBe 403
           it.error shouldBe org.keycloak.events.Errors.ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -99,14 +100,13 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
         val nonce = createNonce()
         val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
         val smcb =
-            smcb.smcbTokenGenerator.generateSMCBToken(
+            smcbTokenGenerator.generateSMCBToken(
                 nonceString = nonce,
-                subject = smcb.telematikId,
                 audiences = smcbTokenAudience,
-                certificateChain = listOf(smcb.leafCertificate),
+                certificateChain = listOf(SMCBTokenHelper.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        keycloakWebClient.testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
           it.statusCode shouldBe 403
           it.error shouldBe org.keycloak.events.Errors.ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -119,14 +119,13 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
         val nonce = createNonce()
         val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
         val smcb =
-            smcb.smcbTokenGenerator.generateSMCBToken(
+            smcbTokenGenerator.generateSMCBToken(
                 nonceString = nonce,
-                subject = smcb.telematikId,
                 audiences = smcbTokenAudience,
-                certificateChain = listOf(smcb.leafCertificate),
+                certificateChain = listOf(SMCBTokenHelper.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        keycloakWebClient.testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
           it.statusCode shouldBe 403
           it.error shouldBe org.keycloak.events.Errors.ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -140,14 +139,13 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
         val nonce = createNonce()
         val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
         val smcb =
-            smcb.smcbTokenGenerator.generateSMCBToken(
+            smcbTokenGenerator.generateSMCBToken(
                 nonceString = nonce,
-                subject = smcb.telematikId,
                 audiences = smcbTokenAudience,
-                certificateChain = listOf(smcb.leafCertificate),
+                certificateChain = listOf(SMCBTokenHelper.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE)
+        keycloakWebClient.testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE)
       }
     }
 
@@ -157,14 +155,13 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
         val nonce = createNonce()
         val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
         val smcb =
-            smcb.smcbTokenGenerator.generateSMCBToken(
+            smcbTokenGenerator.generateSMCBToken(
                 nonceString = nonce,
-                subject = smcb.telematikId,
                 audiences = smcbTokenAudience,
-                certificateChain = listOf(smcb.leafCertificate),
+                certificateChain = listOf(SMCBTokenHelper.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        keycloakWebClient.testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
           it.statusCode shouldBe 403
           it.error shouldBe org.keycloak.events.Errors.ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED

@@ -26,14 +26,15 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.client_attestation.calculateAttestationChallenge
 import de.gematik.zeta.zetaguard.keycloak.commons.IDTokenInfo
-import de.gematik.zeta.zetaguard.keycloak.commons.opa.toOpaDeviceInfo
-import de.gematik.zeta.zetaguard.keycloak.commons.resolveClientIP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.Success
 import de.gematik.zeta.zetaguard.keycloak.commons.server.fromBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toThumbprint
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
+import de.gematik.zeta.zetaguard.keycloak.commons.toForwardedHeader
 import de.gematik.zeta.zetaguard.keycloak.commons.toIDTokenInfo
+import de.gematik.zeta.zetaguard.keycloak.commons.toIPAddress
 import de.gematik.zeta.zetaguard.keycloak.commons.toJsonWebToken
+import de.gematik.zeta.zetaguard.keycloak.commons.toXForwardedForHeader
 import java.security.PublicKey
 import java.security.cert.X509Certificate
 import java.time.Duration
@@ -72,7 +73,6 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
   var opaScopes: List<String>? = null
 
   lateinit var authenticationMethodsReferences: List<String>
-  lateinit var authenticationContextClassReference: String
   lateinit var clientId: String
   lateinit var clientPlatform: String
   var clientRegistrationTimestamp by Delegates.notNull<Long>()
@@ -96,7 +96,12 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
   private val tokenInfo: IDTokenInfo = subjectToken.toIDTokenInfo()
 
   val clientIP: String // A_28828
-    get() = resolveClientIP(context.clientConnection?.remoteAddr) { httpHeader(it) } ?: error("IP address could not be determined")
+    get() =
+        httpHeader("Forwarded")?.toForwardedHeader() // RFC 7239
+        ?: httpHeader("X-Forwarded-For")?.toXForwardedForHeader()
+            ?: httpHeader("X-Real-IP")?.toIPAddress()
+            ?: context.clientConnection.remoteAddr
+            ?: error("IP address could not be determined")
 
   private fun httpHeader(name: String): String? = context.headers.getHeaderString(name)
 
@@ -131,12 +136,10 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
             audiences = opaAudiences,
             scopes = opaScopes,
             authenticationMethodsReferences = authenticationMethodsReferences,
-            authenticationContextClassReference = authenticationContextClassReference,
             clientId = clientId,
             clientPlatform = clientPlatform,
             clientRegistrationTimestamp = clientRegistrationTimestamp,
             postureType = postureType,
             previousIpAddress = previousIpAddress,
-            deviceInfo = clientStatementData.posture.toOpaDeviceInfo(),
         )
 }

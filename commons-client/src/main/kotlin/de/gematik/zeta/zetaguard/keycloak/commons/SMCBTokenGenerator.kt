@@ -44,7 +44,7 @@ class SMCBTokenGenerator(subjectKeyPair: KeyPair) : AbstractTokenGenerator(subje
    */
   fun generateSMCBToken(
       issuer: String = ZETA_CLIENT,
-      subject: String,
+      subject: String = TELEMATIK_ID,
       nonceString: String,
       issuedFor: String = CLIENT_C_ID,
       audiences: List<String> = listOf(ZETA_CLIENT),
@@ -57,16 +57,11 @@ class SMCBTokenGenerator(subjectKeyPair: KeyPair) : AbstractTokenGenerator(subje
           issuedFor,
           audiences,
           certificateChain,
-          TokenOptions(
-              // Emit the key bindings only when wired; for a custom per-token binding use createSMCBTokenRaw.
-              otherClaims =
-                  buildMap {
-                    defaultClientKeyJkt?.let { put(CLAIM_CLIENT_KEY, mapOf(CLAIM_JKT to it)) }
-                    defaultDpopKeyJkt?.let { put(CLAIM_DPOP_KEY, mapOf(CLAIM_JKT to it)) }
-                  },
-              // subject-token-smb.yaml forbids `payload.typ` and `header.kid` — omit both.
-              includeTokenType = false,
-              includeKid = false,
-          ),
+          // Emit the key bindings only when wired; for a custom per-token binding use createSMCBTokenRaw.
+          otherClaims =
+              buildMap {
+                defaultClientKeyJkt?.let { put(CLAIM_CLIENT_KEY, mapOf(CLAIM_JKT to it)) }
+                defaultDpopKeyJkt?.let { put(CLAIM_DPOP_KEY, mapOf(CLAIM_JKT to it)) }
+              },
       )
 }

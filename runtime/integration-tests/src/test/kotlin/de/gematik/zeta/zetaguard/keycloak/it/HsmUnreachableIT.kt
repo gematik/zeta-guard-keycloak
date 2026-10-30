@@ -24,10 +24,6 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_A_ID
-import de.gematik.zeta.zetaguard.keycloak.commons.USER1
-import de.gematik.zeta.zetaguard.keycloak.commons.USER1_PASSWORD
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
@@ -35,18 +31,13 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldNotBeEmpty
 import java.util.concurrent.TimeUnit
-import org.apache.http.HttpHeaders.CONTENT_TYPE
 import org.apache.http.HttpStatus
 import org.apache.http.client.methods.RequestBuilder
 import org.apache.http.entity.ContentType.APPLICATION_FORM_URLENCODED
 import org.apache.http.impl.client.HttpClients
-import org.keycloak.OAuth2Constants.PASSWORD
-import org.keycloak.OAuth2Constants.USERNAME
 import org.keycloak.crypto.Algorithm
 import org.keycloak.jose.jwk.JSONWebKeySet
 import org.keycloak.jose.jws.JWSInput
-import org.keycloak.protocol.oidc.OIDCLoginProtocol.CLIENT_ID_PARAM
-import org.keycloak.protocol.oidc.OIDCLoginProtocol.GRANT_TYPE_PARAM
 import org.testcontainers.DockerClientFactory
 
 /**
@@ -76,7 +67,7 @@ class HsmUnreachableIT : FunSpec() {
 
       // Snapshot the SIG keys exposed by zeta-guard's JWKS BEFORE HSM goes down. A software
       // fallback would later add new kids; comparing kid sets makes the assertion precise.
-      val baseline = fetchJwks(baseUrl, mapper, ZETA_REALM)
+      val baseline = fetchJwks(baseUrl, mapper, "zeta-guard")
       baselineSigKids = baseline.keys.filter { it.publicKeyUse == "sig" }.mapNotNull { it.keyId }.toSet()
       baseline.keys.filter { it.algorithm == Algorithm.ES256 && it.publicKeyUse == "sig" }.size shouldBeGreaterThanOrEqual 1
 
@@ -103,7 +94,7 @@ class HsmUnreachableIT : FunSpec() {
       // ecdsa-generated ComponentModel after the first attempt; we'd see a new kid here.
       repeat(3) { postTokenRequest(baseUrl) }
 
-      val jwks = fetchJwks(baseUrl, mapper, ZETA_REALM)
+      val jwks = fetchJwks(baseUrl, mapper, "zeta-guard")
 
       // No RSA signing keys whatsoever (Decision 6).
       jwks.keys.filter { it.publicKeyUse == "sig" && it.keyType == "RSA" }.shouldBeEmpty()
@@ -162,11 +153,11 @@ class HsmUnreachableIT : FunSpec() {
     val url = "$baseUrl/realms/zeta-guard/protocol/openid-connect/token"
     val request =
         RequestBuilder.post(url)
-            .addHeader(CONTENT_TYPE, APPLICATION_FORM_URLENCODED.mimeType)
-            .addParameter(GRANT_TYPE_PARAM, PASSWORD)
-            .addParameter(CLIENT_ID_PARAM, CLIENT_A_ID)
-            .addParameter(USERNAME, USER1)
-            .addParameter(PASSWORD, USER1_PASSWORD)
+            .addHeader("Content-Type", APPLICATION_FORM_URLENCODED.mimeType)
+            .addParameter("grant_type", "password")
+            .addParameter("client_id", "initial-client")
+            .addParameter("username", "user1")
+            .addParameter("password", "password")
             .build()
 
     return HttpClients.createDefault().use { client ->

@@ -23,8 +23,6 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons.smcb
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaDeviceInfo
 import java.beans.ConstructorProperties
 import java.time.Duration
 
@@ -33,11 +31,9 @@ import java.time.Duration
  *
  * Used, e.g., to generate access and refresh tokens
  */
-@JsonIgnoreProperties(ignoreUnknown = true)
 data class ZetaGuardTokenExchangeData
 @ConstructorProperties(
     "authenticationMethodsReferences",
-    "authenticationContextClassReference",
     "clientId",
     "clientPlatform",
     "clientRegistrationTimestamp",
@@ -52,11 +48,9 @@ data class ZetaGuardTokenExchangeData
     "refreshTokenTTL",
     "audiences",
     "scopes",
-    "deviceInfo",
 )
 constructor(
     val authenticationMethodsReferences: List<String>,
-    val authenticationContextClassReference: String,
     val clientId: String,
     val clientPlatform: String,
     val clientRegistrationTimestamp: Long,
@@ -72,5 +66,4 @@ constructor(
     // Nullable -> session notes written before these fields existed.
     val audiences: List<String>? = null,
     val scopes: List<String>? = null,
-    val deviceInfo: OpaDeviceInfo? = null,
 )

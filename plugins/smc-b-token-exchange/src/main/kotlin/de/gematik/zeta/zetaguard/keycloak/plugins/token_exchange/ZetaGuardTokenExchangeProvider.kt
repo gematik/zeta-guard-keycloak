@@ -30,11 +30,16 @@ import arrow.core.raise.Raise
 import arrow.core.raise.either
 import arrow.core.raise.ensure
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.SoftwarePosture
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.TPMPosture
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
 import de.gematik.zeta.zetaguard.keycloak.commons.OcspUtil
-import de.gematik.zeta.zetaguard.keycloak.commons.opa.toOpaDeviceInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.ProfessionOidValidator
 import de.gematik.zeta.zetaguard.keycloak.commons.secondsToLocalDateTime
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTESTATION_STATE_PENDING
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTESTATION_STATE_VALID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_ATTESTATION_STATE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_DATA
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_LAST_CLIENT_IP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCB_CONTEXT
@@ -42,35 +47,28 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_KEY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_DPOP_KEY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_JKT
-import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
-import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SMCB_IDENTITY_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.VALID_GRANT_TYPES
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
-import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstAdmission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfession
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfessionInfo
-import de.gematik.zeta.zetaguard.keycloak.commons.server.httpClient
-import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
-import de.gematik.zeta.zetaguard.keycloak.commons.server.serverHost
 import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectCommonName
 import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectOrganisationName
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
-import de.gematik.zeta.zetaguard.keycloak.commons.server.tracingProvider
 import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateChain
 import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateSignature
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
+import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import de.gematik.zeta.zetaguard.keycloak.plugins.ZetaGuardTokenManager
 import de.gematik.zeta.zetaguard.keycloak.plugins.checkPostureType
-import de.gematik.zeta.zetaguard.keycloak.plugins.checkPostureTypeMatchesPlatform
+import de.gematik.zeta.zetaguard.keycloak.plugins.checkSoftwarePosture
+import de.gematik.zeta.zetaguard.keycloak.plugins.checkTPMPosture
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientDisabled
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.convertToJWKS
 import de.gematik.zeta.zetaguard.keycloak.plugins.createToken
 import de.gematik.zeta.zetaguard.keycloak.plugins.createTokenVerifier
@@ -79,6 +77,7 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.extractPublicKey
 import de.gematik.zeta.zetaguard.keycloak.plugins.hasSigningFailureCause
 import de.gematik.zeta.zetaguard.keycloak.plugins.internalError
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidCertificate
+import de.gematik.zeta.zetaguard.keycloak.plugins.invalidClientAttestation
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidClientClaim
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidClientPublicKey
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidContext
@@ -87,20 +86,17 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.invalidNonce
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidProviderModel
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidSubject
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidToken
+import de.gematik.zeta.zetaguard.keycloak.plugins.logger
 import de.gematik.zeta.zetaguard.keycloak.plugins.mapToCorsException
-import de.gematik.zeta.zetaguard.keycloak.plugins.missingClientData
 import de.gematik.zeta.zetaguard.keycloak.plugins.missingClientState
 import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.NonceProviderFactory
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
-import de.gematik.zeta.zetaguard.keycloak.commons.OcspConfig
-import de.gematik.zeta.zetaguard.keycloak.plugins.logInvalidAuthorizationCodes
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateEnforcer
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateInput
 import de.gematik.zeta.zetaguard.keycloak.plugins.parseClaim
 import de.gematik.zeta.zetaguard.keycloak.plugins.readCertificate
 import de.gematik.zeta.zetaguard.keycloak.plugins.resolveAudiences
 import de.gematik.zeta.zetaguard.keycloak.plugins.tokenSigningUnavailable
-import io.opentelemetry.semconv.ServerAttributes
 import jakarta.ws.rs.core.Response
 import java.time.Duration
 import java.time.LocalDateTime
@@ -116,6 +112,7 @@ import org.keycloak.broker.provider.BrokeredIdentityContext
 import org.keycloak.broker.provider.ExchangeExternalToken
 import org.keycloak.broker.provider.UserAuthenticationIdentityProvider.EXTERNAL_IDENTITY_PROVIDER
 import org.keycloak.broker.provider.UserAuthenticationIdentityProvider.FEDERATED_ACCESS_TOKEN
+import org.keycloak.connections.httpclient.HttpClientProvider
 import org.keycloak.crypto.Algorithm
 import org.keycloak.jose.jwk.JWK
 import org.keycloak.keys.loader.PublicKeyStorageManager
@@ -145,11 +142,6 @@ typealias KeycloakValidation = Either<KeycloakValidationError, ZetaGuardTokenExc
 
 private val REFERENCE_DATE = LocalDateTime.of(2025, 12, 1, 0, 0)!!
 
-private const val OPA_TRACER = "zetaguard.opa"
-
-private const val AMR_TELEMATIK_SMCB = "urn:telematik:auth:sc"
-private const val ACR_TELEMATIK_SMCB = "gematik-ehealth-loa-substantial"
-
 /**
  * External to internal token exchange provider for SMC-B created tokens.
  *
@@ -158,22 +150,13 @@ private const val ACR_TELEMATIK_SMCB = "gematik-ehealth-loa-substantial"
  * For details, see https://www.keycloak.org/securing-apps/token-exchange and
  * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/gemSpec_ZETA_V1.1.0/#5.5.2.5
  */
-open class ZetaGuardTokenExchangeProvider internal constructor(
+open class ZetaGuardTokenExchangeProvider(
     private val integrityProviderService: IntegrityProviderService,
-    private val dataService: ZetaGuardDataService,
-    currentTrustMaterial: () -> TrustMaterial,
+    private val smcbKeystoreService: KeystoreService,
+    private val tpmKeystoreService: KeystoreService,
+    private val ocspKeystoreService: KeystoreService?,
     private val opaConfig: OPAConfig,
-    private val ocspConfig: OcspConfig,
 ) : StandardTokenExchangeProvider() {
-  /**
-   * The truststores this exchange works against, resolved exactly once.
-   *
-   * [currentTrustMaterial] hands out whatever the reload has published most recently, and a provider lives for a single
-   * request — so resolving it once here is what keeps one exchange from checking the certificate against one snapshot
-   * and the revocation state against the next.
-   */
-  private val trust by lazy { currentTrustMaterial() }
-
   /**
    * Adapted from [StandardTokenExchangeProvider.tokenExchange]
    *
@@ -183,10 +166,9 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
   override fun tokenExchange(): Response {
     // Override value, in order to implement org.keycloak.protocol.oidc.mappers.OIDCRefreshTokenMapper feature
     tokenManager = ZetaGuardTokenManager()
-    tagRequestSpan()
 
     return checkIntegrityProvider(ZetaGuardTokenExchangeContext(this))
-        .flatMap { validateX5CCertificate(it) }
+        .flatMap { verifyX5CCertificate(it) }
         .flatMap { checkGrantType(it) }
         .flatMap { verifySubjectToken(it) }
         .flatMap { verifyCertificate(it) }
@@ -197,7 +179,6 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
         .flatMap { handleClientStatementData(it) }
         .flatMap { checkOPAPolicies(it) }
         .flatMap { exchangeExternalToken(it) }
-        .onLeft { logInvalidAuthorizationCodes(error = it) }
         .getOrElse { throw mapToCorsException(it, context().cors, context().event) }
   }
 
@@ -252,30 +233,21 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
    *
    * The method finds the issuer certificate in the keystore, validates the signature of the leaf certificate and verifies the certificate chain.
    */
-  private fun verifyCertificate(context: ZetaGuardTokenExchangeContext) =
-      either {
-        val certificate = context.certificate
-        val issuerCertificate = trust.smcb.findIssuerCertificate(certificate)
-          ?: raise(invalidToken("Certificate issuer not found: »${certificate.issuerX500Principal}«"))
+  private fun verifyCertificate(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
+    val certificate = context.certificate
+    val issuerCertificate = smcbKeystoreService.findIssuerCertificate(certificate)
 
-        validateCertificateSignature(certificate, issuerCertificate.publicKey).mapLeft { invalidToken(it) }.bind()
+    ensure(issuerCertificate != null) { invalidToken("Certificate issuer not found: ${certificate.issuerX500Principal}") }
 
-        validateCertificateChain(issuerCertificate, listOf(certificate)).mapLeft { invalidToken(it) }.bind()
+    validateCertificateSignature(certificate, issuerCertificate.publicKey).onLeft { raise(invalidToken(it)) }
 
-        val httpClient = session.httpClient
+    validateCertificateChain(issuerCertificate, listOf(certificate)).onLeft { raise(invalidToken(it)) }
 
-        OcspUtil.checkRevoked(
-            certificate,
-            trust.smcb,
-            trust.ocsp,
-            httpClient,
-            config = ocspConfig,
-        )
-            .mapLeft { invalidToken(it) }
-            .bind()
+    val httpClient = session.getProvider(HttpClientProvider::class.java)?.httpClient
+    OcspUtil.checkRevoked(certificate, issuerCertificate, ocspKeystoreService, httpClient).onLeft { raise(invalidToken(it)) }
 
-        context
-      }.onLeft { session.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP) }
+    context
+  }
 
   /**
    * Read and check statement data from client_assertion token.
@@ -288,20 +260,21 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
     val clientStatementData = parseClaim<ClientStatementData>(clientStatement, "client statement").bind()
     val attestationTime = clientStatementData.attestationTimestamp.secondsToLocalDateTime()
 
-    ensure(attestationTime.isAfter(REFERENCE_DATE)) { invalidClientClaim("Invalid attestation timestamp »$attestationTime«") }
+    ensure(attestationTime.isAfter(REFERENCE_DATE)) { invalidClientClaim("Invalid attestation timestamp $attestationTime") }
     ensure(clientStatementData.clientId == client.clientId) { invalidClientClaim("Invalid client id »${clientStatementData.clientId}«") }
 
-    checkPostureTypeMatchesPlatform(clientStatementData).bind()
+    checkPostureType(clientStatementData).bind()
 
-    checkPostureType(clientStatementData, context, trust.tpm).onLeft {
-      session.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP)
-    }.bind()
+    when (clientStatementData.postureType) {
+      PostureType.SOFTWARE -> checkSoftwarePosture(context, clientStatementData.posture as SoftwarePosture).bind()
+      PostureType.TPM -> checkTPMPosture(context, tpmKeystoreService, clientStatementData.posture as TPMPosture).bind()
+      else -> invalidClientAttestation("Client attestation check not implemented for ${clientStatementData.postureType} posture type")
+    }
 
     context.clientStatementData = clientStatementData
 
     context
   }
-
 
   /**
    * Validates the given subject token, inspired by [AuthenticationManager.verifyIdentityToken].
@@ -314,7 +287,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
     ensure(verifier.header.algorithm.name == Algorithm.ES256) { invalidToken("Invalid algorithm: »${verifier.header.algorithm.name}«") }
     ensure(verifier.header.type == JWT) { invalidToken("Invalid token type: »${verifier.header.type}«") }
 
-    val token = session.createToken(verifier, context).bind()
+    val token = createToken(verifier, context).bind()
 
     ensure(token.issuer == client.clientId) { invalidToken("Issuer does not match client id") }
     ensure(token.iat >= realm.notBefore) { invalidToken("Identity token expired") }
@@ -335,15 +308,18 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
   }
 
   /**
-   * Validates data of the certificate, read from "x5c" header.
+   * Validates the given certificate, read from "x5c" header.
    *
-   * Extract and checks data from certificate extensions, such as profession OID and registration number.
+   * Extract data from certificate extensions, such as profession OID and registration number.
    */
-  private fun validateX5CCertificate(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
+  private fun verifyX5CCertificate(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
     ensure(context.tokenHeader.x5c != null && context.tokenHeader.x5c.isNotEmpty()) { invalidToken("Invalid x5c claim in token header") }
 
     val certificate = readCertificate(context).bind()
-    val admissionSyntax = certificate.extractExtension<AdmissionSyntax>(admission) ?: raise(invalidCertificate("Invalid admission extension"))
+
+    context.certificate = certificate
+
+    val admissionSyntax = context.certificate.extractExtension<AdmissionSyntax>(admission) ?: raise(invalidCertificate("Invalid admission extension"))
     val admissions = admissionSyntax.firstAdmission() ?: raise(invalidCertificate("Invalid contents of admission extension"))
     val professionInfo = admissions.firstProfessionInfo() ?: raise(invalidCertificate("Invalid profession infos"))
     val professionIdentifier = professionInfo.firstProfession() ?: raise(invalidCertificate("Invalid profession OID"))
@@ -365,25 +341,21 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
   private fun checkNonce(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
     val nonceFactory =
         Either.catch {
-          val nonceProvider =
-              session.keycloakSessionFactory.getProviderFactory(RealmResourceProvider::class.java, NONCE_PROVIDER_ID) as NonceProviderFactory
+              val nonceProvider =
+                  session.keycloakSessionFactory.getProviderFactory(RealmResourceProvider::class.java, NONCE_PROVIDER_ID) as NonceProviderFactory
 
-          nonceProvider.nonceFactory
-        }
+              nonceProvider.nonceFactory
+            }
             .mapLeft { internalError(it) }
             .bind()
 
-    ensure(nonceFactory.retrieveNonce(context.token.nonce) != null) {
-      invalidNonce().also {
-        session.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP)
-      }
-    }
+    ensure(nonceFactory.retrieveNonce(context.token.nonce) != null) { invalidNonce() }
 
     context
   }
 
   private fun checkSubject(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
-    ensure(context.telematikID == context.token.subject) { invalidSubject() }
+    ensure(context.telematikID == context.token.subject) { invalidSubject(context.telematikID) }
 
     context
   }
@@ -394,83 +366,67 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
    * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25653 https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25661
    */
   private fun checkOPAPolicies(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
-    val httpClient = session.httpClient
-    val input = populateContextAndBuildGateInput(context).mapLeft { internalError(it) }.bind()
+    val httpClient = session.getProvider(HttpClientProvider::class.java)?.httpClient
+    val input = populateContextAndBuildGateInput(context)
 
-    session.tracingProvider.trace(ZetaGuardTokenExchangeProvider::class.java, OPA_TRACER) {
-      it.setAttribute("zeta.client.ip", context.clientIP)
-      it.setAttribute("zeta.client.id", context.clientId)
-      it.setAttribute(ServerAttributes.SERVER_ADDRESS, session.serverHost)
-      it.addEvent("opa.enforcer.start")
-
-      when (val outcome = OpaGateEnforcer.enforce(httpClient, input, opaConfig)) {
-        is OpaGateEnforcer.Outcome.Skip -> {
-          context.accessTokenTTLSeconds = Duration.ofSeconds(-1) // avoid lateinit error
-          context.refreshTokenTTLSeconds = Duration.ofSeconds(-1)
-        }
-
-        is OpaGateEnforcer.Outcome.Allow -> {
-          context.accessTokenTTLSeconds = Duration.ofSeconds(outcome.accessTokenTtl?.toLong() ?: -1)
-          context.refreshTokenTTLSeconds = Duration.ofSeconds(outcome.refreshTokenTtl?.toLong() ?: -1)
-        }
-
-        is OpaGateEnforcer.Outcome.Deny -> raise(outcome.error)
-        is OpaGateEnforcer.Outcome.Error -> raise(outcome.error)
+    when (val outcome = OpaGateEnforcer.enforce(httpClient, input, opaConfig, logger)) {
+      is OpaGateEnforcer.Outcome.Skip -> {
+        context.accessTokenTTLSeconds = Duration.ofSeconds(-1) // avoid lateinit error
+        context.refreshTokenTTLSeconds = Duration.ofSeconds(-1)
       }
 
-      it.addEvent("opa.enforcer.done")
+      is OpaGateEnforcer.Outcome.Allow -> {
+        context.accessTokenTTLSeconds = Duration.ofSeconds(outcome.accessTokenTtl?.toLong() ?: -1)
+        context.refreshTokenTTLSeconds = Duration.ofSeconds(outcome.refreshTokenTtl?.toLong() ?: -1)
+      }
+
+      is OpaGateEnforcer.Outcome.Deny -> raise(outcome.error)
+      is OpaGateEnforcer.Outcome.Error -> raise(outcome.error)
     }
 
     context
   }
 
-  private fun populateContextAndBuildGateInput(context: ZetaGuardTokenExchangeContext): Either<Throwable, OpaGateInput> =
-      Either.catch {
-        val grantType = formParams.getFirst(OAuth2Constants.GRANT_TYPE)
-        val scopes = formParams.getFirst(OAuth2Constants.SCOPE)?.split(' ')?.filter { it.isNotBlank() } ?: emptyList()
-        val audiences = resolveAudiences(formParams)
+  private fun populateContextAndBuildGateInput(context: ZetaGuardTokenExchangeContext): OpaGateInput {
+    val grantType = formParams.getFirst(OAuth2Constants.GRANT_TYPE)
+    val scopes = formParams.getFirst(OAuth2Constants.SCOPE)?.split(' ')?.filter { it.isNotBlank() } ?: emptyList()
+    val audiences = resolveAudiences(formParams)
 
-        context.opaAudiences = audiences
-        context.opaScopes = scopes
+    context.opaAudiences = audiences
+    context.opaScopes = scopes
 
-        val ipAddress = context.clientIP
-        context.previousIpAddress = client.attributes[ATTRIBUTE_LAST_CLIENT_IP] ?: "Unknown"
+    val ipAddress = context.clientIP
+    context.previousIpAddress = client.attributes[ATTRIBUTE_LAST_CLIENT_IP] ?: "Unknown"
 
-        context.authenticationMethodsReferences = listOf(AMR_TELEMATIK_SMCB) + (formParams[OAuth2Constants.AUTHENTICATOR_METHOD_REFERENCE] ?: emptyList())
-        context.authenticationContextClassReference = ACR_TELEMATIK_SMCB
+    context.authenticationMethodsReferences = formParams[OAuth2Constants.AUTHENTICATOR_METHOD_REFERENCE] ?: emptyList()
 
-        val userIdentifier = context.telematikID
-        val userProfessionOid = context.professionOID
-        val clientModel = context().client
-        val clientId = clientModel.clientId
-        val clientData = dataService.findClientData(clientId) ?: throw RuntimeException("Could not find client data for ${clientId}«")
-        val clientProductID = context.clientStatementData.posture.productId
-        val clientProductVersion = context.clientStatementData.posture.productVersion
+    val userIdentifier = context.telematikID
+    val userProfessionOid = context.professionOID
 
-        context.clientId = clientModel.id
-        context.clientPlatform = context.clientStatementData.platform.value
-        context.clientRegistrationTimestamp = clientData.lastAccess.toEpochSecond(ZoneOffset.UTC)
-        context.postureType = context.clientStatementData.postureType.value
+    context.clientId = context().client.id
+    context.clientPlatform = context.clientStatementData.platform.value
+    val clientProductID = context.clientStatementData.posture.productId
+    val clientProductVersion = context.clientStatementData.posture.productVersion
+    context.clientRegistrationTimestamp = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC)
+    context.postureType = context.clientStatementData.postureType.value
 
-        OpaGateInput(
-            clientId = context.clientId,
-            clientPlatform = context.clientPlatform,
-            clientProductID = clientProductID,
-            clientProductVersion = clientProductVersion,
-            clientRegistrationTimestamp = context.clientRegistrationTimestamp,
-            grantType = grantType,
-            scopes = scopes,
-            authenticationMethodsReferences = context.authenticationMethodsReferences,
-            authenticationContextClassReference = context.authenticationContextClassReference,
-            audiences = audiences,
-            ipAddress = ipAddress,
-            previousIpAddress = context.previousIpAddress,
-            postureType = context.postureType,
-            userIdentifier = userIdentifier,
-            userProfessionOid = userProfessionOid,
-            deviceInfo = context.clientStatementData.posture.toOpaDeviceInfo(),
-        )
-      }
+    return OpaGateInput(
+        clientId = context.clientId,
+        clientPlatform = context.clientPlatform,
+        clientProductID = clientProductID,
+        clientProductVersion = clientProductVersion,
+        clientRegistrationTimestamp = context.clientRegistrationTimestamp,
+        grantType = grantType,
+        scopes = scopes,
+        authenticationMethodsReferences = context.authenticationMethodsReferences,
+        audiences = audiences,
+        ipAddress = ipAddress,
+        previousIpAddress = context.previousIpAddress,
+        postureType = context.postureType,
+        userIdentifier = userIdentifier,
+        userProfessionOid = userProfessionOid,
+    )
+  }
 
   /**
    * Check valid grant types.
@@ -482,14 +438,11 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
 
     ensure(VALID_GRANT_TYPES.contains(grantType)) { invalidGrantType() }
 
-    val attestationState = dataService.findClientData(context().client.clientId)?.attestationState ?: raise(missingClientState())
+    val attestationState = context().client.getAttribute(ATTRIBUTE_ATTESTATION_STATE)
 
     when (attestationState) {
-      ClientAttestationState.INVALID -> raise(invalidGrantType())
-      ClientAttestationState.PENDING -> ensure(grantType == TOKEN_EXCHANGE_GRANT_TYPE) { invalidGrantType() }
-      ClientAttestationState.VALID -> {
-        // Nothing to do
-      }
+      null -> raise(missingClientState())
+      ATTESTATION_STATE_PENDING -> ensure(grantType == TOKEN_EXCHANGE_GRANT_TYPE) { invalidGrantType() }
     }
 
     context
@@ -523,19 +476,9 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
 
     val response = exchangeClientToClient(user, userSession, accessToken)
     val clientModel = context().client
-    val clientId = clientModel.clientId
-    val clientData = dataService.findClientData(clientId) ?: raise(missingClientData(clientId))
 
-    clientData.attestationState = ClientAttestationState.VALID
-    clientData.lastAccess = currentTime()
+    clientModel.setAttribute(ATTRIBUTE_ATTESTATION_STATE, ATTESTATION_STATE_VALID)
     clientModel.setAttribute(ATTRIBUTE_LAST_CLIENT_IP, context.clientIP)
-
-    SecurityEventLogger.logTokenExchanged(
-        clientId = clientModel.clientId,
-        clientOsName = context.clientStatementData.platform.name,
-        registrationTimestamp = context.clientRegistrationTimestamp,
-        registrationResult = clientData.attestationState.name,
-    )
 
     response
   }
@@ -597,30 +540,20 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
 
   private fun Raise<KeycloakValidationError>.exchangeClientToClient(user: UserModel, userSession: UserSessionModel, accessToken: AccessToken) =
       Either.catch { //
-        exchangeClientToClient(user, userSession, accessToken, false)
-      }
+            exchangeClientToClient(user, userSession, accessToken, false)
+          }
           .mapLeft { if (hasSigningFailureCause(it)) tokenSigningUnavailable(it) else exchangeError(it, "exchange_client") }
           .bind()
 
   private fun Raise<KeycloakValidationError>.importUser(context: BrokeredIdentityContext): UserModel =
       Either.catch { //
-        importUserFromExternalIdentity(context)
-      }
+            importUserFromExternalIdentity(context)
+          }
           .mapLeft { exchangeError(it, "user_model") }
           .bind()
 
   private fun Raise<KeycloakValidationError>.clientAssertionClaims(context: ZetaGuardTokenExchangeContext): Map<String, Any> =
       context.clientAssertion.otherClaims ?: raise(invalidClientClaim("No claims found in JWT token"))
-
-  private fun tagRequestSpan() {
-    try {
-      val span = io.opentelemetry.instrumentation.api.instrumenter.LocalRootSpan.current()
-      span.setAttribute("http.request.method_original", session.context.httpRequest.httpMethod)
-      span.setAttribute("app.installation.id", context().client.clientId)
-    } catch (_: Exception) {
-      // Observability must never break the business flow
-    }
-  }
 
   internal fun context() = context
 }
@@ -633,10 +566,10 @@ internal fun BrokeredIdentityContext.setSMCBContext(smcbContext: ZetaGuardTokenE
 
 internal fun BrokeredIdentityContext.getSMCBContext(): ZetaGuardTokenExchangeContext =
     contextData[ATTRIBUTE_SMCB_CONTEXT] as ZetaGuardTokenExchangeContext?
-      ?: error("Value for »$ATTRIBUTE_SMCB_CONTEXT« not found in BrokeredIdentityContext")
+        ?: error("Value for »$ATTRIBUTE_SMCB_CONTEXT« not found in BrokeredIdentityContext")
 
 @Suppress("UNCHECKED_CAST") //
-internal fun Map<String, Any>.readClientStatement() = this[CLAIM_CLIENT_STATEMENT] as? Map<String, Any>
+private fun Map<String, Any>.readClientStatement() = this[CLAIM_CLIENT_STATEMENT] as Map<String, Any>?
 
 /** Reads the »jkt« thumbprint from a »{ jkt: ... }« binding claim of the SMC-B subject token. */
 @Suppress("UNCHECKED_CAST")

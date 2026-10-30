@@ -23,62 +23,33 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.EC_CURVE_P256
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.setupSecurityProviders
-import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import java.io.File
-import java.io.FileOutputStream
 import java.security.KeyStore
-import java.util.zip.ZipEntry
-import java.util.zip.ZipOutputStream
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
-import org.keycloak.common.crypto.CryptoIntegration
 import org.keycloak.common.util.KeystoreUtil.KeystoreFormat.PKCS12
 
-const val SMCB_KEYSTORE_PASSWORD = "tyqvHpFoHdu68yRE+0F4q/I"
-
+@Suppress("ReplaceSizeCheckWithIsNotEmpty")
 fun main(@Suppress("unused") args: Array<String>) {
   setupSecurityProviders()
-  CryptoIntegration.init(CertificateChain::class.java.getClassLoader())
 
-  val serverKeyStore = KeyStore.getInstance(PKCS12.name, PROVIDER_NAME).apply { load(null) }
-  val clientCertificatesFile = FileOutputStream("smcb-certificates-client.zip")
-  val clientCertificates = ZipOutputStream(clientCertificatesFile)
-  val certificateChain = CertificateChain()
-  val password = SMCB_KEYSTORE_PASSWORD.toCharArray()
+  val password = if (args.size > 0) args[0] else SMCB_KEYSTORE_PASSWORD
+  val rootCertName = if (args.size > 1) args[1] else CRT_GEMATIK_ROOT
+  val intermediateCertName = if (args.size > 2) args[2] else CRT_GEMATIK_INTERMEDIATE
+  val leafCertName = if (args.size > 3) args[3] else CRT_GEMATIK_LEAF
+  val rootCertDN = if (args.size > 4) args[4] else CRT_GEMATIK_ROOT_DN
+  val intermediateCertDN = if (args.size > 5) args[5] else CRT_GEMATIK_INTERMEDIATE_DN
+  val leafCertDN = if (args.size > 6) args[6] else CRT_GEMATIK_LEAF_DN
+
+  val keyStore = KeyStore.getInstance(PKCS12.name, PROVIDER_NAME).apply { load(null) }
+  val certificateChain = CertificateChain(EC_CURVE_P256, rootCertDN, intermediateCertDN, leafCertDN)
 
   with(certificateChain) {
-    logger.info("Generating certificate: $leafCertName")
-    serverKeyStore.setCertificateEntry(CRT_GEMATIK_ROOT, rootCert)
-    serverKeyStore.setCertificateEntry(CRT_GEMATIK_INTERMEDIATE, intermediateCert)
-    serverKeyStore.setCertificateEntry(leafCertName, leafCert)
-    serverKeyStore.setKeyEntry(leafCertName, leafKeyPair.private, password, arrayOf(leafCert, intermediateCert, rootCert))
-
-    storeLeafCertificate(clientCertificates)
+    keyStore.setCertificateEntry(rootCertName, rootCert)
+    keyStore.setCertificateEntry(intermediateCertName, intermediateCert)
+    keyStore.setCertificateEntry(leafCertName, leafCert)
+    keyStore.setKeyEntry(leafCertName, leafKeyPair.private, password.toCharArray(), arrayOf(leafCert, intermediateCert, rootCert))
   }
-
-  serverKeyStore.store(File("smcb-certificates-server.p12").outputStream(), password)
-
-  for (i in 1..5000) {
-    val certificateChain = certificateChain.createLeafCertificate(i)
-
-    with(certificateChain) {
-      logger.info("Generating certificate: $leafCertName")
-
-      storeLeafCertificate(clientCertificates)
-    }
-  }
-
-  clientCertificates.close()
-}
-
-private fun CertificateChain.storeLeafCertificate(clientCertificates: ZipOutputStream) {
-  val privateKeyEntry = ZipEntry("$leafCertName/private")
-  clientCertificates.putNextEntry(privateKeyEntry)
-  clientCertificates.write(leafKeyPair.private.encoded)
-  clientCertificates.closeEntry()
-
-  val leafCertificateEntry = ZipEntry("$leafCertName/certificate")
-  clientCertificates.putNextEntry(leafCertificateEntry)
-  clientCertificates.write(leafCert.encoded)
-  clientCertificates.closeEntry()
+  keyStore.store(File("certificates.p12").outputStream(), password.toCharArray())
 }

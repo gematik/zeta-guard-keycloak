@@ -26,7 +26,6 @@ package de.gematik.zeta.zetaguard.keycloak.plugins
 import de.gematik.zeta.zetaguard.keycloak.plugins.hsm.tokensigning.HsmUnavailableException
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import jakarta.ws.rs.core.Response.Status.BAD_REQUEST
 import jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE
 import java.security.SignatureException
 import org.keycloak.OAuthErrorException.TEMPORARILY_UNAVAILABLE
@@ -38,10 +37,6 @@ class ErrorsTest :
         err.error shouldBe TEMPORARILY_UNAVAILABLE
         err.errorDescription shouldBe "Token signing temporarily unavailable"
         err.statusCode shouldBe SERVICE_UNAVAILABLE.statusCode
-      }
-
-      "invalidClientClaim yields 400, not 403, per gemSpec_ZETA_V1.3.2's malformed-assertion requirement" {
-        invalidClientClaim("Claim »client_statement« not found").statusCode shouldBe BAD_REQUEST.statusCode
       }
 
       "hasSigningFailureCause detects SignatureException directly" { hasSigningFailureCause(SignatureException("boom")) shouldBe true }

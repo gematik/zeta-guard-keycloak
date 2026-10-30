@@ -1,0 +1,484 @@
+{
+  "@context": "https://openvex.dev/ns/v0.2.0",
+  "@id": "https://openvex.dev/docs/public/vex-125d34f0b1208192a6bceafe82c9229daae7d887e8ee04ca5f4812886c19d721",
+  "author": "Unknown Author",
+  "version": 1,
+  "statements": [
+    {
+      "vulnerability": {
+        "name": "CVE-2025-66293"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-02-13T12:54:56.395996953Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22184"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "untgz ist nicht im Image enthalten und wird außerdem auch nicht verwendet.",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-02-13T12:54:56.395996953Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-59250"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.microsoft.sqlserver/mssql-jdbc@13.2.1"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "False positive. Das ist mit Version der hier vorliegenden Version 13.2.1 gefixt. Siehe https://learn.microsoft.com/en-us/sql/connect/jdbc/release-notes-for-the-jdbc-driver?view=sql-server-ver17#132-releases",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-02-13T12:54:56.395996953Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-25646"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-03-13T12:43:30.721754000Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-26740"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-03-23T10:50:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "GHSA-72hv-8253-57qq"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.19.2"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird von Keycloak verwendet. Allerding wird die verwundbare async Api nicht verwendet. Die verwendete sync Api ist nicht verwundbar.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-03-17T08:26:52.598916253Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-2603"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-server-spi-private@26.5.7"
+        },
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services@26.5.7"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "ZETA does not configure or use SAML Identity Providers. The only Identity Provider is the custom zeta-smc-b-oidc (OIDC-based SMC-B token exchange). The SAML protocol mappers and client scopes present in the realm JSON are Keycloak defaults and do not constitute a SAML IdP. The vulnerability (unauthorized authentication via a disabled SAML IdP) cannot be exploited without a SAML IdP being configured.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-04-23T14:45:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-28164"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat wird der betroffene Code in den headless-Varianten nicht ausgeführt (https://access.redhat.com/security/cve/cve-2025-28164)",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-64505"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek libsplashscreen.so in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2025-64505)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-64506"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek libsplashscreen.so in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2025-64506)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22693"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut RedHat ist die betroffene Bibliothek HarfBuzz in openjdk-headless nicht enthalten (https://access.redhat.com/security/cve/cve-2026-22693)",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-04-30T14:03:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42198"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.postgresql/postgresql"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die Schwachstelle ist nur ausnutzbar, wenn ein Angreifer die verwendete Datenbank des Clients (hier Keycloak-Server) kontrollieren kann. Da die Datenbank hier nicht durch Nutzer konfigurierbar ist, müsste entweder die Postgres-Instanz übernommen werden oder ein MITM-Angriff durchgeführt werden. Beides ist innerhalb des Cluster äußerst unwahrscheinlich.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-06T10:40:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-42577"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.netty/netty-transport-native-epoll@4.1.130.Final"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Betroffen sind nur die Version 4.2.x",
+      "justification": "vulnerable_code_not_present",
+      "timestamp": "2026-05-04T15:51:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22016"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Keycloak-Image (quay.io/keycloak/keycloak) installiert. Da bisher keine Version des Images mit nicht betroffener Version von java-21-openjdk-headless veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22020"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-34282"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Keycloak-Image (quay.io/keycloak/keycloak) installiert. Da bisher keine Version des Images mit nicht betroffener Version von java-21-openjdk-headless veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4878"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/libcap"
+        }
+      ],
+      "status": "fixed",
+      "status_notes": "Das betroffene Paket wird im Basis-Image (registry.access.redhat.com/ubi9-micro) des Keycloak-Images installiert. Da bisher keine Version des Images mit nicht betroffener Version von libcap2 veröffentlicht wurde, wird das Paket mit einer gefixten Version im Dockerfile (docker-keycloak-harden/Dockerfile) überschrieben.",
+      "timestamp": "2026-05-04T16:41:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-6860"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.vertx/vertx-core"
+        }
+      ],
+      "status": "affected",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-7500"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Im ZETA-Keycloak wird die Account REST API nicht deaktiviert. Insofern besteht kein Risiko, dass diese nicht vollständig deaktiviert werden könnte (https://github.com/keycloak/keycloak/issues/48709).",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22013"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "This vulnerability applies to Java deployments, typically in clients running sandboxed Java Web Start applications or sandboxed Java applets, that load and run untrusted code (e.g., code that comes from the internet) and rely on the Java sandbox for security. This vulnerability does not apply to Java deployments, typically in servers, that load and run only trusted code (e.g., code installed by an administrator). (https://www.oracle.com/security-alerts/cpuapr2026.html#AppendixJAVA, NOTE 1)",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22695"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-22801"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33416"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-33636"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-34757"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Libpng wird nicht verwendet. Image-Processing wird nicht genutzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-4628"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/org.keycloak/keycloak-services"
+        }
+      ],
+      "status": "affected",
+      "timestamp": "2026-05-11T11:15:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2025-5278"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/coreutils-single"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Coreutils ist eine Sammlung von grundlegenden Shell-Commandos bzw. -Werkzeugen (https://www.gnu.org/software/coreutils/). Das betroffene Werkzeug ist sort (/usr/bin/sort). Keycloak ruft sort nicht auf. Damit ein Angreifer sort mit benutzerdefinierten Parametern aufrufen könnte, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben. Diese Bedingung ist nicht zutreffend.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5435"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Es werden ausschließlich Java-Programme ausgeführt, die nicht direkt auf Funktionen aus dynamischen Bibliotheken angewiesen sind. Es wird kein JNI (Java Native Interface) oder JNA (Java Native Access) verwendet. Eine dynamische Bibliothek importiert die betroffene Funktion fp_nquery(): '/usr/lib64/libresolv.so.2'. JVM-bezogene Executables und dynamische Bibliotheken importieren die anderen betroffenen dynamischen Bibliotheken nicht. Damit ein Angreifer die betroffene Bibliothek mit benutzerdefinierten Parametern aufrufen kann, müsste er Zugriff auf eine lokale Shell (Terminal/SSH) haben. Diese Bedingung ist nicht zutreffend.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5450"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "affected",
+      "status_notes": "Die betroffene Funktionen-Familie von scanf() wird in diversen Executables und Libraries genutzt. Daher kann nicht ausgeschlossen werden, dass die Schwachstelle im Rahmen der hohen Angriffskomplexität ausgenutzt werden kann. Die Schwachstelle wird von der NVD als Critical eingestuft (CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H). Doch Red Hat bietet eine gut begründete Analyse (https://access.redhat.com/security/cve/cve-2026-5450), durch die diese Schwachstelle einen CVSS3.1-Score von 5 (Medium) erhält (CVSS:3.1/AV:L/AC:H/PR:L/UI:R/S:U/C:N/I:L/A:H). ",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5928"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/glibc"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-common"
+        },
+        {
+          "@id": "pkg:rpm/redhat/glibc-langpack-en"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Es werden ausschließlich Java-Programme ausgeführt, die nicht direkt auf Funktionen aus dynamischen Bibliotheken angewiesen sind. Es wird kein JNI (Java Native Interface) oder JNA (Java Native Access) verwendet. Keine Executable und keine dynamische Bibliothek importieren die betroffene Funktion ungetwc()",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-05-26T11:10:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-45292"
+      },
+      "products": [
+        {
+          "@id": "pkg:maven/io.opentelemetry/opentelemetry-api"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Laut Vendor Advisory (https://github.com/open-telemetry/opentelemetry-java/security/advisories/GHSA-rcgg-9c38-7xpx) kann der Attack Vector geschlossen werden, wenn der Anwendungsserver selber Limits für Header Size setzt. Quarkus setzt per default quarkus.http.limits.max-header-size=20k und für HTTP/2 quarkus.http.limits.max-header-list-size=8192. Die defaults werden weder durch Umgebungsvariablen noch durch eine /conf/quarkus.properties angepasst. Dadurch wird die Größe des baggage-Headers von opentelemetry-api begrenzt.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-02T08:38:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-41254"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/java-21-openjdk-headless"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "Die betroffenen Java-Funktionen sind ICC_Profile.getInstance(bytes) und ICC_Profile.toRGB() (https://abhinavagarwal07.github.io/posts/lcms2-cubesize-overflow/). Die beiden Funktionen werden in keiner Jar-Datei im Zeta-Keycloak-Image gefunden. Verifiziert mit grep.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-05T14:42:00Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-5958"
+      },
+      "products": [
+        {
+          "@id": "pkg:rpm/redhat/sed"
+        }
+      ],
+      "status": "not_affected",
+      "status_notes": "In keinem Skript im Zeta-Keycloak-Image wird sed mit den Parameter -i und --follow-symlinks aufgerufen. Mit grep getestet.",
+      "justification": "vulnerable_code_not_in_execute_path",
+      "timestamp": "2026-06-05T14:42:00Z"
+    }
+  ],
+  "timestamp": "2026-06-05T14:42:00Z"
+}

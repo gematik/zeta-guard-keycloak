@@ -20,7 +20,7 @@ else
 fi
 
 # Keycloak integrity provider must be enabled explicitely, otherwise it is deleted from the container
-if [ "${SPREE_INTEGRITY_PROVIDER_ENABLED}" != "true" ]; then
+if [ "${SPREE_INTEGRITY_ENABLED}" != "true" ]; then
   echo "⚠️ Spree encryption provider disabled"
   echo "⚠️ Spree integrity provider disabled"
 
@@ -43,13 +43,6 @@ else
   fi
 fi
 
-# ── TLS named groups ─────────────────────────────────────────────────────────
-# gemSpec_Krypt permits only P-256/P-384 for TLS 1.3 (brainpool groups exist in RFC 8734
-# but not in the JDK). Also keeps X25519/X448 out — BC's BCXDHPublicKey doesn't implement
-# JDK's java.security.interfaces.XECPublicKey, so with BC as provider #1 the JDK TLS
-# engine throws ClassCastException during key-share generation.
-export JAVA_OPTS_APPEND="-Djdk.tls.namedGroups=secp256r1,secp384r1 ${JAVA_OPTS_APPEND:-}"
-
 # ── JCA providers on bootstrap classpath ─────────────────────────────────────
 # JVM Security init resolves `security.provider.N=…` against the system classloader, which only sees what `-Xbootclasspath/a` exposes
 # (lib/lib/main/ and providers/ come later via Quarkus). Without this:
@@ -63,7 +56,9 @@ BC_JAR=$(ls /opt/keycloak/lib/lib/main/org.bouncycastle.bcprov-jdk18on-*.jar 2>/
 
 if [[ -f "${HSM_PROXY_JAR}" && -f "${KOTLIN_STDLIB_JAR}" && -f "${KOTLIN_REFLECT_JAR}" && -f "${BC_JAR}" ]]; then
   BOOTCP="${HSM_PROXY_JAR}:${KOTLIN_STDLIB_JAR}:${KOTLIN_REFLECT_JAR}:${BC_JAR}"
-  export JAVA_OPTS_APPEND="-Xbootclasspath/a:${BOOTCP} ${JAVA_OPTS_APPEND:-}"
+  # jdk.tls.namedGroups: skip X25519/X448 — BC's BCXDHPublicKey doesn't implement JDK's java.security.interfaces.XECPublicKey,
+  # so with BC as provider #1 the JDK's TLS engine throws ClassCastException during key-share generation. Forcing EC groups only.
+  export JAVA_OPTS_APPEND="-Xbootclasspath/a:${BOOTCP} -Djdk.tls.namedGroups=secp256r1,secp384r1,secp521r1 ${JAVA_OPTS_APPEND:-}"
   echo "🔐 Bootstrap classpath additions: ${BOOTCP}"
 else
   echo "⚠️  JCA providers not bootstrapped — required JAR(s) missing:"

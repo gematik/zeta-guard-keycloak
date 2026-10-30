@@ -1,5 +1,4 @@
 #!/bin/bash
-set -eo pipefail
 
 echo "Create client scopes for integration tests"
 

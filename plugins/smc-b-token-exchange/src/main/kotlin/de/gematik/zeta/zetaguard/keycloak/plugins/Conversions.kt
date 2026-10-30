@@ -30,9 +30,9 @@ import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakUriBuilder
 import de.gematik.zeta.zetaguard.keycloak.commons.expirationDate
 import de.gematik.zeta.zetaguard.keycloak.commons.issuedAt
-import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
-import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
-import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
+import de.gematik.zeta.zetaguard.keycloak.commons.now
+import de.gematik.zeta.zetaguard.keycloak.commons.server.AttackDetectionLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toJWKS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
@@ -49,7 +49,6 @@ import org.keycloak.common.VerificationException
 import org.keycloak.crypto.SignatureProvider
 import org.keycloak.jose.jwk.JSONWebKeySet
 import org.keycloak.jose.jwk.JWK
-import org.keycloak.models.KeycloakSession
 import org.keycloak.protocol.oidc.OIDCConfigAttributes.JWKS_STRING
 import org.keycloak.protocol.oidc.TokenManager.TokenRevocationCheck
 import org.keycloak.representations.IDToken
@@ -75,11 +74,11 @@ internal fun readCertificate(context: ZetaGuardTokenExchangeContext): Either<Key
         }
         .mapLeft { invalidToken(it.message ?: "Invalid certificate") }
 
-internal fun KeycloakSession.createToken(verifier: TokenVerifier<IDToken>, context: ZetaGuardTokenExchangeContext): Either<KeycloakValidationError, IDToken> =
+internal fun createToken(verifier: TokenVerifier<IDToken>, context: ZetaGuardTokenExchangeContext): Either<KeycloakValidationError, IDToken> =
     catch { verifier.verify().getToken() }
         .mapLeft {
           logger.warn("⚠️ Failed to verify identity token", it)
-          this@createToken.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP)
+          AttackDetectionLogger.warnWithMDC(it, CapecAttackMechanics.AUTHENTICATION_BYPASS, context.clientIP)
           invalidToken(it.message ?: "Token validation failed")
         }
 
@@ -87,7 +86,7 @@ internal val REQUIRES_IAT: TokenVerifier.Predicate<JsonWebToken> =
     TokenVerifier.Predicate { token ->
       val iat = token.iat
       if (iat == null || iat == 0L) throw VerificationException("SMC-B ID Token missing required 'iat' claim")
-      if (token.issuedAt().isAfter(currentTime().plusSeconds(10L))) throw VerificationException("SMC-B ID Token 'iat' is in the future")
+      if (token.issuedAt().isAfter(now().plusSeconds(10L))) throw VerificationException("SMC-B ID Token 'iat' is in the future")
       true
     }
 
@@ -95,7 +94,7 @@ internal val REQUIRES_EXP: TokenVerifier.Predicate<JsonWebToken> =
     TokenVerifier.Predicate { token ->
       val exp = token.exp
       if (exp == null || exp == 0L) throw VerificationException("SMC-B ID Token missing required 'exp' claim")
-      if (currentTime().isAfter(token.expirationDate().plusSeconds(10L))) throw VerificationException("SMC-B ID Token 'exp' has expired")
+      if (now().isAfter(token.expirationDate().plusSeconds(10L))) throw VerificationException("SMC-B ID Token 'exp' has expired")
       true
     }
 

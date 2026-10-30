@@ -36,49 +36,47 @@ class ZetaGuardWellKnownConfigurationTest : FunSpec() {
     test("Serialization of ZetaGuardWellKnownConfiguration works") {
       val mapper = ObjectMapper()
       val uri = URI.create("http://localhost:8080/nonce")
-      val parUri = URI.create("http://localhost:8080/par")
-      val redirectionUri = URI.create("http://localhost:8080/broker/endpoint")
-      val revocationUri = URI.create("http://localhost:8080/revoke")
       val config =
           ZetaGuardWellKnownConfiguration(
-              issuer = URI.create("http://localhost:8080/issuer"),
-              authorizationEndpoint = URI.create("http://localhost:8080"),
-              tokenEndpoint = URI.create("http://localhost:8080/token"),
-              pushedAuthorizationRequestEndpoint = parUri,
-              requirePushedAuthorizationRequests = true,
-              redirectionEndpoint = redirectionUri,
-              nonceEndpoint = uri,
-              openidProvidersEndpoint = URI.create("http://localhost:8080"),
-              jwksUri = URI.create("http://localhost:8080"),
-              scopesSupported = listOf("jens"),
-              registrationEndpoint = URI.create("http://localhost:8080/client-registrations"),
-              responseTypesSupported = listOf("jens"),
-              responseModesSupported = listOf("jens"),
-              grantTypesSupported = listOf("jens"),
-              tokenEndpointAuthMethodsSupported = listOf("jens"),
-              tokenEndpointAuthSigningAlgValuesSupported = listOf("jens"),
-              revocationEndpoint = revocationUri,
-              serviceDocumentation = URI.create("http://localhost:8080"),
-              codeChallengeMethodsSupported = listOf("jens"),
-              apiVersionsSupported = listOf(ApiVersion(majorVersion = 1, version = "1.0.0", status = "stable")),
+              URI.create("http://localhost:8080/issuer"),
+              URI.create("http://localhost:8080"),
+              URI.create("http://localhost:8080/token"),
+              uri,
+              URI.create("http://localhost:8080"),
+              URI.create("http://localhost:8080"),
+              listOf("jens"),
+              URI.create("http://localhost:8080/client-registrations"),
+              listOf("jens"),
+              listOf("jens"),
+              listOf("jens"),
+              listOf("jens"),
+              listOf("jens"),
+              URI.create("http://localhost:8080"),
+              listOf("jens"),
           )
 
       val json = mapper.writeValueAsString(config)
       json shouldContain "\"nonce_endpoint\":\"$uri\""
-      json shouldContain "\"pushed_authorization_request_endpoint\":\"$parUri\""
-      json shouldContain "\"require_pushed_authorization_requests\":true"
-      json shouldContain "\"redirection_endpoint\":\"$redirectionUri\""
-      json shouldContain "\"revocation_endpoint\":\"$revocationUri\""
-      json shouldContain "\"api_versions_supported\":[{\"major_version\":1,\"version\":\"1.0.0\",\"status\":\"stable\"}]"
 
-      val deserialized = mapper.readValue(json, ZetaGuardWellKnownConfiguration::class.java)
+      val (
+          issuer,
+          authorizationEndpoint,
+          tokenEndpoint,
+          nonceEndpoint,
+          openidProvidersEndpoint,
+          jwksUri,
+          scopesSupported,
+          registrationEndpoint,
+          responseTypesSupported,
+          responseModesSupported,
+          grantTypesSupported,
+          tokenEndpointAuthMethodsSupported,
+          tokenEndpointAuthSigningAlgValuesSupported,
+          serviceDocumentation,
+          codeChallengeMethodsSupported) =
+          mapper.readValue(json, ZetaGuardWellKnownConfiguration::class.java)
 
-      deserialized.nonceEndpoint shouldBe uri
-      deserialized.pushedAuthorizationRequestEndpoint shouldBe parUri
-      deserialized.requirePushedAuthorizationRequests shouldBe true
-      deserialized.redirectionEndpoint shouldBe redirectionUri
-      deserialized.revocationEndpoint shouldBe revocationUri
-      deserialized.apiVersionsSupported shouldBe listOf(ApiVersion(majorVersion = 1, version = "1.0.0", status = "stable"))
+      nonceEndpoint shouldBe uri
     }
 
     test("URI parsing return default on error") {

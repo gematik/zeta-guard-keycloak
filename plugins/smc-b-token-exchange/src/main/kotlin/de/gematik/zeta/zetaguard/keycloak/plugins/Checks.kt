@@ -76,7 +76,7 @@ internal fun checkTPMPosture(
   validateCertificateChain(keystoreService, certificateChain).mapLeft { invalidTpmCertificate(it) }.bind()
 }
 
-internal fun checkPostureTypeMatchesPlatform(clientStatementData: ClientStatementData): Either<KeycloakValidationError, Unit> = either {
+internal fun checkPostureType(clientStatementData: ClientStatementData): Either<KeycloakValidationError, Unit> = either {
   if (clientStatementData.postureType in listOf(PostureType.SOFTWARE, PostureType.TPM)) {
     val platform = clientStatementData.posture.platformProductId?.productPlatform ?: Platform.LINUX // default to LINUX if not provided
 
@@ -85,12 +85,3 @@ internal fun checkPostureTypeMatchesPlatform(clientStatementData: ClientStatemen
     }
   }
 }
-
-internal fun checkPostureType(clientStatementData: ClientStatementData, context: ZetaGuardTokenExchangeContext, tpmKeystoreService: KeystoreService) =
-    either {
-      when (clientStatementData.postureType) {
-        PostureType.SOFTWARE -> checkSoftwarePosture(context, clientStatementData.posture as SoftwarePosture).bind()
-        PostureType.TPM -> checkTPMPosture(context, tpmKeystoreService, clientStatementData.posture as TPMPosture).bind()
-        else -> raise(invalidClientAttestation("Client attestation check not implemented for »${clientStatementData.postureType}« posture type"))
-      }
-    }

@@ -14,7 +14,6 @@ stages:
   - release
   - publish
   - harden
-  - sign
   - systemtest
   - publish_reports
 
@@ -26,18 +25,8 @@ include:
       git-strategy: fetch
       job-dependencies: [ harden ]
       job-stage: systemtest
-      openvex-file: ".vex/vulnerabilites.openvex.json"
+      openvex-file: "vulnerabilites.openvex.json"
       severity: UNKNOWN,HIGH,CRITICAL
-    rules:
-      - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      - if: $CI_COMMIT_TAG
-      - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
-  - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-signing@v1.2.0
-    inputs:
-      image-to-sign: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$CUSTOM_IMAGE_TAG"
-      job-dependencies: [ harden ]
-      job-stage: sign
     rules:
       - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       - if: $CI_COMMIT_TAG

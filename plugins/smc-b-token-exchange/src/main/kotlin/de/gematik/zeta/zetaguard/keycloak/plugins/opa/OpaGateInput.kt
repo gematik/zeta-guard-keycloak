@@ -23,8 +23,6 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
-import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaDeviceInfo
-
 data class OpaGateInput(
     val clientId: String?,
     val clientPlatform: String?,
@@ -32,7 +30,6 @@ data class OpaGateInput(
     val grantType: String?,
     val scopes: List<String>,
     val authenticationMethodsReferences: List<String>,
-    val authenticationContextClassReference : String,
     val audiences: List<String>?,
     val ipAddress: String?,
     val previousIpAddress: String?,
@@ -41,6 +38,4 @@ data class OpaGateInput(
     val clientProductVersion: String?,
     val userIdentifier: String?,
     val userProfessionOid: String?,
-    val userCommonName: String? = null, // insured persons only (SekIDP); left null for SMC-B
-    val deviceInfo: OpaDeviceInfo? = null,
 )

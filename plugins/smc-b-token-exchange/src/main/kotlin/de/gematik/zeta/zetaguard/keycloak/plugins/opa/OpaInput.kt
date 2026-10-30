@@ -41,7 +41,6 @@ data class OpaInput(val input: Input) {
 
   data class OpaAuthorizationRequest(
       @get:JsonProperty("amr") val authenticationMethodsReferences: List<String>? = null,
-      @get:JsonProperty("acr") val authenticationContextClassReference: String,
       val audience: List<String>? = null,
       @get:JsonProperty(GRANT_TYPE) val grantType: String? = null,
       @get:JsonProperty("ip_address") val ipAddress: String? = null,
@@ -63,16 +62,8 @@ data class OpaInput(val input: Input) {
 
   data class AttestationResult(val tpm: String? = null)
 
-  data class DeviceInfo(
-      val os: String? = null,
-      @get:JsonProperty("os_version") val osVersion: String? = null,
-      @get:JsonProperty("device_model") val deviceModel: String? = null,
-  )
+  data class DeviceInfo(val os: String? = null)
 
   /** @see [https://github.com/gematik/zeta/blob/v1.3.0/src/schemas/user-info.yaml] */
-  data class OpaUserInfo(
-      val identifier: String? = null,
-      @get:JsonProperty("professionOID") val professionOid: String? = null,
-      val commonName: String? = null,
-  )
+  data class OpaUserInfo(val identifier: String? = null, @get:JsonProperty("professionOID") val professionOID: String? = null)
 }

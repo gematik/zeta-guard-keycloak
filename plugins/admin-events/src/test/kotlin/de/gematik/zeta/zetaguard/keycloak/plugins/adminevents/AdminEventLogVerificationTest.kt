@@ -25,6 +25,7 @@
 
 package de.gematik.zeta.zetaguard.keycloak.plugins.adminevents
 
+import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.entityManager
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import org.hibernate.Session
@@ -48,7 +49,7 @@ class AdminEventLogVerificationTest : AbstractAdminEventLoggerTest() {
         storeEvents()
 
         val log2 = adminEventLogStorageService.findAll().second()
-        val session = entityManager.unwrap(Session::class.java)
+        val session = keycloakSession.entityManager.unwrap(Session::class.java)
 
         session.doWork { connection ->
           connection.createStatement().executeUpdate("UPDATE admin_event_log SET previous_hash = 'manipulatedHash' WHERE id = '${log2.id}'")
@@ -63,7 +64,7 @@ class AdminEventLogVerificationTest : AbstractAdminEventLoggerTest() {
         storeEvents()
 
         val log3 = adminEventLogStorageService.findAll().third()
-        val session = entityManager.unwrap(Session::class.java)
+        val session = keycloakSession.entityManager.unwrap(Session::class.java)
 
         session.doWork { connection ->
           connection.createStatement().executeUpdate("UPDATE admin_event_log SET event_data = 'new content' WHERE id = '${log3.id}'")

@@ -24,7 +24,6 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
-import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaDeviceInfo
 
 private const val SCHEMA_VERSION = "1.0"
 
@@ -35,7 +34,6 @@ object OpaPayloadBuilder {
       val clientRegistrationTimestamp: Long?,
       val scopes: List<String>,
       val authenticationMethodsReferences: List<String>,
-      val authenticationContextClassReference: String,
       val audiences: List<String>?,
       val grantType: String?,
       val ipAddress: String?,
@@ -45,23 +43,16 @@ object OpaPayloadBuilder {
       val postureType: String? = null,
       val userIdentifier: String? = null,
       val userProfessionOid: String? = null,
-      val userCommonName: String? = null,
-      val deviceInfo: OpaDeviceInfo? = null,
   )
 
   private fun PayloadParams.toUserInfo() =
-      OpaInput.OpaUserInfo(
-          identifier = userIdentifier?.takeIf(String::isNotBlank),
-          professionOid = userProfessionOid?.takeIf(String::isNotBlank),
-          commonName = userCommonName?.takeIf(String::isNotBlank),
-      )
+      OpaInput.OpaUserInfo(identifier = userIdentifier?.takeIf(String::isNotBlank), professionOID = userProfessionOid?.takeIf(String::isNotBlank))
 
   private fun PayloadParams.toAuthorizationRequest(): OpaInput.OpaAuthorizationRequest {
     val effectiveAud = audiences?.map { it.trim() }?.filter { it.isNotBlank() }?.ifEmpty { null }
     return OpaInput.OpaAuthorizationRequest(
         scopes = scopes.ifEmpty { null },
         authenticationMethodsReferences = authenticationMethodsReferences.ifEmpty { null },
-        authenticationContextClassReference = authenticationContextClassReference,
         audience = effectiveAud,
         grantType = grantType?.takeIf { it.isNotBlank() },
         ipAddress = ipAddress?.takeIf { it.isNotBlank() },
@@ -83,12 +74,7 @@ object OpaPayloadBuilder {
 
   private fun toAttestationResult(): OpaInput.AttestationResult = OpaInput.AttestationResult()
 
-  private fun PayloadParams.toDeviceInfo() =
-      OpaInput.DeviceInfo(
-          os = deviceInfo?.os?.takeIf(String::isNotBlank),
-          osVersion = deviceInfo?.osVersion?.takeIf(String::isNotBlank),
-          deviceModel = deviceInfo?.deviceModel?.takeIf(String::isNotBlank),
-      )
+  private fun toDeviceInfo(): OpaInput.DeviceInfo = OpaInput.DeviceInfo()
 
   fun build(params: PayloadParams): String {
     val input =
@@ -110,16 +96,12 @@ object OpaPayloadBuilder {
           ipAddress = input.ipAddress,
           previousIpAddress = input.previousIpAddress,
           authenticationMethodsReferences = input.authenticationMethodsReferences,
-          authenticationContextClassReference = input.authenticationContextClassReference,
           clientId = input.clientId,
           clientPlatform = input.clientPlatform,
           clientProductId = input.clientProductID,
           clientProductVersion = input.clientProductVersion,
           clientRegistrationTimestamp = input.clientRegistrationTimestamp,
-          postureType = input.postureType,
           userIdentifier = input.userIdentifier,
           userProfessionOid = input.userProfessionOid,
-          userCommonName = input.userCommonName,
-          deviceInfo = input.deviceInfo,
       )
 }

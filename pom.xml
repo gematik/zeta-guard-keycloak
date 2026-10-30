@@ -4,7 +4,7 @@
 
     <groupId>de.gematik.zeta.zeta-guard</groupId>
     <artifactId>keycloak-zeta</artifactId>
-    <version>1.3.3-SNAPSHOT</version>
+    <version>1.2.4</version>
     <packaging>pom</packaging>
 
     <name>𝝵-Guard :: Create ZETA-Guard Keycloak</name>
@@ -13,12 +13,12 @@
     <properties>
         <kotlin.version>2.3.21</kotlin.version>
         <arrow.version>2.1.2</arrow.version>
-        <keycloak.version>26.6.4</keycloak.version>
-        <quarkus.version>3.33.2.1</quarkus.version>
+        <keycloak.version>26.6.3</keycloak.version>
+        <quarkus.version>3.33.1.1</quarkus.version>
         <keycloak.admin.version>26.0.7</keycloak.admin.version>
         <resteasy.version>6.2.12.Final</resteasy.version>
-        <bouncycastle.version>1.85</bouncycastle.version>
-        <bytebuddy.version>1.17.8</bytebuddy.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
+        <bytebuddy.version>1.17.6</bytebuddy.version>
         <jacoco.version>0.8.14</jacoco.version>
         <java.version>21</java.version>
 
@@ -30,12 +30,12 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Upgrade to 6.x causes TestEngine with ID 'junit-jupiter' failed to discover tests -->
-        <kotest.version>6.1.11</kotest.version>
-        <mockk.version>1.14.11</mockk.version>
-        <jackson.version>2.21.2</jackson.version>
+        <kotest.version>5.9.1</kotest.version>
+        <mockk.version>1.14.5</mockk.version>
+        <jackson.version>2.20.0</jackson.version>
         <restassured.version>5.5.6</restassured.version>
         <testcontainers.version>2.0.2</testcontainers.version>
-        <hibernate.version>7.2.14.Final</hibernate.version>
+        <hibernate.version>7.2.6.Final</hibernate.version>
         <slf4j.version>2.0.17</slf4j.version>
         <logback.version>1.4.14</logback.version>
 
@@ -48,12 +48,11 @@
 
         <jacoco.agent.skip>false</jacoco.agent.skip>
         <spotless.skip>true</spotless.skip> <!-- Override on command -->
-        <ktfmt.skip>true</ktfmt.skip> <!-- Override on command -->
 
         <spotless.version>3.0.0</spotless.version>
 
-        <java-hsm-proxy-provider.version>1.0.3</java-hsm-proxy-provider.version>
-        <spree-integrity-provider.version>2.0.5</spree-integrity-provider.version>
+        <java-hsm-proxy-provider.version>1.0.2</java-hsm-proxy-provider.version>
+        <spree-integrity-provider.version>1.3.3</spree-integrity-provider.version>
     </properties>
 
     <dependencyManagement>
@@ -62,14 +61,6 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-bom</artifactId>
                 <version>${kotlin.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlinx</groupId>
-                <artifactId>kotlinx-coroutines-bom</artifactId>
-                <version>1.11.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -116,18 +107,6 @@
             </dependency>
 
             <dependency>
-                <groupId>de.spree.keycloak</groupId>
-                <artifactId>spreelog-prod</artifactId>
-                <version>${spree-integrity-provider.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>de.spree.keycloak</groupId>
-                <artifactId>spreelog-debug</artifactId>
-                <version>${spree-integrity-provider.version}</version>
-            </dependency>
-
-            <dependency>
                 <groupId>net.bytebuddy</groupId>
                 <artifactId>byte-buddy</artifactId>
                 <version>${bytebuddy.version}</version>
@@ -145,20 +124,6 @@
                 <groupId>org.bouncycastle</groupId>
                 <artifactId>bcutil-debug-jdk18on</artifactId>
                 <version>${bouncycastle.version}</version>
-                <scope>provided</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.bouncycastle</groupId>
-                <artifactId>bctls-jdk18on</artifactId>
-                <version>${bouncycastle.version}</version>
-                <scope>provided</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.bouncycastle</groupId>
-                <artifactId>bcpkix-fips</artifactId>
-                <version>2.1.10</version>
                 <scope>provided</scope>
             </dependency>
 
@@ -182,18 +147,14 @@
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-stdlib</artifactId>
                 <version>${kotlin.version}</version>
+                <scope>provided</scope>
             </dependency>
 
             <dependency>
                 <groupId>org.jetbrains.kotlin</groupId>
                 <artifactId>kotlin-reflect</artifactId>
                 <version>${kotlin.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.jetbrains.kotlinx</groupId>
-                <artifactId>kotlinx-datetime-jvm</artifactId>
-                <version>0.8.0</version>
+                <scope>provided</scope>
             </dependency>
 
             <dependency>
@@ -223,28 +184,6 @@
             <dependency>
                 <groupId>org.keycloak</groupId>
                 <artifactId>keycloak-core</artifactId>
-                <version>${keycloak.version}</version>
-                <scope>provided</scope>
-            </dependency>
-
-            <dependency>
-                <groupId>org.keycloak</groupId>
-                <artifactId>keycloak-quarkus-server</artifactId>
-                <version>${keycloak.version}</version>
-                <scope>provided</scope>
-
-                <!-- Causes weird BC dependency errors -->
-                <exclusions>
-                    <exclusion>
-                        <groupId>*</groupId>
-                        <artifactId>*</artifactId>
-                    </exclusion>
-                </exclusions>
-            </dependency>
-
-            <dependency>
-                <groupId>org.keycloak</groupId>
-                <artifactId>keycloak-model-infinispan</artifactId>
                 <version>${keycloak.version}</version>
                 <scope>provided</scope>
             </dependency>
@@ -429,24 +368,6 @@
 
             <dependency>
                 <groupId>de.gematik.zeta.zeta-guard</groupId>
-                <artifactId>mobile-authorization-code</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>de.gematik.zeta.zeta-guard</groupId>
-                <artifactId>mobile-client-management</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>de.gematik.zeta.zeta-guard</groupId>
-                <artifactId>sekidp</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>de.gematik.zeta.zeta-guard</groupId>
                 <artifactId>nonce-management</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -474,12 +395,6 @@
                 <artifactId>hsm-token-signing</artifactId>
                 <version>${project.version}</version>
             </dependency>
-
-            <dependency>
-                <groupId>de.gematik.zeta.zeta-guard</groupId>
-                <artifactId>revocation</artifactId>
-                <version>${project.version}</version>
-            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -487,19 +402,11 @@
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-stdlib</artifactId>
-            <scope>provided</scope>
         </dependency>
 
         <dependency>
             <groupId>org.jetbrains.kotlin</groupId>
             <artifactId>kotlin-reflect</artifactId>
-            <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jetbrains.kotlinx</groupId>
-            <artifactId>kotlinx-datetime-jvm</artifactId>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -631,6 +538,7 @@
 
                 <configuration>
                     <skip>${spotless.skip}</skip>
+
                     <kotlin>
                         <!-- These are the defaults, you can override if you want -->
                         <includes>
@@ -639,7 +547,7 @@
                         </includes>
 
                         <licenseHeader>
-                            <content><![CDATA[/*-
+                            <content>/*-
  * #%L
  * keycloak-zeta
  * %%
@@ -662,7 +570,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
-]]></content>  <!-- or <file>${project.basedir}/license-header</file> -->
+                            </content>  <!-- or <file>${project.basedir}/license-header</file> -->
                         </licenseHeader>
                     </kotlin>
                 </configuration>
@@ -671,27 +579,22 @@
                     <execution>
                         <id>license-headers</id>
                         <phase>generate-sources</phase>
-
                         <goals>
                             <goal>check</goal>
                         </goals>
-
                         <configuration>
                             <skip>${spotless.skip}</skip>
                         </configuration>
                     </execution>
-
                     <!-- order of theses exections matters for CI -->
                     <execution>
                         <id>ktfmt</id>
                         <phase>generate-sources</phase>
-
                         <goals>
                             <goal>apply</goal>
                         </goals>
-
                         <configuration>
-                            <skip>${ktfmt.skip}</skip>
+                            <skip>false</skip>
 
                             <kotlin>
                                 <ktfmt>
@@ -763,16 +666,12 @@
         <module>commons-client</module>
         <module>plugins/admin-events</module>
         <module>plugins/smc-b-token-exchange</module>
-        <module>plugins/mobile-authorization-code</module>
-        <module>plugins/mobile-client-management</module>
-        <module>plugins/sekidp</module>
         <module>plugins/nonce-management</module>
         <module>plugins/client-registration</module>
         <module>plugins/access-token-mapper</module>
         <module>plugins/well-known-provider</module>
         <module>plugins/hsm-proxy-provider</module>
         <module>plugins/hsm-token-signing</module>
-        <module>plugins/revocation</module>
         <module>docker-keycloak</module>
     </modules>
 

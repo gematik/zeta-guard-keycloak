@@ -38,18 +38,6 @@ data class ZetaGuardWellKnownConfiguration(
     @field:JsonPropertyDescription("The URL of the authorization endpoint.")
     val authorizationEndpoint: URI,
     @field:JsonProperty("token_endpoint") @field:JsonPropertyDescription("The URL of the token endpoint.") val tokenEndpoint: URI,
-    // as-well-known.yaml v1.1.0
-    @field:JsonProperty("pushed_authorization_request_endpoint")
-    @field:JsonPropertyDescription("The URL of the pushed authorization request endpoint.")
-    val pushedAuthorizationRequestEndpoint: URI,
-    // as-well-known.yaml v1.1.0
-    @field:JsonProperty("require_pushed_authorization_requests")
-    @field:JsonPropertyDescription("Indicates whether the Authorization Server requires pushed authorization requests. In ZETA, this is always true.")
-    val requirePushedAuthorizationRequests: Boolean,
-    // A_29672
-    @field:JsonProperty("redirection_endpoint")
-    @field:JsonPropertyDescription("The URL of the redirection endpoint of the Authorization Server acting as OIDC Relying Party.")
-    val redirectionEndpoint: URI,
     @field:JsonProperty("nonce_endpoint") @field:JsonPropertyDescription("The URL of the nonce endpoint.") val nonceEndpoint: URI,
     @field:JsonProperty("openid_providers_endpoint")
     @field:JsonPropertyDescription("The URL of the openid providers endpoint.")
@@ -74,18 +62,10 @@ data class ZetaGuardWellKnownConfiguration(
     @field:JsonProperty("token_endpoint_auth_signing_alg_values_supported")
     @field:JsonPropertyDescription("The signing algorithms supported at the token endpoint.")
     val tokenEndpointAuthSigningAlgValuesSupported: List<String>,
-    // A_29996
-    @field:JsonProperty("revocation_endpoint")
-    @field:JsonPropertyDescription("The URL of the token revocation endpoint (RFC 7009).")
-    val revocationEndpoint: URI,
     @field:JsonProperty("service_documentation") @field:JsonPropertyDescription("A URL to the service documentation.") val serviceDocumentation: URI,
     @field:JsonProperty("code_challenge_methods_supported")
     @field:JsonPropertyDescription("The code challenge methods supported for PKCE.")
     val codeChallengeMethodsSupported: List<String>,
-    // A_29691
-    @field:JsonProperty("api_versions_supported")
-    @field:JsonPropertyDescription("The token-issuance contract versions supported by this Authorization Server.")
-    val apiVersionsSupported: List<ApiVersion>,
 ) {
   // JSON deserialization
   @Suppress("unused")
@@ -94,9 +74,6 @@ data class ZetaGuardWellKnownConfiguration(
           issuer = URI.create(""),
           authorizationEndpoint = URI.create(""),
           tokenEndpoint = URI.create(""),
-          pushedAuthorizationRequestEndpoint = URI.create(""),
-          requirePushedAuthorizationRequests = true,
-          redirectionEndpoint = URI.create(""),
           nonceEndpoint = URI.create(""),
           openidProvidersEndpoint = URI.create(""),
           jwksUri = URI.create(""),
@@ -107,30 +84,7 @@ data class ZetaGuardWellKnownConfiguration(
           grantTypesSupported = listOf(),
           tokenEndpointAuthMethodsSupported = listOf(),
           tokenEndpointAuthSigningAlgValuesSupported = listOf(),
-          revocationEndpoint = URI.create(""),
           serviceDocumentation = URI.create(""),
           codeChallengeMethodsSupported = listOf(),
-          apiVersionsSupported = listOf(),
       )
-}
-
-/**
- * Entry of `api_versions_supported`: a token-issuance contract version supported by this Authorization Server.
- */
-// A_29691
-@JsonInclude(JsonInclude.Include.NON_NULL)
-data class ApiVersion(
-    @field:JsonProperty("major_version")
-    @field:JsonPropertyDescription("The major version number of the token-issuance contract.")
-    val majorVersion: Int,
-    @field:JsonProperty("version")
-    @field:JsonPropertyDescription("The full, stable Semantic Versioning (SemVer) compliant string for this contract version.")
-    val version: String,
-    @field:JsonProperty("status") @field:JsonPropertyDescription("The release status of this contract version.") val status: String,
-    @field:JsonProperty("documentation_uri")
-    @field:JsonPropertyDescription("URL of the documentation specific to this contract version.")
-    val documentationUri: URI? = null,
-) {
-  // JSON deserialization
-  @Suppress("unused") constructor() : this(majorVersion = 0, version = "", status = "")
 }

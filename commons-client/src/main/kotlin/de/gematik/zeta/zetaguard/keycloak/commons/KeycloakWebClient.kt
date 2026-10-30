@@ -26,12 +26,13 @@
 package de.gematik.zeta.zetaguard.keycloak.commons
 
 import arrow.core.Either
-import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.merge
 import arrow.core.right
 import com.fasterxml.jackson.databind.ObjectMapper
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTESTATION_STATE_VALID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_ATTESTATION_STATE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakSuccessResponse
 import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_FULL_PATH
@@ -39,29 +40,23 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.VALID_GRANT_TYPES
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.message
 import java.io.BufferedReader
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.minutes
 import org.apache.http.HttpHeaders.ACCEPT
 import org.apache.http.HttpHeaders.AUTHORIZATION
 import org.apache.http.HttpHeaders.CONTENT_TYPE
 import org.apache.http.HttpResponse
 import org.apache.http.HttpStatus.SC_CREATED
-import org.apache.http.HttpStatus.SC_NO_CONTENT
 import org.apache.http.HttpStatus.SC_OK
-import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.RequestBuilder
-import org.apache.http.client.methods.RequestBuilder.delete
 import org.apache.http.client.methods.RequestBuilder.get
 import org.apache.http.client.methods.RequestBuilder.post
 import org.apache.http.conn.ssl.NoopHostnameVerifier
 import org.apache.http.conn.ssl.TrustAllStrategy
 import org.apache.http.entity.ContentType.APPLICATION_FORM_URLENCODED
 import org.apache.http.entity.ContentType.APPLICATION_JSON
-import org.apache.http.entity.ContentType.TEXT_PLAIN
 import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.http.ssl.SSLContextBuilder
 import org.keycloak.OAuth2Constants.AUDIENCE
 import org.keycloak.OAuth2Constants.CLIENT_ASSERTION
@@ -110,14 +105,8 @@ typealias KeycloakResponse<T> = Either<KeycloakError, KeycloakSuccessResponse<T>
 // class KeycloakWebClient(hostname: String = KC_HOST, port: Int = KC_PORT) : KeycloakAdminClient("zeta-dev.westeurope.cloudapp.azure.com", 443,
 // "https", path = "/auth") {
 // class KeycloakWebClient(hostname: String = KC_HOST, port: Int = KC_PORT) : KeycloakAdminClient("zeta-kind.local", 443, "https", path = "/auth") {
-class KeycloakWebClient private constructor(hostname: String, port: Int) : KeycloakAdminClient(hostname, port, "http"), AutoCloseable {
+class KeycloakWebClient private constructor(hostname: String, port: Int) : KeycloakAdminClient(hostname, port, "http") {
   private var currentBody: String? = null
-  private val httpClient = createHttpClient()
-
-  fun httpClient(): CloseableHttpClient {
-    currentBody = null
-    return httpClient
-  }
 
   /**
    * Logs in a user and returns an access token.
@@ -154,37 +143,13 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
       request.addParameter(SCOPE, requestedClientScope)
     }
 
-    return httpClient().execute(request.build()).mapJSONResponse<AccessTokenResponse>()
-  }
-
-  /**
-   * Report an offending access token. Authorization is possession of the token itself, so no bearer credential is sent; the error body is preserved,
-   * because a rejection is the interesting outcome to assert on.
-   */
-  fun reportRevocation(accessToken: String): Either<KeycloakError, Unit> {
-    val request = post(uriBuilder().revocationUrl()).addHeader(CONTENT_TYPE, TEXT_PLAIN.mimeType).setEntity(StringEntity(accessToken, Charsets.UTF_8))
-    val response = httpClient().execute(request.build())
-
-    return if (response.statusLine.statusCode == SC_NO_CONTENT) Unit.right() else response.mapError()
-  }
-
-  /** Ends a session through the admin API, as an operator would from the admin console. */
-  fun adminRevokeSession(sessionId: String): Either<KeycloakError, Unit> {
-    val adminToken =
-        login(realm = ADMIN_REALM, user = ADMIN_USER, password = ADMIN_PASSWORD, client = ADMIN_CLIENT, requestedClientScope = SCOPE_OPENID)
-            .getOrElse { error(it.errorDescription) }
-            .reponseObject
-
-    val request = delete(uriBuilder().adminSessionRevocationUrl(sessionId)).addFormHeaders().addHeader(AUTHORIZATION, "Bearer ${adminToken.token}")
-    val response = httpClient().execute(request.build())
-
-    return if (response.statusLine.statusCode == SC_NO_CONTENT) Unit.right() else response.mapError()
+    return createHttpClient().use { it.execute(request.build()) }.mapJSONResponse<AccessTokenResponse>()
   }
 
   fun getNonce(): KeycloakResponse<String> {
     val request = get(uriBuilder().createUri(NONCE_FULL_PATH, ZETA_REALM))
 
-    return httpClient().execute(request.build()).mapStringResponse()
+    return createHttpClient().use { it.execute(request.build()) }.mapStringResponse()
   }
 
   fun refreshToken(refreshToken: String, clientAssertion: String, dPoPToken: String): KeycloakResponse<AccessTokenResponse> {
@@ -198,7 +163,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
             .addParameter(CLIENT_ASSERTION_TYPE, CLIENT_ASSERTION_TYPE_JWT)
             .addParameter(CLIENT_ASSERTION, clientAssertion)
 
-    return httpClient().execute(request.build()).mapJSONResponse<AccessTokenResponse>()
+    return createHttpClient().use { it.execute(request.build()) }.mapJSONResponse<AccessTokenResponse>()
   }
 
   /**
@@ -260,7 +225,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
       request.addParameter(AUDIENCE, audience)
     }
 
-    return httpClient().execute(request.build()).mapJSONResponse<AccessTokenResponse>()
+    return createHttpClient().use { it.execute(request.build()) }.mapJSONResponse<AccessTokenResponse>()
   }
 
   /**
@@ -271,7 +236,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
   fun logout(realm: String) {
     val request = get(uriBuilder().tokenUrl(ZETA_REALM)).addHeader(CONTENT_TYPE, APPLICATION_FORM_URLENCODED.mimeType)
 
-    httpClient().execute(request.build())
+    createHttpClient().use { it.execute(request.build()) }
   }
 
   /**
@@ -285,7 +250,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
   fun getUserInfo(realm: String, token: String, expectedStatusCode: Int = SC_OK): KeycloakResponse<UserInfo> {
     val request = get(uriBuilder().userinfoUrl(realm)).addHeader(AUTHORIZATION, "$AUTH_HEADER_PREFIX$token")
 
-    return httpClient().execute(request.build()).mapJSONResponse<UserInfo>()
+    return createHttpClient().use { it.execute(request.build()) }.mapJSONResponse<UserInfo>()
   }
 
   /**
@@ -307,7 +272,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
             .addParameter(SCOPE, SCOPE_OPENID)
             .setEntity(StringEntity(body))
 
-    return httpClient().execute(request.build()).mapJSONResponse<ClientInitialAccessPresentation>()
+    return createHttpClient().use { it.execute(request.build()) }.mapJSONResponse<ClientInitialAccessPresentation>()
   }
 
   /**
@@ -342,6 +307,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
                       REALM_CLIENT to "false",
                       STANDARD_TOKEN_EXCHANGE_ENABLED to "true",
                       STANDARD_TOKEN_EXCHANGE_REFRESH_ENABLED to SAME_SESSION.name,
+                      ATTRIBUTE_ATTESTATION_STATE to ATTESTATION_STATE_VALID,
                   )
             }
             .toJSON()
@@ -352,7 +318,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
             .addHeader(AUTHORIZATION, "$AUTH_HEADER_PREFIX$initialAccessToken")
             .setEntity(StringEntity(body))
 
-    return httpClient().execute(request.build()).mapJSONResponse<ClientRepresentation>(expectedStatusCode)
+    return createHttpClient().use { it.execute(request.build()) }.mapJSONResponse<ClientRepresentation>(expectedStatusCode)
   }
 
   /**
@@ -383,7 +349,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
 
     val request = post(uriBuilder().clientRegistrationOIDCUrl()).addJsonHeaders().setEntity(StringEntity(body, Charsets.UTF_8))
 
-    return httpClient().execute(request.build()).mapJSONResponse<OIDCClientRepresentation>(expectedStatusCode)
+    return createHttpClient().use { it.execute(request.build()) }.mapJSONResponse<OIDCClientRepresentation>(expectedStatusCode)
   }
 
   /**
@@ -456,18 +422,8 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
    *
    * Also reset cached body for every request
    */
-  private fun createHttpClient(): CloseableHttpClient {
-    val connectionManager =
-        PoolingHttpClientConnectionManager().apply {
-          validateAfterInactivity = 1000
-          maxTotal = 500
-          defaultMaxPerRoute = 50
-        }
-    val httpClientBuilder =
-        HttpClients.custom()
-            .setConnectionManager(connectionManager)
-            .setDefaultRequestConfig(RequestConfig.custom().setConnectTimeout(5000).build())
-            .evictIdleConnections(30, TimeUnit.SECONDS)
+  fun createHttpClient(): CloseableHttpClient {
+    val httpClientBuilder = HttpClients.custom()
 
     if (scheme == "https") {
       httpClientBuilder
@@ -475,11 +431,9 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
           .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
     }
 
-    return httpClientBuilder.build()
-  }
+    currentBody = null
 
-  override fun close() {
-    httpClient().close()
+    return httpClientBuilder.build()
   }
 
   companion object {
@@ -489,8 +443,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
     val dbhost: String = System.getProperty("it.db.host", "localhost")
     val dbport: Int = System.getProperty("it.db.port", "15432").toInt()
 
-    @JvmStatic //
-    fun instance() = KeycloakWebClient(kchost, kcport)
+    @JvmStatic fun instance() = KeycloakWebClient(kchost, kcport)
   }
 }
 

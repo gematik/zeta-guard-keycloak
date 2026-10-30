@@ -33,7 +33,6 @@ import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import java.io.StringReader
 import java.io.StringWriter
 import java.security.Key
-import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SignatureException
 import java.security.cert.CertPathValidator
@@ -47,14 +46,12 @@ import org.bouncycastle.asn1.ASN1ObjectIdentifier
 import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 import org.bouncycastle.asn1.isismtt.x509.Admissions
 import org.bouncycastle.asn1.isismtt.x509.ProfessionInfo
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.asn1.x500.style.BCStyle
 import org.bouncycastle.asn1.x500.style.IETFUtils
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
 import org.bouncycastle.openssl.PEMParser
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter
 import org.keycloak.common.util.PemUtils
 
@@ -166,20 +163,11 @@ fun String.toCertificate(): X509Certificate =
     if (isPEMFormat()) {
       PemUtils.decodeCertificate(this)
     } else {
-      fromBase64().toCertificate()
+      val bytes = fromBase64()
+      val certificateFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
+
+      certificateFactory.generateCertificate(bytes.inputStream()) as X509Certificate
     }
-
-fun ByteArray.toCertificate(): X509Certificate {
-  val certificateFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
-
-  return certificateFactory.generateCertificate(inputStream()) as X509Certificate
-}
-
-fun ByteArray.toPrivateKey(): PrivateKey {
-  val privateKeyInfo = PrivateKeyInfo.getInstance(this)
-
-  return JcaPEMKeyConverter().setProvider(PROVIDER_NAME).getPrivateKey(privateKeyInfo)
-}
 
 /**
  * Validate a certificate chain against a trust store provided by the KeystoreService.

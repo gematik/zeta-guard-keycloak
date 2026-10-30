@@ -65,18 +65,17 @@ const val DN_PRAXIS = "CN=Praxis Dr. Eisenbart,STREET=Goethestr. 5,L=Essen,ST=No
  *
  * Format and extensions are created according to https://gemspec.gematik.de/docs/gemSpec/gemSpec_PKI/latest/#4.7.2.1
  */
-class CertificateGenerator(
-    private val subjectName: String,
-    private val subjectKeyPair: KeyPair,
-    private val issuerName: String,
-    private val issuerKeyPair: KeyPair,
-    private val isCA: Boolean,
-    private val isRootCA: Boolean = false,
-    private val telematikId: String = TELEMATIK_ID,
-    private val createAdmissionExtension: Boolean = true,
-    private val sans: List<GeneralName>? = null,
-) {
-  fun buildCertificate(): X509Certificate {
+object CertificateGenerator {
+  fun buildCertificate(
+      subjectName: String,
+      subjectKeyPair: KeyPair,
+      issuerName: String,
+      issuerKeyPair: KeyPair,
+      isCA: Boolean,
+      isRootCA: Boolean = false,
+      createAdmissionExtension: Boolean = true,
+      sans: List<GeneralName>? = null,
+  ): X509Certificate {
     val certBuilder = createCertificateBuilder(subjectName, issuerName, subjectKeyPair.public)
     val extUtils = JcaX509ExtensionUtils()
 
@@ -143,7 +142,7 @@ class CertificateGenerator(
   }
 
   private fun buildAdmissionSyntax(): AdmissionSyntax {
-    val professionInfo = ProfessionInfo(null, arrayOf(DirectoryString(BETRIEBSSTAETTE_ARZT)), arrayOf(betriebsstaetteArzt), telematikId, null)
+    val professionInfo = ProfessionInfo(null, arrayOf(DirectoryString(BETRIEBSSTAETTE_ARZT)), arrayOf(betriebsstaetteArzt), TELEMATIK_ID, null)
 
     // Per RFC 5755, admissionAuthority in AdmissionSyntax and Admissions
     // MUST NOT be present simultaneously. We will set it in the top-level

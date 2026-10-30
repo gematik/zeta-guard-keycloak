@@ -27,22 +27,17 @@ import arrow.core.Either
 import arrow.core.flatMap
 import arrow.core.left
 import arrow.core.raise.either
-import arrow.core.raise.ensure
 import arrow.core.right
 import com.google.common.cache.CacheBuilder
 import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
 import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
-import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreMetaService
+import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import java.io.IOException
 import java.net.URI
 import java.security.MessageDigest
 import java.security.cert.X509Certificate
-import java.text.SimpleDateFormat
 import java.time.Duration
 import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
-import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpPost
 import org.apache.http.entity.ByteArrayEntity
 import org.apache.http.impl.client.CloseableHttpClient
@@ -81,9 +76,6 @@ object OcspUtil {
   internal val MAX_EXPIRES = Duration.ofHours(24)
   internal const val UNAVAILABLE_EXPIRY_MS = 60000L // 1 minute
   internal const val CLOCK_SKEW_MS = 37500L // 37.5s according to GS-A_5215
-  const val DEFAULT_CONNECT_TIMEOUT_MS = 1000
-  const val DEFAULT_READ_TIMEOUT_MS = 3000
-  const val DEFAULT_FAIL_CLOSED = false
 
   private data class StatusEntry(val status: CertStatus, val from: Date, val until: Date)
 
@@ -93,70 +85,58 @@ object OcspUtil {
 
   fun checkRevoked(
       certificate: X509Certificate,
-      issuers: KeystoreMetaService,
-      signers: KeystoreMetaService?,
-      httpClient: CloseableHttpClient,
+      issuer: X509Certificate,
+      signers: KeystoreService?,
+      httpClient: CloseableHttpClient?,
       checkDate: Date = Date(),
-      config: OcspConfig = OcspConfig(),
   ): Either<String, CertStatus> =
       if (signers == null) {
-        // OCSP disabled without signer store
-        CertStatus.Unknown.right()
-      } else {
-        getStatus(certificate, issuers, signers, checkDate, httpClient, config).flatMap {
-          when (it) {
-            is CertStatus.Revoked -> "Certificate has been revoked since ${rfcTime.format(it.since)} for ${it.reason}".left()
-            CertStatus.Unknown -> if (config.failClosed) "OCSP revocation status could not be determined".left() else it.right()
-            CertStatus.Good -> it.right()
+            // OCSP disabled without signer store
+            CertStatus.Unknown.right()
+          } else {
+            getStatus(certificate, issuer, checkDate, signers, httpClient).flatMap {
+              if (it is CertStatus.Revoked) {
+                "Certificate has been revoked since ${it.since} for ${it.reason}".left()
+              } else {
+                it.right()
+              }
+            }
           }
-        }
-      }
           .onLeft { logger.error("OCSP revocation check failed for ${certificate.subjectX500Principal}") }
 
   private fun getStatus(
       certificate: X509Certificate,
-      issuers: KeystoreMetaService,
-      signers: KeystoreMetaService,
+      issuer: X509Certificate,
       checkDate: Date,
-      httpClient: CloseableHttpClient,
-      config: OcspConfig,
+      signers: KeystoreService,
+      httpClient: CloseableHttpClient?,
   ): Either<String, CertStatus> = either {
     logger.debug("Check revocation of ${certificate.subjectX500Principal}")
 
-    val issuer = issuers.findIssuerCertificate(certificate)
-    ensure(issuer != null) { "could not determine issuer certificate" }
-    val x = issuers.getRevokedSince(issuer)
-    x?.takeIf { certificate.notBefore.after(it) }
-        ?.let {
-          return CertStatus.Revoked(it, "issued after CA revocation").right()
-        }
-
     val sha1 = JcaDigestCalculatorProviderBuilder().build()[CertificateID.HASH_SHA1]
     val certId = JcaCertificateID(sha1, issuer, certificate.serialNumber)
-    val uri = getResponderURL(certificate) ?: raise("no responder URI in certificate")
-    val cached = cache.getIfPresent(certId)
+    val uri = getResponderURL(certificate)
+    require(httpClient != null) { "no http client provided" }
+    require(uri != null) { "no responder URI in certificate" }
 
+    val cached = cache.getIfPresent(certId)
     if (cached != null && !isOutdated(cached.from, cached.until, checkDate)) {
       logger.debug("OCSP response in cache for ${certificate.subjectX500Principal}")
-
       return cached.status.right()
     }
 
-    val outer = retrieveResponse(certId, uri, httpClient, config).bind()
-
+    val outer = retrieveResponse(certId, uri, httpClient).bind()
     if (outer == null) {
       cache.put(certId, StatusEntry(CertStatus.Unknown, checkDate, Date(checkDate.time + UNAVAILABLE_EXPIRY_MS)))
       return CertStatus.Unknown.right()
     }
 
-    val single = verifyBasicResponse(outer, issuer, issuers, signers).bind()
+    val single = verifyBasicResponse(outer, signers).bind()
     verifySingleResponse(single, certId, checkDate).bind()
     verifyCertHash(single, certificate).bind()
-
     val status = convertStatus(single.certStatus).bind()
 
     cache.put(certId, StatusEntry(status, single.thisUpdate, single.nextUpdate ?: Date(single.thisUpdate.time + MAX_EXPIRES.toMillis())))
-
     return status.right()
   }
 
@@ -179,18 +159,13 @@ object OcspUtil {
 
   private fun between(a: Date, b: Date) = Duration.ofMillis(b.time - a.time - CLOCK_SKEW_MS)
 
-  private fun retrieveResponse(
-      certId: CertificateID,
-      uri: URI,
-      httpClient: CloseableHttpClient,
-      config: OcspConfig,
-  ): Either<String, OCSPResp?> =
+  private fun retrieveResponse(certId: CertificateID, uri: URI, httpClient: CloseableHttpClient): Either<String, OCSPResp?> =
       either {
-        logger.debug("OCSP request using responder $uri")
-        val ocspReq = Either.catch { OCSPReqBuilder().addRequest(certId).build() }.bind()
-        val ocspResp = getEncodedOCSPResponse(ocspReq.encoded, uri, httpClient, config).bind()
-        Either.catch { OCSPResp(ocspResp) }.bind()
-      }
+            logger.debug("OCSP request using responder $uri")
+            val ocspReq = Either.catch { OCSPReqBuilder().addRequest(certId).build() }.bind()
+            val ocspResp = getEncodedOCSPResponse(ocspReq.encoded, uri, httpClient).bind()
+            Either.catch { OCSPResp(ocspResp) }.bind()
+          }
           .fold(
               ifLeft = { throwable ->
                 when (throwable) {
@@ -198,7 +173,6 @@ object OcspUtil {
                     logger.warn("OCSP request failed, response not available: ${throwable.message}")
                     null.right() // unavailable
                   }
-
                   else -> (throwable.message ?: "Error during OCSP request").left()
                 }
               },
@@ -211,7 +185,6 @@ object OcspUtil {
                     logger.info("Internal error/try later. OCSP response error: ${resp.status}")
                     null.right() // unavailable
                   }
-
                   5 -> "Invalid or missing signature. OCSP response error: ${resp.status}".left()
                   6 -> "Unauthorized request. OCSP response error: ${resp.status}".left()
                   else -> "OCSP request is malformed. OCSP response error: ${resp.status}".left()
@@ -219,44 +192,27 @@ object OcspUtil {
               },
           )
 
-  private fun getEncodedOCSPResponse(
-      encodedOCSPReq: ByteArray,
-      responderURI: URI,
-      httpClient: CloseableHttpClient,
-      config: OcspConfig,
-  ): Either<Throwable, ByteArray> =
+  private fun getEncodedOCSPResponse(encodedOCSPReq: ByteArray, responderURI: URI, httpClient: CloseableHttpClient): Either<Throwable, ByteArray> =
       Either.catch {
-        val requestConfig =
-            RequestConfig.custom()
-                .setConnectTimeout(config.connectTimeoutMs)
-                .setConnectionRequestTimeout(config.connectTimeoutMs)
-                .setSocketTimeout(config.readTimeoutMs)
-                .build()
-        HttpPost(responderURI)
-            .apply {
-              setHeader("Content-Type", "application/ocsp-request")
-              entity = ByteArrayEntity(encodedOCSPReq)
-              this.config = requestConfig
-            }
-            .let { httpClient.execute(it) }
-      }
+            HttpPost(responderURI)
+                .apply {
+                  setHeader("Content-Type", "application/ocsp-request")
+                  entity = ByteArrayEntity(encodedOCSPReq)
+                }
+                .let { httpClient.execute(it) }
+          }
           .flatMap { response ->
             response.use { resp ->
               when (val statusCode = resp.statusLine.statusCode) {
                 200 -> EntityUtils.toByteArray(resp.entity).right()
                 else ->
-                  IOException("Connection error, unable to obtain revocation status from OCSP responder \"$responderURI\", code $statusCode\"")
-                      .left()
+                    IOException("Connection error, unable to obtain revocation status from OCSP responder \"$responderURI\", code $statusCode\"")
+                        .left()
               }
             }
           }
 
-  private fun verifyBasicResponse(
-      outer: OCSPResp,
-      issuer: X509Certificate,
-      issuers: KeystoreMetaService,
-      signers: KeystoreMetaService,
-  ): Either<String, SingleResp> {
+  private fun verifyBasicResponse(outer: OCSPResp, signers: KeystoreService): Either<String, SingleResp> {
     // ensure correct content
     if (outer.responseObject !is BasicOCSPResp) {
       return "OCSP responder returned an invalid OCSP response.".left()
@@ -281,14 +237,6 @@ object OcspUtil {
     // ensure signer is trusted
     if (!signers.hasCertificate(signer)) {
       return "OCSP signer is not trusted: ${signer.subjectX500Principal}".left()
-    }
-
-    // ensure signer and issuer belong to the same TSP
-    issuers.getTsp(issuer)?.let { issuerTsp ->
-      val signerTsp = signers.getTsp(signer)
-      if (issuerTsp != signerTsp) {
-        return "OCSP signer TSP '$signerTsp' does not match issuer TSP '$issuerTsp'".left()
-      }
     }
 
     return resp.responses[0].right()
@@ -333,9 +281,6 @@ object OcspUtil {
               }
           CertStatus.Revoked(status.revocationTime, reason.toString()).right()
         }
-
         else -> "unknown type of certificate status: ${status!!.javaClass.name}".left()
       }
-
-  private val rfcTime = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }
 }

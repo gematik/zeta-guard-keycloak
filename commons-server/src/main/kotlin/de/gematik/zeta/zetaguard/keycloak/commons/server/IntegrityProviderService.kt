@@ -23,24 +23,26 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
-import de.spree.keycloak.commons.configuration.SystemState
-import de.spree.keycloak.commons.configuration.SystemStateService
-import de.spree.keycloak.commons.integrityProviderEnabled
+import de.spree.keycloak.commons.configuration.SystemStatus
+import de.spree.keycloak.commons.configuration.SystemStatusService
 import io.quarkus.runtime.Startup
 import jakarta.enterprise.context.ApplicationScoped
 import jakarta.inject.Inject
+import java.lang.System.getenv
+
+private val IT_PROVIDER_ENABLED = (getenv(ENV_SPREE_INTEGRITY_ENABLED) ?: "false").toBoolean()
 
 @ApplicationScoped
 @Startup
 class IntegrityProviderService {
-  @Inject private lateinit var systemStateService: SystemStateService
+  @Inject private lateinit var systemStatusService: SystemStatusService
 
-  fun isIntegrityProviderEnabled() = integrityProviderEnabled
+  fun isIntegrityProviderEnabled() = IT_PROVIDER_ENABLED
 
   fun isIntegrityProviderRunning() =
-      systemStateService.currentSystemState().also {
-        if (it != SystemState.OPERATIONAL) {
+      systemStatusService.currentSystemStatus().also {
+        if (it != SystemStatus.RUNNING) {
           logger.warn("⚠️ Spree integrity provider is enabled but not yet initialized! Current status: $it")
         }
-      } == SystemState.OPERATIONAL
+      } == SystemStatus.RUNNING
 }

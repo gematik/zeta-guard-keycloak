@@ -24,8 +24,6 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
-import de.gematik.zeta.zetaguard.keycloak.plugins.logger
-import io.opentelemetry.context.Context.taskWrapping
 import jakarta.ws.rs.core.Response
 import java.util.concurrent.Executor
 import java.util.concurrent.LinkedBlockingQueue
@@ -35,7 +33,6 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import org.apache.http.impl.client.CloseableHttpClient
 import org.jboss.logging.Logger
-import org.keycloak.OAuth2Constants.AUTHORIZATION_CODE
 import org.keycloak.OAuth2Constants.REFRESH_TOKEN
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
 import org.keycloak.events.Errors
@@ -51,29 +48,27 @@ object OpaGateEnforcer {
     data class Error(val error: KeycloakError) : Outcome
   }
 
-  fun enforce(httpClient: CloseableHttpClient, opaGateInput: OpaGateInput, opaConfig: OPAConfig): Outcome {
+  fun enforce(httpClient: CloseableHttpClient?, opaGateInput: OpaGateInput, opaConfig: OPAConfig, log: Logger): Outcome {
     val grantType = opaGateInput.grantType
+    if (!isGatedGrant(grantType)) return Outcome.Skip
 
-    if (!isGatedGrant(grantType)) {
-      return Outcome.Skip
-    }
+    if (httpClient == null) return handleHttpClientUnavailable(log)
 
     val payloadJson = buildPayloadJson(opaGateInput)
-    logger.debugf("🛡 OPA TokenPolicy payload/input -> %s", payloadJson)
-    logger.debugf("🛡 OPA TokenPolicy decision endpoint -> %s%s", opaConfig.opaBaseUrl, opaConfig.decisionPath)
+    log.debugf("🛡 OPA TokenPolicy payload/input -> %s", payloadJson)
+    log.debugf("🛡 OPA TokenPolicy decision endpoint -> %s%s", opaConfig.opaBaseUrl, opaConfig.decisionPath)
 
-    val decision = OpaDecisionClient.evaluate(httpClient, opaConfig, payloadJson)
-    val outcome = mapDecisionToOutcome(decision)
+    val decision = OpaDecisionClient.evaluate(httpClient, opaConfig, payloadJson, log)
+    val outcome = mapDecisionToOutcome(decision, log)
 
-    if (opaConfig.simulationBaseUrl.isNotBlank()) submitSimulation(httpClient, opaConfig, payloadJson)
+    if (opaConfig.simulationBaseUrl.isNotBlank()) submitSimulation(httpClient, opaConfig, payloadJson, log)
 
     return outcome
   }
 
-  // Fire-and-forget pool for simulation calls — must never block the active OPA decision path.
-  // Bounded queue +
+  // Fire-and-forget pool for simulation calls — must never block the active OPA decision path. Bounded queue +
   // DiscardOldest sheds load by dropping stale payloads if the simulation engine falls behind.
-  internal var simulationExecutor: Executor = taskWrapping(createDefaultSimulationExecutor())
+  internal var simulationExecutor: Executor = createDefaultSimulationExecutor()
 
   private fun createDefaultSimulationExecutor(): Executor {
     val threadCounter = AtomicLong()
@@ -88,11 +83,11 @@ object OpaGateEnforcer {
     )
   }
 
-  private fun submitSimulation(httpClient: CloseableHttpClient, opaConfig: OPAConfig, payloadJson: String) {
+  private fun submitSimulation(httpClient: CloseableHttpClient, opaConfig: OPAConfig, payloadJson: String, log: Logger) {
     try {
-      simulationExecutor.execute { runSimulation(httpClient, opaConfig, payloadJson) }
+      simulationExecutor.execute { runSimulation(httpClient, opaConfig, payloadJson, log) }
     } catch (e: RejectedExecutionException) {
-      logger.warnf("🔮 OPA-Sim TokenPolicy submission rejected: %s", e.message)
+      log.warnf("🔮 OPA-Sim TokenPolicy submission rejected: %s", e.message)
     }
   }
 
@@ -101,16 +96,22 @@ object OpaGateEnforcer {
   private fun temporarilyUnavailable() = KeycloakError("temporarily_unavailable", "policy_unavailable", Response.Status.SERVICE_UNAVAILABLE)
 
   private fun isGatedGrant(grantType: String?) =
-      TOKEN_EXCHANGE_GRANT_TYPE.equals(grantType, ignoreCase = true) ||
-          REFRESH_TOKEN.equals(grantType, ignoreCase = true) ||
-          AUTHORIZATION_CODE.equals(grantType, ignoreCase = true)
+      TOKEN_EXCHANGE_GRANT_TYPE.equals(grantType, ignoreCase = true) || REFRESH_TOKEN.equals(grantType, ignoreCase = true)
 
-  private fun buildPayloadJson(input: OpaGateInput): String = OpaPayloadBuilder.build(OpaPayloadBuilder.payloadParamsFromInput(input))
+  private fun handleHttpClientUnavailable(log: Logger): Outcome {
+    log.warn("🛡 OPA TokenPolicy HttpClient unavailable -> 503")
+    return Outcome.Error(temporarilyUnavailable())
+  }
 
-  private fun mapDecisionToOutcome(decision: Decision): Outcome =
+  private fun buildPayloadJson(input: OpaGateInput): String =
+      OpaPayloadBuilder.build(
+          OpaPayloadBuilder.payloadParamsFromInput(input)
+      )
+
+  private fun mapDecisionToOutcome(decision: Decision, log: Logger): Outcome =
       when (decision) {
         is Decision.Allow -> {
-          logger.infof(
+          log.infof(
               "🛡 OPA TokenPolicy decision result=true -> ALLOW (access_ttl=%s, refresh_ttl=%s)",
               decision.accessTokenTtl,
               decision.refreshTokenTtl,
@@ -120,35 +121,35 @@ object OpaGateEnforcer {
 
         is Decision.Deny -> {
           val reasonsText = formatReasons(decision.reasons)
-          logger.infof("🛡 OPA TokenPolicy decision result=false -> DENY reasons=%s", reasonsText)
+          log.infof("🛡 OPA TokenPolicy decision result=false -> DENY reasons=%s", reasonsText)
           Outcome.Deny(policyDenied())
         }
 
         is Decision.Error -> {
-          logger.warn("🛡 OPA TokenPolicy: could not obtain decision -> 503")
+          log.warn("🛡 OPA TokenPolicy: could not obtain decision -> 503")
           Outcome.Error(temporarilyUnavailable())
         }
       }
 
-  private fun runSimulation(httpClient: CloseableHttpClient, opaConfig: OPAConfig, payloadJson: String) {
+  private fun runSimulation(httpClient: CloseableHttpClient, opaConfig: OPAConfig, payloadJson: String, log: Logger) {
     try {
       val simConfig = opaConfig.copy(opaBaseUrl = opaConfig.simulationBaseUrl)
-      logger.debugf("🔮 OPA-Sim TokenPolicy decision endpoint -> %s%s", simConfig.opaBaseUrl, simConfig.decisionPath)
-      val decision = OpaDecisionClient.evaluate(httpClient, simConfig, payloadJson)
-      logSimDecision(decision, logger)
+      log.debugf("🔮 OPA-Sim TokenPolicy decision endpoint -> %s%s", simConfig.opaBaseUrl, simConfig.decisionPath)
+      val decision = OpaDecisionClient.evaluate(httpClient, simConfig, payloadJson, log)
+      logSimDecision(decision, log)
     } catch (e: Exception) {
-      logger.warnf(e, "🔮 OPA-Sim TokenPolicy unexpected error")
+      log.warnf(e, "🔮 OPA-Sim TokenPolicy unexpected error")
     }
   }
 
   private fun logSimDecision(decision: Decision, log: Logger) =
       when (decision) {
         is Decision.Allow ->
-          log.infof(
-              "🔮 OPA-Sim TokenPolicy result=true -> ALLOW (access_ttl=%s, refresh_ttl=%s)",
-              decision.accessTokenTtl,
-              decision.refreshTokenTtl,
-          )
+            log.infof(
+                "🔮 OPA-Sim TokenPolicy result=true -> ALLOW (access_ttl=%s, refresh_ttl=%s)",
+                decision.accessTokenTtl,
+                decision.refreshTokenTtl,
+            )
 
         is Decision.Deny -> log.infof("🔮 OPA-Sim TokenPolicy result=false -> DENY reasons=%s", formatReasons(decision.reasons))
         is Decision.Error -> log.warnf("🔮 OPA-Sim TokenPolicy error getting decision")

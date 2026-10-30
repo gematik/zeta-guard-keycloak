@@ -1,5 +1,4 @@
 #!/bin/bash
-set -eo pipefail
 
 # Registers the HSM token signing KeyProvider component in each realm and removes
 # software signing keys (rsa-generated, ecdsa-generated).

@@ -1,5 +1,4 @@
 #!/bin/bash
-set -eo pipefail
 
 ./kcadm.sh get users -r master -q username="$KEYCLOAK_USER" | jq -r .[] > admin.json
 

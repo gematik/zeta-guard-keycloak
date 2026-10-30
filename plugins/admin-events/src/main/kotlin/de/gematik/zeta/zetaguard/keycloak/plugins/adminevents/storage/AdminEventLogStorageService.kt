@@ -25,8 +25,15 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_GENESIS_HASH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
-import de.gematik.zeta.zetaguard.keycloak.jpa.EntityManagerCreator
 import jakarta.persistence.EntityManager
+import org.keycloak.connections.jpa.JpaConnectionProvider
+import org.keycloak.models.KeycloakSession
+
+typealias EntityManagerCreator = () -> EntityManager
+
+class DefaultEMCreator(private val keycloakSession: KeycloakSession) : EntityManagerCreator {
+  override fun invoke(): EntityManager = keycloakSession.entityManager
+}
 
 /**
  * Service for managing admin event logs in the Keycloak database.
@@ -34,10 +41,10 @@ import jakarta.persistence.EntityManager
  * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_26269
  *
  * This service provides methods to retrieve the previous hash, find all admin event logs, and save new admin event log entries.
+ *
+ * @property emCreator A lambda that provides an [EntityManager] instance for database operations.
  */
-class AdminEventLogStorageService
-/** @param emCreator A lambda that provides an [EntityManager] instance for database operations. */
-constructor(emCreator: EntityManagerCreator) {
+class AdminEventLogStorageService(emCreator: EntityManagerCreator) {
   private val entityManager by lazy { emCreator.invoke() }
 
   /**
@@ -71,3 +78,6 @@ constructor(emCreator: EntityManagerCreator) {
     val GENESIS_HASH: String by lazy { safeGetenv(ENV_GENESIS_HASH) }
   }
 }
+
+val KeycloakSession.entityManager: EntityManager
+  get() = getProvider(JpaConnectionProvider::class.java).entityManager

@@ -21,6 +21,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
+
 package org.keycloak.protocol.oidc.mappers;
 
 import org.keycloak.models.ClientSessionContext;
