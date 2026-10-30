@@ -76,6 +76,10 @@ fi
 # shellcheck disable=SC2164
 cd /opt/keycloak/bin
 
+# Disable Keycloak's own client registration endpoints, only 𝝵-Guard DCR (/clients-registrations/openid-connect) is supported.
+KC_SPI_CLIENT_REGISTRATION__DEFAULT__ENABLED=false \
+KC_SPI_CLIENT_REGISTRATION__INSTALL__ENABLED=false \
+KC_SPI_CLIENT_REGISTRATION__SAML2_ENTITY_DESCRIPTOR__ENABLED=false \
 KC_DEBUG=false ./kc.sh build
 
 rm -f /opt/keycloak/data/*.jfr

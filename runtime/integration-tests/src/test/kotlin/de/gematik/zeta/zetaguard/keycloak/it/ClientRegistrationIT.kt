@@ -57,7 +57,11 @@ import java.time.LocalDateTime
 import kotlin.time.Duration.Companion.seconds
 import org.apache.http.HttpStatus.SC_BAD_REQUEST
 import org.apache.http.HttpStatus.SC_FORBIDDEN
+import org.apache.http.HttpStatus.SC_NOT_FOUND
 import org.apache.http.HttpStatus.SC_UNAUTHORIZED
+import org.apache.http.client.methods.RequestBuilder.post
+import org.apache.http.entity.ContentType.APPLICATION_JSON
+import org.apache.http.entity.StringEntity
 import org.keycloak.OAuthErrorException.INVALID_CLIENT
 import org.keycloak.OAuthErrorException.INVALID_TOKEN
 import org.keycloak.models.jpa.entities.ClientAttributeEntity
@@ -89,6 +93,20 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
               issuedFor = oidcClientResponse.clientId,
               certificateChain = listOf(smcb.leafCertificate),
           )
+    }
+
+    test("Keycloak's own client registration providers are disabled") {
+      // See ClientRegistrationService.DEPRECATED_PROVIDER_IDS
+      listOf("default", "install", "saml2-entity-descriptor").forEach { provider ->
+        val request =
+            post(keycloakWebClient.uriBuilder().createUri("/realms/{realm-name}/clients-registrations/$provider", ZETA_REALM))
+                .setEntity(StringEntity("{}", APPLICATION_JSON))
+                .build()
+
+        keycloakWebClient.httpClient().execute(request).use {
+          withClue(provider) { it.statusLine.statusCode shouldBe SC_NOT_FOUND }
+        }
+      }
     }
 
     test("Token exchange using OIDC, DPoP and client_assertion") {

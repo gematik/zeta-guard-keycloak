@@ -18,6 +18,12 @@ COPY maven/providers/*.jar providers/
 # Effectively an optional COPY through wildcard and activated maven profile
 COPY maven/${async.profiler}-* /opt/keycloak/${async.profiler}
 
+# Disable Keycloak's own client registration endpoints, only 𝝵-Guard DCR (/clients-registrations/openid-connect) is supported.
+# Build-time option, also needed in the runtime stage since startup.sh re-runs kc.sh build
+ENV KC_SPI_CLIENT_REGISTRATION__DEFAULT__ENABLED=false
+ENV KC_SPI_CLIENT_REGISTRATION__INSTALL__ENABLED=false
+ENV KC_SPI_CLIENT_REGISTRATION__SAML2_ENTITY_DESCRIPTOR__ENABLED=false
+
 RUN /opt/keycloak/bin/kc.sh build
 
 # Keycloak runtime
