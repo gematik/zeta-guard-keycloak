@@ -51,11 +51,11 @@ class ProxyTest : FunSpec() {
 
     test("Intercept method call") {
       val augmenter =
-        object : MethodAugmenter<TokenManager> {
-          override fun execute(delegate: TokenManager, method: Method, args: Array<out Any?>) = builder
+          object : MethodAugmenter<TokenManager> {
+            override fun execute(delegate: TokenManager, method: Method, args: Array<out Any?>) = builder
 
-          override fun isAugmentedMethod(method: Method) = method.name == "responseBuilder"
-        }
+            override fun isAugmentedMethod(method: Method) = method.name == "responseBuilder"
+          }
 
       val proxy = createProxy(delegate, augmenter)
 

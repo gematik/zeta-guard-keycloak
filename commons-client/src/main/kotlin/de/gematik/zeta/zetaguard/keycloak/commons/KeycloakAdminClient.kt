@@ -33,7 +33,7 @@ import org.keycloak.admin.client.Keycloak
  * @param hostname The hostname of the Keycloak server.
  * @param port The port of the Keycloak server.
  */
-open class KeycloakAdminClient(val hostname: String = KC_HOST, val port: Int = KC_PORT, val scheme: String = "http", val path: String = "") {
+open class KeycloakAdminClient(val hostname: String, val port: Int, val scheme: String = "http", val path: String = "") {
   fun uriBuilder() = KeycloakUriBuilder(hostname, port, scheme, path)
 
   fun <R> withKeycloak(

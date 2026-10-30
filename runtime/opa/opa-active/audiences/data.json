@@ -2,6 +2,10 @@
   "allowed_audiences": [
     "http://localhost:18080",
     "http://localhost:18080/",
+    "http://tardis.fritz.box:18080",
+    "http://tardis.fritz.box:18080/",
+    "http://tolot.fritz.box:18080",
+    "http://tolot.fritz.box:18080/",
     "https://example.com/testresource",
     "https://some-service.de/api/v1",
     "https://zeta-cd.spree.de/",

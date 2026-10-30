@@ -54,16 +54,17 @@ private val MAX_CLIENTS = System.getenv(ENV_MAX_CLIENTS) ?: "256"
  */
 open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityProviderConfig) : OIDCIdentityProvider(session, config) {
   private fun profile(subject: String, email: String, name: String, preferredUsername: String, givenName: String, familyName: String) =
-    ObjectMapper()
-      .readTree(
-        """{
+      ObjectMapper()
+          .readTree(
+              """{
               "sub": "$subject",
               "name": "$name",
               "given_name": "$givenName",
               "family_name": "$familyName",
               "preferred_username": "$preferredUsername",
               "email": "$email"
-            }""")
+            }"""
+          )
 
   /**
    * Inspired by [org.keycloak.broker.oidc.AbstractOAuth2IdentityProvider.validateExternalTokenThroughUserInfo] which is called by the legacy V1
@@ -78,22 +79,11 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
     val username = subject.toSpicyHash()
     val mailaddress = mailaddress(username)
 
-    return extractIdentityFromProfile(
-        tokenExchangeContext.event,
-        profile(
-          username,
-          mailaddress,
-          username,
-          mailaddress,
-          username,
-          username,
-        ),
-      )
-      .apply {
-        contextData[EXCHANGE_PROVIDER] = config.alias
-        idp = this@SMCBIdentityProvider
-        modelUsername = username
-      }
+    return extractIdentityFromProfile(tokenExchangeContext.event, profile(username, mailaddress, username, mailaddress, username, username)).apply {
+      contextData[EXCHANGE_PROVIDER] = config.alias
+      idp = this@SMCBIdentityProvider
+      modelUsername = username
+    }
   }
 
   override fun importNewUser(session: KeycloakSession, realm: RealmModel, user: UserModel, context: BrokeredIdentityContext) {

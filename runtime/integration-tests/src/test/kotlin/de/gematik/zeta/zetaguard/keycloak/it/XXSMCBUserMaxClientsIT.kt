@@ -52,27 +52,28 @@ class XXSMCBUserMaxClientsIT : ZetaGuardFunSpecIT() {
         val oidcClientResponse1 = keycloakWebClient.createClientOIDC(clientAssertionTokenGenerator.keys.jwks).shouldBeRight().reponseObject
         val nonce = createNonce()
         val smbcToken =
-          smcbTokenGenerator.generateSMCBToken(
-            nonceString = nonce,
-            audiences = smcbTokenAudience,
-            issuer = oidcClientResponse1.clientId,
-            issuedFor = oidcClientResponse1.clientId,
-            certificateChain = listOf(leafCertificate),
-          )
+            smcbTokenGenerator.generateSMCBToken(
+                nonceString = nonce,
+                audiences = smcbTokenAudience,
+                issuer = oidcClientResponse1.clientId,
+                issuedFor = oidcClientResponse1.clientId,
+                certificateChain = listOf(leafCertificate),
+            )
         val jws = clientAssertionTokenGenerator.generateClientAssertion(oidcClientResponse1, nonce)
         val dPoPToken = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smbcToken)
 
         keycloakWebClient
-          .tokenExchange(
-            clientId = oidcClientResponse1.clientId,
-            subjectToken = smbcToken,
-            subjectTokenType = JWT_TOKEN_TYPE,
-            requestedClientScope = CLIENT_B_SCOPE,
-            clientAssertionType = CLIENT_ASSERTION_TYPE_JWT,
-            clientAssertion = jws,
-            dPoPToken = dPoPToken,
-          )
-          .onLeft { error = it }
+            .tokenExchange(
+                clientId = oidcClientResponse1.clientId,
+                subjectToken = smbcToken,
+                subjectTokenType = JWT_TOKEN_TYPE,
+                requestedClientScope = CLIENT_B_SCOPE,
+                clientAssertionType = CLIENT_ASSERTION_TYPE_JWT,
+                clientAssertion = jws,
+                dPoPToken = dPoPToken,
+                audience = "http://localhost:18080",
+            )
+            .onLeft { error = it }
         i++
       }
 

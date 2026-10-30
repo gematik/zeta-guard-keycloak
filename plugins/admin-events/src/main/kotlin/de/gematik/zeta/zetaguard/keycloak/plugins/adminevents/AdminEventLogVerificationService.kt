@@ -30,8 +30,8 @@ import arrow.core.raise.either
 import arrow.core.raise.ensure
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.AdminEventLoggerProvider.Companion.calculateHash
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService
-import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService.Companion.GENESIS_MARKER
 import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService.Companion.GENESIS_HASH
+import de.gematik.zeta.zetaguard.keycloak.plugins.adminevents.storage.AdminEventLogStorageService.Companion.GENESIS_MARKER
 
 /**
  * Service for verifying the integrity of the admin event log chain.

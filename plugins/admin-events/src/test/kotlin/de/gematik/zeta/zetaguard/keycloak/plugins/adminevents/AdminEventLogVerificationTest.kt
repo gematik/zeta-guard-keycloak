@@ -34,9 +34,7 @@ class AdminEventLogVerificationTest : AbstractAdminEventLoggerTest() {
   private lateinit var adminEventLogVerificationService: AdminEventLogVerificationService
 
   init {
-    beforeTest {
-      adminEventLogVerificationService = AdminEventLogVerificationService(adminEventLogStorageService)
-    }
+    beforeTest { adminEventLogVerificationService = AdminEventLogVerificationService(adminEventLogStorageService) }
 
     context("AdminEventLog verification") {
       test("valid chain") {

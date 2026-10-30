@@ -42,10 +42,15 @@ class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
       val nonce = createNonce()
       val otherClaims = createOtherClaims(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys).toMutableMap()
       val invalidStatement =
-        clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, productId = AppleProductId("macos", listOf("bundle")))
+          clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, productId = AppleProductId("macos", listOf("bundle")))
       otherClaims[CLAIM_CLIENT_STATEMENT] = invalidStatement
 
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, otherClaims = otherClaims)
+      val jwt =
+          clientAssertionTokenGenerator.generateClientAssertion(
+              audiences = listOf(clientAssertionAudience),
+              nonceString = nonce,
+              otherClaims = otherClaims,
+          )
       val smcbToken = createSMCBToken(nonce)
 
       keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid combination" }
@@ -59,7 +64,12 @@ class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
       val invalidStatement = clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, timeStampSeconds = 12)
       otherClaims[CLAIM_CLIENT_STATEMENT] = invalidStatement
 
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, otherClaims = otherClaims)
+      val jwt =
+          clientAssertionTokenGenerator.generateClientAssertion(
+              audiences = listOf(clientAssertionAudience),
+              nonceString = nonce,
+              otherClaims = otherClaims,
+          )
       val smcbToken = createSMCBToken(nonce)
 
       keycloakWebClient.testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid attestation timestamp" }

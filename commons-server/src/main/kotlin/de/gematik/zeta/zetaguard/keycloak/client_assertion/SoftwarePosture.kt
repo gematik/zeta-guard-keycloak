@@ -33,26 +33,28 @@ private const val ATTESTATION_CHALLENGE = "attestation_challenge"
 
 class SoftwarePosture
 @ConstructorProperties(
-  PROPERTY_PLATFORM_PRODUCT_ID,
-  PROPERTY_PRODUCT_ID,
-  PROPERTY_PRODUCT_VERSION,
-  PROPERTY_OS,
-  PROPERTY_OS_VERSION,
-  PROPERTY_ARCHITECTURE,
-  PUBLIC_KEY,
-  ATTESTATION_CHALLENGE)
+    PROPERTY_PLATFORM_PRODUCT_ID,
+    PROPERTY_PRODUCT_ID,
+    PROPERTY_PRODUCT_VERSION,
+    PROPERTY_OS,
+    PROPERTY_OS_VERSION,
+    PROPERTY_ARCHITECTURE,
+    PUBLIC_KEY,
+    ATTESTATION_CHALLENGE,
+)
 constructor(
-  platformProductId: ProductId,
-  productId: String,
-  productVersion: String,
-  @field:JsonPropertyDescription("Operating system name") @field:JsonProperty(PROPERTY_OS) val os: String,
-  @field:JsonPropertyDescription("Operating system version") @field:JsonProperty(PROPERTY_OS_VERSION) val osVersion: String,
-  @field:JsonPropertyDescription("Hardware Architecture") @field:JsonProperty(PROPERTY_ARCHITECTURE) val arch: String,
-  @field:JsonPropertyDescription("The public self-signed signing key (PEM or base64 DER encoded).")
-  @field:JsonProperty(PUBLIC_KEY)
-  val publicKey: String,
-  @field:JsonPropertyDescription(
-    "The attestation challenge of the client instance, used to verify the public client instance key and the nonce from AS.")
-  @field:JsonProperty(ATTESTATION_CHALLENGE)
-  val attestationChallenge: String
+    platformProductId: ProductId?,
+    productId: String,
+    productVersion: String,
+    @field:JsonPropertyDescription("Operating system name") @field:JsonProperty(PROPERTY_OS) val os: String,
+    @field:JsonPropertyDescription("Operating system version") @field:JsonProperty(PROPERTY_OS_VERSION) val osVersion: String,
+    @field:JsonPropertyDescription("Hardware Architecture") @field:JsonProperty(PROPERTY_ARCHITECTURE) val arch: String,
+    @field:JsonPropertyDescription("The public self-signed signing key (PEM or base64 DER encoded).")
+    @field:JsonProperty(PUBLIC_KEY)
+    val publicKey: String,
+    @field:JsonPropertyDescription(
+        "The attestation challenge of the client instance, used to verify the public client instance key and the nonce from AS."
+    )
+    @field:JsonProperty(ATTESTATION_CHALLENGE)
+    val attestationChallenge: String,
 ) : Posture(platformProductId, productId, productVersion)

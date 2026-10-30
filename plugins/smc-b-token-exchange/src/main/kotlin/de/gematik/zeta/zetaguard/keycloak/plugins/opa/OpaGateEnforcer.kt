@@ -33,6 +33,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 import org.apache.http.impl.client.CloseableHttpClient
 import org.jboss.logging.Logger
+import org.keycloak.OAuth2Constants.REFRESH_TOKEN
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
 import org.keycloak.events.Errors
 
@@ -49,16 +50,16 @@ object OpaGateEnforcer {
 
   fun enforce(httpClient: CloseableHttpClient?, opaGateInput: OpaGateInput, opaConfig: OPAConfig, log: Logger): Outcome {
     val grantType = opaGateInput.grantType
-    if (!isTokenExchangeGrant(grantType)) return Outcome.Skip
+    if (!isGatedGrant(grantType)) return Outcome.Skip
 
-    if (httpClient == null) return handleHttpClientUnavailable(opaConfig, log)
+    if (httpClient == null) return handleHttpClientUnavailable(log)
 
     val payloadJson = buildPayloadJson(opaGateInput)
     log.debugf("🛡 OPA TokenPolicy payload/input -> %s", payloadJson)
     log.debugf("🛡 OPA TokenPolicy decision endpoint -> %s%s", opaConfig.opaBaseUrl, opaConfig.decisionPath)
 
     val decision = OpaDecisionClient.evaluate(httpClient, opaConfig, payloadJson, log)
-    val outcome = mapDecisionToOutcome(decision, opaConfig, log)
+    val outcome = mapDecisionToOutcome(decision, log)
 
     if (opaConfig.simulationBaseUrl.isNotBlank()) submitSimulation(httpClient, opaConfig, payloadJson, log)
 
@@ -94,27 +95,20 @@ object OpaGateEnforcer {
 
   private fun temporarilyUnavailable() = KeycloakError("temporarily_unavailable", "policy_unavailable", Response.Status.SERVICE_UNAVAILABLE)
 
-  private fun isTokenExchangeGrant(grantType: String?) = TOKEN_EXCHANGE_GRANT_TYPE.equals(grantType, ignoreCase = true)
+  private fun isGatedGrant(grantType: String?) =
+      TOKEN_EXCHANGE_GRANT_TYPE.equals(grantType, ignoreCase = true) || REFRESH_TOKEN.equals(grantType, ignoreCase = true)
 
-  private fun handleHttpClientUnavailable(opaConfig: OPAConfig, log: Logger): Outcome {
-    log.warnf("🛡 OPA TokenPolicy HttpClient unavailable; failClosed=%s -> %s", opaConfig.failClosed, if (opaConfig.failClosed) "503" else "ALLOW")
-    return if (opaConfig.failClosed) Outcome.Error(temporarilyUnavailable()) else Outcome.Allow()
+  private fun handleHttpClientUnavailable(log: Logger): Outcome {
+    log.warn("🛡 OPA TokenPolicy HttpClient unavailable -> 503")
+    return Outcome.Error(temporarilyUnavailable())
   }
 
   private fun buildPayloadJson(input: OpaGateInput): String =
       OpaPayloadBuilder.build(
-          OpaPayloadBuilder.PayloadParams(
-              scopes = input.scopes,
-              audiences = input.audiences,
-              grantType = input.grantType,
-              ipAddress = input.ipAddress,
-              professionOid = input.professionOid,
-              productId = input.productID,
-              productVersion = input.productVersion
-          )
+          OpaPayloadBuilder.payloadParamsFromInput(input)
       )
 
-  private fun mapDecisionToOutcome(decision: Decision, opaConfig: OPAConfig, log: Logger): Outcome =
+  private fun mapDecisionToOutcome(decision: Decision, log: Logger): Outcome =
       when (decision) {
         is Decision.Allow -> {
           log.infof(
@@ -132,8 +126,8 @@ object OpaGateEnforcer {
         }
 
         is Decision.Error -> {
-          log.warnf("🛡 OPA TokenPolicy: could not obtain decision; failClosed=%s -> %s", opaConfig.failClosed, if (opaConfig.failClosed) "503" else "ALLOW")
-          if (opaConfig.failClosed) Outcome.Error(temporarilyUnavailable()) else Outcome.Allow()
+          log.warn("🛡 OPA TokenPolicy: could not obtain decision -> 503")
+          Outcome.Error(temporarilyUnavailable())
         }
       }
 
@@ -151,16 +145,13 @@ object OpaGateEnforcer {
   private fun logSimDecision(decision: Decision, log: Logger) =
       when (decision) {
         is Decision.Allow ->
-          log.infof(
-              "🔮 OPA-Sim TokenPolicy result=true -> ALLOW (access_ttl=%s, refresh_ttl=%s)",
-              decision.accessTokenTtl,
-              decision.refreshTokenTtl,
-          )
-        is Decision.Deny ->
-          log.infof(
-              "🔮 OPA-Sim TokenPolicy result=false -> DENY reasons=%s",
-              formatReasons(decision.reasons),
-          )
+            log.infof(
+                "🔮 OPA-Sim TokenPolicy result=true -> ALLOW (access_ttl=%s, refresh_ttl=%s)",
+                decision.accessTokenTtl,
+                decision.refreshTokenTtl,
+            )
+
+        is Decision.Deny -> log.infof("🔮 OPA-Sim TokenPolicy result=false -> DENY reasons=%s", formatReasons(decision.reasons))
         is Decision.Error -> log.warnf("🔮 OPA-Sim TokenPolicy error getting decision")
       }
 

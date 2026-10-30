@@ -88,10 +88,7 @@ object OpaDecisionClient {
 
     if (resultNode == null) {
       val decisionId = node["decision_id"]?.asText() ?: "unknown"
-      log.warnf(
-          "OPA TokenPolicy response has no 'result' field (decision_id=%s) — bundle may not be loaded or policy path is wrong",
-          decisionId,
-      )
+      log.warnf("OPA TokenPolicy response has no 'result' field (decision_id=%s) — bundle may not be loaded or policy path is wrong", decisionId)
       return Decision.Error(null)
     }
 

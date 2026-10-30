@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>1.0.1</version>
+        <version>1.2.4</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -116,19 +116,19 @@
                                 <artifactItem>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>well-known-provider</artifactId>
-                                    <destFileName>well-known-provider.jar</destFileName>
+                                    <destFileName>zeta-well-known-provider.jar</destFileName>
                                 </artifactItem>
 
                                 <artifactItem>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>access-token-mapper</artifactId>
-                                    <destFileName>access-token-mapper.jar</destFileName>
+                                    <destFileName>zeta-access-token-mapper.jar</destFileName>
                                 </artifactItem>
 
                                 <artifactItem>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>commons-server</artifactId>
-                                    <destFileName>commons-server.jar</destFileName>
+                                    <destFileName>zeta-commons-server.jar</destFileName>
                                 </artifactItem>
 
                                 <artifactItem>
@@ -156,11 +156,22 @@
                                     <artifactId>arrow-atomic-jvm</artifactId>
                                 </artifactItem>
 
-                                <!--
-                                    HSM Proxy Provider — fat JAR produced by hsm-proxy-provider.
-                                    Bundles java-hsm-proxy-provider and all gRPC/protobuf runtime deps.
-                                    Keycloak classes are excluded (already on the Keycloak classloader).
-                                -->
+                                <!-- Transitively required by arrow-core 2.1.x; was previously only visible because
+                                     spree-encryption-provider's fat-jar bundled it. Making it explicit so Keycloak
+                                     boots even when Spree is disabled (SPREE_INTEGRITY_ENABLED=false). -->
+                                <artifactItem>
+                                    <groupId>org.jetbrains.kotlinx</groupId>
+                                    <artifactId>kotlinx-datetime-jvm</artifactId>
+                                    <version>0.6.2</version>
+                                </artifactItem>
+
+                                <artifactItem>
+                                    <groupId>com.fasterxml.jackson.module</groupId>
+                                    <artifactId>jackson-module-kotlin</artifactId>
+                                </artifactItem>
+
+                                <!-- Shaded JCA provider; also added to bootstrap classpath by startup.sh
+                                     so `security.provider.2=HSMPROXY` resolves at JVM init. -->
                                 <artifactItem>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>hsm-proxy-provider</artifactId>
@@ -168,16 +179,33 @@
                                     <destFileName>zeta-hsm-proxy-provider.jar</destFileName>
                                 </artifactItem>
 
-                                <!--
-                                    HSM Token Signing — thin JAR; gRPC deps are already on the
-                                    classpath via zeta-hsm-proxy-provider.jar above.
-                                -->
+                                <!-- Thin SPI factory; reuses gRPC from zeta-hsm-proxy-provider.jar above. -->
                                 <artifactItem>
                                     <groupId>${project.groupId}</groupId>
                                     <artifactId>hsm-token-signing</artifactId>
                                     <destFileName>zeta-hsm-token-signing.jar</destFileName>
                                 </artifactItem>
 
+                                <artifactItem>
+                                    <groupId>de.spree.keycloak</groupId>
+                                    <artifactId>commons-server</artifactId>
+                                    <destFileName>spree-commons-server.jar</destFileName>
+                                </artifactItem>
+
+                                <artifactItem>
+                                    <groupId>de.spree.keycloak</groupId>
+                                    <artifactId>encryption-provider</artifactId>
+                                    <destFileName>spree-encryption-provider.jar</destFileName>
+                                </artifactItem>
+
+                                <!-- DEBUG encryption
+                                <artifactItem>
+                                    <groupId>de.spree.keycloak</groupId>
+                                    <artifactId>it-provider</artifactId>
+                                    <version>${spree-integrity-provider.version}</version>
+                                    <destFileName>spree-it.jar</destFileName>
+                                </artifactItem>
+                                -->
                             </artifactItems>
 
                             <overWriteReleases>true</overWriteReleases>

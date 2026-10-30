@@ -158,10 +158,10 @@ fun PublicKey.createVerifierContext(): SignatureVerifierContext {
 fun KeyPair.createSignerContext(): SignatureSignerContext {
   val jwk = public.createJWK()
   val key =
-    getKeyWrapper(jwk, true).apply {
-      publicKey = public
-      privateKey = private
-    }
+      getKeyWrapper(jwk, true).apply {
+        publicKey = public
+        privateKey = private
+      }
 
   return when (public) {
     is ECPublicKey -> ECDSASignatureSignerContext(key)
@@ -172,25 +172,25 @@ fun KeyPair.createSignerContext(): SignatureSignerContext {
 }
 
 fun PublicKey.createJWK(): JWK =
-  when (this) {
-    is ECPublicKey -> JWKBuilder.create().ec(this)
-    is RSAPublicKey -> JWKBuilder.create().rs256(this)
+    when (this) {
+      is ECPublicKey -> JWKBuilder.create().ec(this)
+      is RSAPublicKey -> JWKBuilder.create().rs256(this)
 
-    else -> throw unsupportedOperationException()
-  }
+      else -> throw unsupportedOperationException()
+    }
 
 fun KeyPair.signingAlgorithm() =
-  when (public) {
-    is ECPublicKey -> ECDSA_SIGNATURE_ALGORITHM
-    is RSAPublicKey -> RSA_SIGNATURE_ALGORITHM
+    when (public) {
+      is ECPublicKey -> ECDSA_SIGNATURE_ALGORITHM
+      is RSAPublicKey -> RSA_SIGNATURE_ALGORITHM
 
-    else -> throw unsupportedOperationException()
-  }
+      else -> throw unsupportedOperationException()
+    }
 
 fun KeyPair.unsupportedOperationException() = public.unsupportedOperationException()
 
 fun PublicKey.unsupportedOperationException(): UnsupportedOperationException =
-  UnsupportedOperationException("Public key type $javaClass not supported.")
+    UnsupportedOperationException("Public key type $javaClass not supported.")
 
 fun JWK.toPublicKey(): PublicKey = JWKParser.create(this).toPublicKey()
 
@@ -203,14 +203,14 @@ fun String.toJWKS(): JSONWebKeySet = toObject<JSONWebKeySet>()
  * raw P-256 form).
  */
 fun String.toPublicKey(): Either<String, PublicKey> =
-  Either.catch {
-      if (isPEMFormat()) {
-        PemUtils.decodePublicKey(this)
-      } else {
-        decodeECPublicKey()
-      }
-    }
-    .mapLeft { it.message ?: "Could not extract public key from $this" }
+    Either.catch {
+          if (isPEMFormat()) {
+            PemUtils.decodePublicKey(this)
+          } else {
+            decodeECPublicKey()
+          }
+        }
+        .mapLeft { it.message ?: "Could not extract public key from $this" }
 
 /**
  * Decode a base64-encoded EC public key into a Java PublicKey instance.
@@ -224,23 +224,23 @@ private fun String.decodeECPublicKey(): PublicKey {
   val rawBytes = fromBase64()
 
   val bytes =
-    when (rawBytes.size) {
-      // Raw P-256 key without magic header
-      64 ->
-        ByteArray(65).apply {
-          this[0] = P256_MAGIC
-          System.arraycopy(rawBytes, 0, this, 1, 64)
+      when (rawBytes.size) {
+        // Raw P-256 key without magic header
+        64 ->
+            ByteArray(65).apply {
+              this[0] = P256_MAGIC
+              System.arraycopy(rawBytes, 0, this, 1, 64)
+            }
+        // Raw P-256 key
+        65 -> {
+          require(rawBytes[0] == P256_MAGIC) { "Expected 0x04 byte header for P-256 key" }
+          rawBytes
         }
-      // Raw P-256 key
-      65 -> {
-        require(rawBytes[0] == P256_MAGIC) { "Expected 0x04 byte header for P-256 key" }
-        rawBytes
+        else -> {
+          val spec = X509EncodedKeySpec(rawBytes)
+          return KeyFactory.getInstance("EC", PROVIDER_NAME).generatePublic(spec)
+        }
       }
-      else -> {
-        val spec = X509EncodedKeySpec(rawBytes)
-        return KeyFactory.getInstance("EC", PROVIDER_NAME).generatePublic(spec)
-      }
-    }
 
   val params = ECNamedCurveTable.getParameterSpec(EC_CURVE_P256)
   val point = params.curve.decodePoint(bytes)

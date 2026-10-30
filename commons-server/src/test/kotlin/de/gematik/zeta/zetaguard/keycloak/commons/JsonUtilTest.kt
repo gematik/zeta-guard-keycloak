@@ -40,10 +40,10 @@ class JsonUtilTest : FunSpec() {
   init {
     test("Copy refresh token") {
       val accessToken =
-        AccessToken().apply {
-          subject = "jens"
-          sessionId = "sid"
-        }
+          AccessToken().apply {
+            subject = "jens"
+            sessionId = "sid"
+          }
       val refreshToken = RefreshToken(accessToken).apply { audience("HiFidelity") }
       val newRefreshToken = refreshToken.toJSON().toObjectWithCreator<MyRefreshToken>(mapOf("token" to refreshToken))
 

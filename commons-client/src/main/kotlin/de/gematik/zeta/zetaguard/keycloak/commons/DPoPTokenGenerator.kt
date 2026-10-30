@@ -44,14 +44,14 @@ object DPoPTokenGenerator : AbstractTokenGenerator() {
     val jwsRsaHeader = JWSHeader(DPOP_DEFAULT_ALGORITHM, DPOP_JWT_HEADER_TYPE, keys.jwk.keyId, keys.jwk)
 
     return DPoPGenerator()
-      .generateSignedDPoPProof(
-        SecretGenerator.getInstance().generateSecureID(),
-        HttpMethod.POST,
-        endpointURL.toString(),
-        currentTime().toLong(),
-        jwsRsaHeader,
-        keys.keypair.private,
-        accessToken,
-      )
+        .generateSignedDPoPProof(
+            SecretGenerator.getInstance().generateSecureID(),
+            HttpMethod.POST,
+            endpointURL.toString(),
+            currentTime().toLong(),
+            jwsRsaHeader,
+            keys.keypair.private,
+            accessToken,
+        )
   }
 }

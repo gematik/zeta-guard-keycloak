@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>1.0.1</version>
+        <version>1.2.4</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -19,6 +19,12 @@
         <jacoco.args/>
         <profiling.args/>
         <jacoco.exec>jacoco-keycloak.exec</jacoco.exec>
+
+        <it.remote>false</it.remote>
+        <it.kc.host>localhost</it.kc.host>
+        <it.kc.port>18080</it.kc.port>
+        <it.db.host>localhost</it.db.host>
+        <it.db.port>15432</it.db.port>
     </properties>
 
     <dependencies>
@@ -181,6 +187,15 @@
             <scope>compile</scope>
         </dependency>
 
+        <dependency>
+            <groupId>de.spree.keycloak</groupId>
+            <artifactId>commons-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.spree.keycloak</groupId>
+            <artifactId>encryption-provider</artifactId>
+        </dependency>
         <!--        <dependency>-->
         <!--            <groupId>io.quarkus</groupId>-->
         <!--            <artifactId>quarkus-core-deployment</artifactId>-->
@@ -259,7 +274,17 @@
                                 <COVERAGE_OPTS>${jacoco.args}</COVERAGE_OPTS>
                                 <GENESIS_HASH>4841c2142fef441daa6ee6c57db65c011935964b14e94a6c8f5ec0447b83526c</GENESIS_HASH>
                                 <SMCB_HASHING_PEPPER>085c1245-dc0d-4d39-95b4-97496bec6182</SMCB_HASHING_PEPPER>
+                                <SPREE_INTEGRITY_ENABLED>true</SPREE_INTEGRITY_ENABLED>
+                                <SPREE_ENABLE_INTEGRITY_CHECK>true</SPREE_ENABLE_INTEGRITY_CHECK>
                             </environmentVariables>
+
+                            <systemPropertyVariables>
+                                <it.remote>${it.remote}</it.remote>
+                                <it.kc.host>${it.kc.host}</it.kc.host>
+                                <it.kc.port>${it.kc.port}</it.kc.port>
+                                <it.db.host>${it.db.host}</it.db.host>
+                                <it.db.port>${it.db.port}</it.db.port>
+                            </systemPropertyVariables>
                         </configuration>
 
                         <goals>
@@ -304,7 +329,21 @@
 
             <properties>
                 <!-- See docker-compose-it.yml: Content of COVERAGE_OPTS environment variable -->
-                <jacoco.args>-agentpath:/opt/keycloak/async-profiler/lib/libasyncProfiler.so=start,interval=5ms,jfr,event=cpu,file=/opt/keycloak/data/zeta-guard.jfr</jacoco.args>
+                <jacoco.args>
+                    -agentpath:/opt/keycloak/async-profiler/lib/libasyncProfiler.so=start,interval=5ms,jfr,event=cpu,file=/opt/keycloak/data/zeta-guard.jfr
+                </jacoco.args>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>remote</id>
+
+            <properties>
+                <it.remote>true</it.remote>
+                <it.kc.host>localhost</it.kc.host>
+                <it.kc.port>18080</it.kc.port>
+                <it.db.host>localhost</it.db.host>
+                <it.db.port>15432</it.db.port>
             </properties>
         </profile>
     </profiles>

@@ -47,11 +47,11 @@ fun ByteArray.toBase64(): String = Base64Url.encode(this)
 fun String.fromBase64(): ByteArray = Base64Url.decode(this)
 
 fun String?.toURI(): Either<Throwable, URI> =
-  if (this != null) {
-    Either.catch { URI(this) }
-  } else {
-    NullPointerException().left()
-  }
+    if (this != null) {
+      Either.catch { URI(this) }
+    } else {
+      NullPointerException().left()
+    }
 
 fun LocalDateTime.toISO8601(): String = format(DateTimeFormatter.ISO_DATE_TIME)
 

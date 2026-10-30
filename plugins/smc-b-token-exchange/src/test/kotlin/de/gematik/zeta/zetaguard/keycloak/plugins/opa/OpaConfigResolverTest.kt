@@ -42,32 +42,23 @@ class OpaConfigResolverTest :
         val scope =
             dummyScope(
                 mapOf(
-                    prefix + "opa-enabled" to "true",
                     prefix + "opa-base-url" to " http://env-opa:8181/ ",
                     prefix + "decision-path" to " v1/data/env/decision ",
                     prefix + "connection-timeout-ms" to "3333",
                     prefix + "read-timeout-ms" to "4444",
-                    prefix + "fail-closed" to "true",
                 )
             )
 
-        val cfg = OpaConfigResolver.normalize(OpaConfigResolver.fromScope(scope, OPAConfig(enabled = false)))
-        cfg.enabled shouldBe true
+        val cfg = OpaConfigResolver.normalize(OpaConfigResolver.fromScope(scope))
         cfg.opaBaseUrl shouldBe "http://env-opa:8181"
         cfg.decisionPath shouldBe "/v1/data/env/decision"
         cfg.connectionTimeoutMs shouldBe 3333
         cfg.readTimeoutMs shouldBe 4444
-        cfg.failClosed shouldBe true
       }
 
       "fromScope resolves simulation base url and normalize trims trailing slash" {
         val prefix = "spi-token-exchange-provider-$ZETAGUARD_TOKEN_EXCHANGE_PROVIDER_ID-"
-        val scope =
-            dummyScope(
-                mapOf(
-                    prefix + "opa-simulation-base-url" to " http://opa-simulation:8181/ ",
-                )
-            )
+        val scope = dummyScope(mapOf(prefix + "opa-simulation-base-url" to " http://opa-simulation:8181/ "))
 
         val cfg = OpaConfigResolver.normalize(OpaConfigResolver.fromScope(scope))
         cfg.simulationBaseUrl shouldBe "http://opa-simulation:8181"

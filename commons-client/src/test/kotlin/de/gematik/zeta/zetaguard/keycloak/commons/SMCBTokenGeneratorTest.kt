@@ -32,7 +32,6 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.createVerifierContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generateKeyPair
-import de.gematik.zeta.zetaguard.keycloak.commons.server.setupBouncyCastle
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPEM
 import io.kotest.matchers.collections.shouldContain
@@ -60,8 +59,13 @@ class SMCBTokenGeneratorTest : ZetaGuardFunSpec() {
   init {
     val objectUnderTest = SMCBTokenGenerator(generateKeyPair())
     val certificate =
-      buildCertificate(
-        subjectName = DN_PRAXIS, subjectKeyPair = generateKeyPair(), issuerName = DN_GEMATIK, issuerKeyPair = generateKeyPair(), isCA = false)
+        buildCertificate(
+            subjectName = DN_PRAXIS,
+            subjectKeyPair = generateKeyPair(),
+            issuerName = DN_GEMATIK,
+            issuerKeyPair = generateKeyPair(),
+            isCA = false,
+        )
     val token = objectUnderTest.generateSMCBToken(nonceString = "noncence", certificateChain = listOf(certificate))
     val (jwt, header) = token.toIDTokenInfo(objectUnderTest.keys.keypair.public.createVerifierContext())
 
@@ -138,11 +142,5 @@ class SMCBTokenGeneratorTest : ZetaGuardFunSpec() {
     jwt.audience shouldContain ZETA_CLIENT
     (jwt.iat * 1000) shouldBeLessThanOrEqual System.currentTimeMillis()
     (jwt.exp * 1000) shouldBeGreaterThan System.currentTimeMillis()
-  }
-
-  companion object {
-    init {
-      setupBouncyCastle()
-    }
   }
 }

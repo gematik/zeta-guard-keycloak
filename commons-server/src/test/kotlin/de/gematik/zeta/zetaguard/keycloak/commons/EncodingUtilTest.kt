@@ -24,7 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
-import de.gematik.zeta.zetaguard.keycloak.commons.server.setupBouncyCastle
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.setupSecurityProviders
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDuration
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toISO8601
@@ -39,7 +39,7 @@ import org.keycloak.jose.jwk.JSONWebKeySet
 import org.keycloak.jose.jwk.JWKBuilder
 
 const val certificateString =
-  "MIIBhTCCASugAwIBAgIIJYeZrjYFMjwwCgYIKoZIzj0EAwIwFjEUMBIGA1UEAwwLemV0YS1jbGllbnQwHhcNMjUxMTEyMTMxODA5WhcNMzAxMTExMTMxODA5WjAWMRQwEgYDVQQDDAt6ZXRhLWNsaWVudDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGTNHQYjYArg4W7RI36QCsFvZ1spE8M+LdNcG0/JLe6qe54Ysa5vYKWTqbAyyJV/IE+h39EvDcYW9GxQt7X5C1SjYzBhMB0GA1UdDgQWBBQEMVq8EZWM+iqIF5ZjW5MxiYrCTjAfBgNVHSMEGDAWgBQEMVq8EZWM+iqIF5ZjW5MxiYrCTjAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAgNIADBFAiEAhmDEJ4Ibwy+elyh8gEiZEL4kdB1ms6qFRkapZaniPEcCIFqzmqBod4tom3adyY/77zkwyzvIz1lNOB9Vp30rVwN8"
+    "MIIBhTCCASugAwIBAgIIJYeZrjYFMjwwCgYIKoZIzj0EAwIwFjEUMBIGA1UEAwwLemV0YS1jbGllbnQwHhcNMjUxMTEyMTMxODA5WhcNMzAxMTExMTMxODA5WjAWMRQwEgYDVQQDDAt6ZXRhLWNsaWVudDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABGTNHQYjYArg4W7RI36QCsFvZ1spE8M+LdNcG0/JLe6qe54Ysa5vYKWTqbAyyJV/IE+h39EvDcYW9GxQt7X5C1SjYzBhMB0GA1UdDgQWBBQEMVq8EZWM+iqIF5ZjW5MxiYrCTjAfBgNVHSMEGDAWgBQEMVq8EZWM+iqIF5ZjW5MxiYrCTjAPBgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBBjAKBggqhkjOPQQDAgNIADBFAiEAhmDEJ4Ibwy+elyh8gEiZEL4kdB1ms6qFRkapZaniPEcCIFqzmqBod4tom3adyY/77zkwyzvIz1lNOB9Vp30rVwN8"
 
 class EncodingUtilTest : FunSpec() {
   init {
@@ -69,12 +69,11 @@ class EncodingUtilTest : FunSpec() {
       jwksJSON shouldContain "\"kid\":\"3c9d8y3D2uENHN_loz9JMbJmgIQ_gYfnG7gJruCkv7E\""
       pem shouldContain "-----BEGIN PUBLIC KEY-----"
     }
-
   }
 
   companion object {
     init {
-      setupBouncyCastle()
+      setupSecurityProviders()
     }
   }
 }

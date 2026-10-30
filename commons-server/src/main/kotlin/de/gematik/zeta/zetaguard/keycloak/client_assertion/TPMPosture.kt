@@ -35,33 +35,34 @@ private const val TPM_EK_CERTIFICATE_CHAIN = "tpm_ek_certificate_chain"
 
 class TPMPosture
 @ConstructorProperties(
-  PROPERTY_PLATFORM_PRODUCT_ID,
-  PROPERTY_PRODUCT_ID,
-  PROPERTY_PRODUCT_VERSION,
-  PROPERTY_OS,
-  PROPERTY_OS_VERSION,
-  PROPERTY_ARCHITECTURE,
-  TPM_ATTESTATION_KEY,
-  TPM_QUOTE,
-  TPM_QUOTE_SIGNATURE,
-  TPM_EVENT_LOG,
-  TPM_EK_CERTIFICATE_CHAIN)
+    PROPERTY_PLATFORM_PRODUCT_ID,
+    PROPERTY_PRODUCT_ID,
+    PROPERTY_PRODUCT_VERSION,
+    PROPERTY_OS,
+    PROPERTY_OS_VERSION,
+    PROPERTY_ARCHITECTURE,
+    TPM_ATTESTATION_KEY,
+    TPM_QUOTE,
+    TPM_QUOTE_SIGNATURE,
+    TPM_EVENT_LOG,
+    TPM_EK_CERTIFICATE_CHAIN,
+)
 constructor(
-  platformProductId: ProductId,
-  productId: String,
-  productVersion: String,
-  @field:JsonPropertyDescription("Operating system name") @field:JsonProperty(PROPERTY_OS) val os: String,
-  @field:JsonPropertyDescription("Operating system version") @field:JsonProperty(PROPERTY_OS_VERSION) val osVersion: String,
-  @field:JsonPropertyDescription("Hardware Architecture") @field:JsonProperty(PROPERTY_ARCHITECTURE) val arch: String,
-  @field:JsonPropertyDescription("The public key of the TPM-resident attestation key (PEM or base64 DER encoded).")
-  @field:JsonProperty(TPM_ATTESTATION_KEY)
-  val tpmAttestationKey: String,
-  @field:JsonPropertyDescription("The TPM quote of the client instance") @field:JsonProperty(TPM_QUOTE) val tpmQuote: String,
-  @field:JsonPropertyDescription("The signature of the TPM quote created by the TPM-resident attestation key")
-  @field:JsonProperty(TPM_QUOTE_SIGNATURE)
-  val tpmQuoteSignature: String,
-  @field:JsonPropertyDescription("The TPM event log of the client instance") @field:JsonProperty(TPM_EVENT_LOG) val tpmEventLog: String,
-  @field:JsonProperty(TPM_EK_CERTIFICATE_CHAIN)
-  @field:JsonPropertyDescription("The endorsement key certificate chain from the TPM manufacturer (PEM or base64 DER encoded).")
-  val tpmEkCertificateChain: List<String>
+    platformProductId: ProductId?,
+    productId: String,
+    productVersion: String,
+    @field:JsonPropertyDescription("Operating system name") @field:JsonProperty(PROPERTY_OS) val os: String,
+    @field:JsonPropertyDescription("Operating system version") @field:JsonProperty(PROPERTY_OS_VERSION) val osVersion: String,
+    @field:JsonPropertyDescription("Hardware Architecture") @field:JsonProperty(PROPERTY_ARCHITECTURE) val arch: String,
+    @field:JsonPropertyDescription("The public key of the TPM-resident attestation key (PEM or base64 DER encoded).")
+    @field:JsonProperty(TPM_ATTESTATION_KEY)
+    val tpmAttestationKey: String,
+    @field:JsonPropertyDescription("The TPM quote of the client instance") @field:JsonProperty(TPM_QUOTE) val tpmQuote: String,
+    @field:JsonPropertyDescription("The signature of the TPM quote created by the TPM-resident attestation key")
+    @field:JsonProperty(TPM_QUOTE_SIGNATURE)
+    val tpmQuoteSignature: String,
+    @field:JsonPropertyDescription("The TPM event log of the client instance") @field:JsonProperty(TPM_EVENT_LOG) val tpmEventLog: String,
+    @field:JsonProperty(TPM_EK_CERTIFICATE_CHAIN)
+    @field:JsonPropertyDescription("The endorsement key certificate chain from the TPM manufacturer (PEM or base64 DER encoded).")
+    val tpmEkCertificateChain: List<String>,
 ) : Posture(platformProductId, productId, productVersion)

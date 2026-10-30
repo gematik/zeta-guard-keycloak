@@ -27,7 +27,7 @@ import org.jboss.logging.Logger
 import org.jboss.logging.MDC
 
 enum class CapecAttackMechanics(val id: Int, val attackName: String) {
-    AUTHENTICATION_BYPASS(115, "Authentication Bypass")
+  AUTHENTICATION_BYPASS(115, "Authentication Bypass")
 }
 
 private const val ATTACK_DETECTION_CAPEC_ID = "attackDetection.capecId"
@@ -41,7 +41,7 @@ private const val ATTACK_DETECTION_ORIGIN = "attackDetection.origin"
 private const val ATTACK_DETECTION_CLIENT_IP = "attackDetection.clientIP"
 
 object AttackDetectionLogger {
-  
+
   private val logger = Logger.getLogger(AttackDetectionLogger::class.java)
 
   fun warnWithMDC(cause: Throwable, attack: CapecAttackMechanics, clientIP: String) {

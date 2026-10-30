@@ -24,11 +24,9 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 data class OPAConfig(
-    val enabled: Boolean = false,
     val opaBaseUrl: String = "http://opa:8181",
     val decisionPath: String = "/v1/data/policies/zeta/authz/decision",
     val connectionTimeoutMs: Int = 1000,
     val readTimeoutMs: Int = 2000,
-    val failClosed: Boolean = true,
-    val simulationBaseUrl: String = "",
+    val simulationBaseUrl: String = "http://opa-simulation:8181",
 )

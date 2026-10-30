@@ -33,20 +33,20 @@ private val IPV4_AND_OPTIONAL_PORT_REGEX = """(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3
  * @see [RFC 7239](https://datatracker.ietf.org/doc/html/rfc7239#section-4]
  */
 fun String.toForwardedHeader(): String? =
-  split(";") // forwarded-elements
-    .flatMap { it.split(",") } // forwarded-pairs
-    .map { it.trim() }
-    .map { FORWARDED_PAIR_REGEX.find(it)?.groupValues?.get(1) } // value = token / quoted-string
-    .firstOrNull()
-    ?.toIPAddress()
+    split(";") // forwarded-elements
+        .flatMap { it.split(",") } // forwarded-pairs
+        .map { it.trim() }
+        .map { FORWARDED_PAIR_REGEX.find(it)?.groupValues?.get(1) } // value = token / quoted-string
+        .firstOrNull()
+        ?.toIPAddress()
 
 fun String.toXForwardedForHeader(): String? = split(",").firstOrNull()?.toIPAddress()
 
 fun String.toIPAddress(): String? =
-  trim()
-    .let {
-      QUOTED_IPV6_AND_OPTIONAL_PORT_REGEX.find(it)?.groupValues?.get(1) // Try IPv6 first
-      ?: IPV4_AND_OPTIONAL_PORT_REGEX.find(it)?.groupValues?.get(1) // IPv4
-        ?: it // 🤷
-    }
-    .takeIf { it.isNotBlank() }
+    trim()
+        .let {
+          QUOTED_IPV6_AND_OPTIONAL_PORT_REGEX.find(it)?.groupValues?.get(1) // Try IPv6 first
+          ?: IPV4_AND_OPTIONAL_PORT_REGEX.find(it)?.groupValues?.get(1) // IPv4
+              ?: it // 🤷
+        }
+        .takeIf { it.isNotBlank() }

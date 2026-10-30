@@ -55,26 +55,26 @@ import org.keycloak.util.TokenUtil.TOKEN_TYPE_DPOP
 typealias ErrorHandler = (KeycloakError) -> Unit
 
 fun KeycloakWebClient.testExchangeToken(
-  subjectToken: String,
-  clientId: String = ZETA_CLIENT,
-  clientAssertion: String?,
-  requestedClientScope: String? = CLIENT_B_SCOPE,
-  useDPoP: Boolean = true,
-  audience: String? = null,
-  expectedError: ErrorHandler? = null,
+    subjectToken: String,
+    clientId: String = ZETA_CLIENT,
+    clientAssertion: String?,
+    requestedClientScope: String? = CLIENT_B_SCOPE,
+    useDPoP: Boolean = true,
+    audience: String? = "http://localhost:18080",
+    expectedError: ErrorHandler? = null,
 ): AccessTokenResponse {
   val dPoPToken = if (useDPoP) generateDPoPToken(endpointURL = uriBuilder().tokenUrl(), accessToken = subjectToken) else null
 
   val either =
-    tokenExchange(
-      clientId = clientId,
-      subjectToken = subjectToken,
-      requestedClientScope = requestedClientScope,
-      clientAssertionType = CLIENT_ASSERTION_TYPE_JWT,
-      clientAssertion = clientAssertion,
-      dPoPToken = dPoPToken,
-      audience = audience,
-    )
+      tokenExchange(
+          clientId = clientId,
+          subjectToken = subjectToken,
+          requestedClientScope = requestedClientScope,
+          clientAssertionType = CLIENT_ASSERTION_TYPE_JWT,
+          clientAssertion = clientAssertion,
+          dPoPToken = dPoPToken,
+          audience = audience,
+      )
 
   if (expectedError != null) {
     either.isLeft() shouldBe true

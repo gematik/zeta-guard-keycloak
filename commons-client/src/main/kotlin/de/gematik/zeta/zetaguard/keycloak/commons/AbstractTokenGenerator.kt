@@ -41,32 +41,33 @@ abstract class AbstractTokenGenerator(subjectKeyPair: KeyPair = generateKeyPair(
   val keys = PKIData(subjectKeyPair)
 
   protected fun generateToken(
-    issuer: String,
-    subject: String,
-    nonceString: String? = null,
-    issuedFor: String ,
-    audiences: List<String>,
-    certificateChain: List<X509Certificate> = listOf(),
-    otherClaims: Map<String, Any> = mapOf()
+      issuer: String,
+      subject: String,
+      nonceString: String? = null,
+      issuedFor: String,
+      audiences: List<String>,
+      certificateChain: List<X509Certificate> = listOf(),
+      otherClaims: Map<String, Any> = mapOf(),
   ): String {
     val signer = keys.keypair.createSignerContext()
 
     return JWSBuilder()
-      .type(OAuth2Constants.JWT)
-      .x5c(certificateChain)
-      .jsonContent(
-        IDToken().apply {
-          id(UUID.randomUUID().toString())
-          type(TOKEN_TYPE_BEARER)
-          issuer(issuer)
-          issuedFor(issuedFor)
-          subject(subject)
-          audience(*audiences.toTypedArray())
-          expirationDate(Duration.ofDays(10))
-          issuedNow()
-          otherClaims.forEach { setOtherClaims(it.key, it.value) }
-          nonce = nonceString
-        })
-      .sign(signer)
+        .type(OAuth2Constants.JWT)
+        .x5c(certificateChain)
+        .jsonContent(
+            IDToken().apply {
+              id(UUID.randomUUID().toString())
+              type(TOKEN_TYPE_BEARER)
+              issuer(issuer)
+              issuedFor(issuedFor)
+              subject(subject)
+              audience(*audiences.toTypedArray())
+              expirationDate(Duration.ofDays(10))
+              issuedNow()
+              otherClaims.forEach { setOtherClaims(it.key, it.value) }
+              nonce = nonceString
+            }
+        )
+        .sign(signer)
   }
 }

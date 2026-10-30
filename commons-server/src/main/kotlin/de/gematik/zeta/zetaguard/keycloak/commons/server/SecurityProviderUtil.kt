@@ -23,36 +23,53 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
+import de.gematik.zetaguard.hsmproxy.HsmProxyProvider
 import java.security.Security
 import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
 
-fun setupBouncyCastle() {
+object SecurityProviderUtil {
+  private var initialized = false
+
+  fun setupSecurityProviders() {
+    if (!initialized) {
+      initialized = true
+      setupHSMProxyProvider()
+      setupBouncyCastleProvider()
+    }
+  }
+
+  fun setupHSMProxyProvider() {
+    Security.addProvider(HsmProxyProvider())
+  }
+
+  private fun setupBouncyCastleProvider() {
     val indexOfBC1 = Security.getProviders().indexOfFirst { it.name == PROVIDER_NAME }
 
     when (indexOfBC1) {
-        0 -> {
-            logger.info("BouncyCastle is set as default security provider")
-            return
-        }
+      0 -> {
+        logger.info("☑️ BouncyCastle is set as default security provider")
+        return
+      }
 
-        -1 -> {
-            logger.info("BouncyCastle not found in list")
-        }
+      -1 -> {
+        logger.info("BouncyCastle not found in list")
+      }
 
-        else -> {
-            logger.info("BouncyCastle found in list, but is not the default security provider")
-            Security.removeProvider(PROVIDER_NAME)
-        }
+      else -> {
+        logger.info("BouncyCastle found in list, but is not the default security provider")
+        Security.removeProvider(PROVIDER_NAME)
+      }
     }
 
     val indexOfBC2 = Security.getProviders().indexOfFirst { it.name == PROVIDER_NAME }
-    assert(indexOfBC2 < 0) { "BC provider still present in list!" }
+    check(indexOfBC2 < 0) { "💣 BC provider still present in list!" }
 
-    logger.info("Setting BouncyCastle as default security provider")
+    logger.info("🔐 Setting BouncyCastle as default security provider")
 
     Security.insertProviderAt(BouncyCastleProvider(), 1)
 
     val indexOfBC3 = Security.getProviders().indexOfFirst { it.name == PROVIDER_NAME }
-    assert(indexOfBC3 == 0) { "BC provider is still not the default security provider!" }
+    check(indexOfBC3 == 0) { "💣 BC provider is still not the default security provider!" }
+  }
 }

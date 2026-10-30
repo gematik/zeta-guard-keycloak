@@ -53,11 +53,11 @@ class AdminEventLogStorageService(emCreator: EntityManagerCreator) {
    * If no entries exist, it returns a genesis hash from memory.
    */
   fun previousHash(): String =
-    entityManager
-      .createQuery("SELECT a.currentHash FROM AdminEventLog a ORDER BY a.createdAt DESC", String::class.java)
-      .setMaxResults(1)
-      .resultList
-      .firstOrNull() ?: GENESIS_HASH
+      entityManager
+          .createQuery("SELECT a.currentHash FROM AdminEventLog a ORDER BY a.createdAt DESC", String::class.java)
+          .setMaxResults(1)
+          .resultList
+          .firstOrNull() ?: GENESIS_HASH
 
   /**
    * Retrieves all admin event logs in historical order, i.e., from the oldest to the latest.
@@ -65,7 +65,7 @@ class AdminEventLogStorageService(emCreator: EntityManagerCreator) {
    * This method is used to fetch the complete history of admin events.
    */
   fun findAll(): List<AdminEventLog> =
-    entityManager.createQuery("SELECT a FROM AdminEventLog a ORDER BY a.createdAt ASC", AdminEventLog::class.java).resultList
+      entityManager.createQuery("SELECT a FROM AdminEventLog a ORDER BY a.createdAt ASC", AdminEventLog::class.java).resultList
 
   fun saveAdminEventLog(adminEventLog: AdminEventLog) {
     entityManager.persist(adminEventLog)

@@ -39,11 +39,14 @@ const val ATTRIBUTE_SMCBUSER_PROFESSION_OID = "zetaguard.smcbuser.profession_oid
 const val ATTRIBUTE_SMCBUSER_NAME = "zetaguard.smcbuser.name"
 const val ATTRIBUTE_SMCBUSER_ORGANISATION = "zetaguard.smcbuser.organisation"
 
+const val ATTRIBUTE_LAST_CLIENT_IP = "zeta-guard.client.client_ip"
 const val ATTRIBUTE_ATTESTATION_STATE = "zeta-guard.client.attestation_state"
 const val ATTRIBUTE_CREATED_AT = "zeta-guard.client.created_at"
 
-const val CLAIM_CLIENT_SELF_ASSESSMENT = "urn:telematik:client-self-assessment"
 const val CLAIM_CLIENT_STATEMENT = "client_statement"
+const val CLAIM_CLIENT_KEY = "client_key"
+const val CLAIM_DPOP_KEY = "dpop_key"
+const val CLAIM_JKT = "jkt"
 const val CLAIM_PROFESSION_OID = "profession_oid"
 const val CLAIM_COMMON_NAME = "common_name"
 const val CLAIM_ORGANIZATION_NAME = "organization_name"
@@ -70,11 +73,16 @@ const val KEYCLOAK_REALM_PATH = "/realms/{realm-name}"
 const val ZETAGUARD_TOKEN_EXCHANGE_PROVIDER_ID = "zeta-smc-b-token-exchange"
 const val SMCB_IDENTITY_PROVIDER_ID = "zeta-smc-b-oidc"
 
+const val ENV_SPREE_INTEGRITY_ENABLED = "SPREE_INTEGRITY_ENABLED"
+
 const val ENV_SMCB_KEYSTORE_LOCATION = "SMCB_KEYSTORE_LOCATION"
 const val ENV_SMCB_KEYSTORE_PASSWORD = "SMCB_KEYSTORE_PASSWORD"
 
 const val ENV_TPM_KEYSTORE_LOCATION = "TPM_KEYSTORE_LOCATION"
 const val ENV_TPM_KEYSTORE_PASSWORD = "TPM_KEYSTORE_PASSWORD"
+
+const val ENV_OCSP_KEYSTORE_LOCATION = "OCSP_KEYSTORE_LOCATION"
+const val ENV_OCSP_KEYSTORE_PASSWORD = "OCSP_KEYSTORE_PASSWORD"
 
 const val ADMIN_EVENTS_PROVIDER_ID = "zeta-guard-admin-events"
 const val ENV_GENESIS_HASH = "GENESIS_HASH"
@@ -93,6 +101,7 @@ const val ENV_HASHING_PEPPER = "SMCB_HASHING_PEPPER"
 const val CLIENT_REGISTRATION_POLICY_PROVIDER_ID = "zeta-client-registration-policy"
 const val ENV_CLIENT_REGISTRATION_TTL = "CLIENT_REGISTRATION_TTL"
 const val ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL = "CLIENT_REGISTRATION_SCHEDULER_INTERVAL"
+const val ENV_CLIENT_REGISTRATION_STARTUP_DELAY = "CLIENT_REGISTRATION_STARTUP_DELAY"
 
 const val ATTESTATION_STATE_PENDING = "pending_attestation"
 const val ATTESTATION_STATE_VALID = "validated_attestation"

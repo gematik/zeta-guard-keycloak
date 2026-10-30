@@ -26,24 +26,30 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTESTATION_STATE_PENDING
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_ATTESTATION_STATE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CREATED_AT
+import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toISO8601
+import jakarta.ws.rs.core.Response
+import org.keycloak.OAuthErrorException.SERVER_ERROR
 import org.keycloak.models.ClientModel
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper.TokenExchangeRefreshTokenEnabled.SAME_SESSION
 import org.keycloak.protocol.oidc.OIDCConfigAttributes.DPOP_BOUND_ACCESS_TOKENS
 import org.keycloak.protocol.oidc.OIDCConfigAttributes.STANDARD_TOKEN_EXCHANGE_REFRESH_ENABLED
+import org.keycloak.services.ErrorResponseException
 import org.keycloak.services.clientregistration.ClientRegistrationContext
 import org.keycloak.services.clientregistration.ClientRegistrationProvider
 import org.keycloak.services.clientregistration.policy.ClientRegistrationPolicy
 
 /**
- * Setup initial state of newly created clients to "pending".
+ * Setup initial state of newly created clients.
  *
  * For details, see https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#5.5.2.4
  */
-class ZetaGuardClientRegistrationPolicy() : ClientRegistrationPolicy {
+class ZetaGuardClientRegistrationPolicy(private val integrityProviderService: IntegrityProviderService) : ClientRegistrationPolicy {
   override fun beforeRegister(context: ClientRegistrationContext) {
-    // No-op
+    if (integrityProviderService.isIntegrityProviderEnabled() && !integrityProviderService.isIntegrityProviderRunning()) {
+      throw ErrorResponseException(SERVER_ERROR, "Integrity provider is not (yet) running", Response.Status.SERVICE_UNAVAILABLE)
+    }
   }
 
   override fun afterRegister(context: ClientRegistrationContext, clientModel: ClientModel) {

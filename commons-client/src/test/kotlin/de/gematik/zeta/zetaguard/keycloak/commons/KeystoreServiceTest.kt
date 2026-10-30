@@ -58,6 +58,8 @@ class KeystoreServiceTest : ZetaGuardFunSpec() {
       objectUnderTest.hasCertificate("jens.smcb-ca21_test-only") shouldBe false
       objectUnderTest.hasCertificate(CRT_GEMATIK_ROOT) shouldBe true
 
+      objectUnderTest.hasCertificate(intermediateCertificate) shouldBe true
+
       val gematik = objectUnderTest.findCertificate(CRT_GEMATIK_ROOT).shouldNotBeNull()
       gematik.isRoot() shouldBe true
       gematik.isIntermediate() shouldBe false

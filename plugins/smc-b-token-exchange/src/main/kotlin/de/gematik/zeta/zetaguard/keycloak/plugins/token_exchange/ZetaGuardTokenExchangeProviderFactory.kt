@@ -23,18 +23,23 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_OCSP_KEYSTORE_LOCATION
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_OCSP_KEYSTORE_PASSWORD
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_SMCB_KEYSTORE_LOCATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_SMCB_KEYSTORE_PASSWORD
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_TPM_KEYSTORE_LOCATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_TPM_KEYSTORE_PASSWORD
+import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.setupSecurityProviders
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETAGUARD_TOKEN_EXCHANGE_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
-import de.gematik.zeta.zetaguard.keycloak.commons.server.setupBouncyCastle
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toInputStream
 import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import de.gematik.zeta.zetaguard.keycloak.plugins.logger
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaConfigResolver
+import io.quarkus.arc.Arc
+import java.lang.System.getenv
 import org.keycloak.Config
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.KeycloakSessionFactory
@@ -48,6 +53,10 @@ private val TPM_KEYSTORE_LOCATION
   get() = safeGetenv(ENV_TPM_KEYSTORE_LOCATION)
 private val TPM_KEYSTORE_PASSWORD
   get() = safeGetenv(ENV_TPM_KEYSTORE_PASSWORD)
+private val OCSP_KEYSTORE_LOCATION
+  get() = getenv(ENV_OCSP_KEYSTORE_LOCATION)
+private val OCSP_KEYSTORE_PASSWORD
+  get() = getenv(ENV_OCSP_KEYSTORE_PASSWORD)
 
 /**
  * External to internal token exchange provider for SMC-B created tokens.
@@ -60,28 +69,34 @@ private val TPM_KEYSTORE_PASSWORD
 open class ZetaGuardTokenExchangeProviderFactory : TokenExchangeProviderFactory {
   internal lateinit var smcbKeystoreService: KeystoreService
   internal lateinit var tpmKeystoreService: KeystoreService
+  internal var ocspKeystoreService: KeystoreService? = null
   internal var opaConfig: OPAConfig = OPAConfig()
+  internal lateinit var integrityProviderService: IntegrityProviderService
 
-  override fun create(session: KeycloakSession) = ZetaGuardTokenExchangeProvider(smcbKeystoreService, tpmKeystoreService, opaConfig)
+  override fun create(session: KeycloakSession) =
+      ZetaGuardTokenExchangeProvider(integrityProviderService, smcbKeystoreService, tpmKeystoreService, ocspKeystoreService, opaConfig)
 
   override fun init(config: Config.Scope) {
     // Load OPA config from Keycloak SPI scope for this provider
-    // Keys: opaEnabled, opaBaseUrl, decisionPath, connectionTimeoutMs, readTimeoutMs, failClosed
+    // Keys: opaBaseUrl, decisionPath, connectionTimeoutMs, readTimeoutMs
     // Values are set via environment variables, e.g. KC_SPI_TOKEN_EXCHANGE_PROVIDER_ZETA_SMC_B_TOKEN_EXCHANGE_OPA_ENABLED
     val resolver = OpaConfigResolver
     val raw = resolver.fromScope(config)
+
     opaConfig = resolver.normalize(raw)
   }
 
   override fun postInit(factory: KeycloakSessionFactory) {
-    logger.info("Initializing 𝛇-Guard TokenExchangeProviderFactory...")
+    logger.info("🛠️ Initializing 𝛇-Guard TokenExchangeProviderFactory...")
 
     // Order in java.security file is not respected by KC/Quarkus 🤷‍♂️
     // Set BC as default provider
-    setupBouncyCastle()
+    setupSecurityProviders()
 
     smcbKeystoreService = smcbKeystoreService()
     tpmKeystoreService = tpmKeystoreService()
+    integrityProviderService = Arc.container().instance(IntegrityProviderService::class.java).get()
+    ocspKeystoreService = ocspKeystoreService()
   }
 
   override fun getId() = ZETAGUARD_TOKEN_EXCHANGE_PROVIDER_ID
@@ -92,6 +107,9 @@ open class ZetaGuardTokenExchangeProviderFactory : TokenExchangeProviderFactory 
   private fun smcbKeystoreService() = KeystoreService(SMCB_KEYSTORE_LOCATION.toInputStream(), SMCB_KEYSTORE_PASSWORD)
 
   private fun tpmKeystoreService() = KeystoreService(TPM_KEYSTORE_LOCATION.toInputStream(), TPM_KEYSTORE_PASSWORD)
+
+  private fun ocspKeystoreService() =
+      OCSP_KEYSTORE_LOCATION?.let { location -> OCSP_KEYSTORE_PASSWORD?.let { password -> KeystoreService(location.toInputStream(), password) } }
 
   override fun close() {
     // No-op

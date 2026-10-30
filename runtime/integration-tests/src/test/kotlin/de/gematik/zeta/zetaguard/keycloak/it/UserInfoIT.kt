@@ -37,7 +37,7 @@ import jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN
 class UserInfoIT : FunSpec() {
   init {
     test("Get user info without openid scope fails") {
-      val keycloakWebClient = KeycloakWebClient()
+      val keycloakWebClient = KeycloakWebClient.instance()
       val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().reponseObject
 
       keycloakWebClient.getUserInfo(ZETA_REALM, accessTokenResponse.token, SC_FORBIDDEN)
@@ -45,12 +45,13 @@ class UserInfoIT : FunSpec() {
     }
 
     test("Get user info") {
-      val accessTokenResponse = KeycloakWebClient().login(client = CLIENT_A_ID, requestedClientScope = OPENID_SCOPE).shouldBeRight().reponseObject
-      val userInfo = KeycloakWebClient().getUserInfo(ZETA_REALM, accessTokenResponse.token).shouldBeRight().reponseObject
+      val keycloakWebClient = KeycloakWebClient.instance()
+      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = OPENID_SCOPE).shouldBeRight().reponseObject
+      val userInfo = keycloakWebClient.getUserInfo(ZETA_REALM, accessTokenResponse.token).shouldBeRight().reponseObject
 
       userInfo.email shouldBe "user1@foo.bar.com"
       userInfo.preferredUsername shouldBe "user1"
-      KeycloakWebClient().logout(ZETA_REALM)
+      keycloakWebClient.logout(ZETA_REALM)
     }
   }
 }

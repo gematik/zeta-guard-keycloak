@@ -38,17 +38,18 @@ class ClientStatementDataTest : ZetaGuardFunSpec() {
     test("Serialize and deserialize Android posture") {
       val android = AndroidProductId("package", listOf("8214b94cd8c44024e7f65a8bbf221b51f617fa4818a30761c596aa5e34dc3359"))
       val androidPosture1 =
-        AndroidPosture(
-          android,
-          "demo_client",
-          "0.2.0",
-          Build(Version(42L, "security"), "Samsung", "product", "Galaxy", "blackboard"),
-          Ro(Crypto(true), Product(56L)),
-          PackageManager(true, "28"),
-          KeyguardManager(true),
-          BiometricManager(true, biometricStrong = false),
-          DevicePolicyManager(4),
-          listOf("cert1", "cert2"))
+          AndroidPosture(
+              android,
+              "demo_client",
+              "0.2.0",
+              Build(Version(42L, "security"), "Samsung", "product", "Galaxy", "blackboard"),
+              Ro(Crypto(true), Product(56L)),
+              PackageManager(true, "28"),
+              KeyguardManager(true),
+              BiometricManager(true, biometricStrong = false),
+              DevicePolicyManager(4),
+              listOf("cert1", "cert2"),
+          )
       val data = ClientStatementData("jens", Platform.ANDROID, PostureType.ANDROID, androidPosture1, 4711L)
       val json = data.toJSON()
 
@@ -73,30 +74,27 @@ class ClientStatementDataTest : ZetaGuardFunSpec() {
     test("Serialize and deserialize Apple posture") {
       val apple = AppleProductId("macos", listOf("bundle"))
       val applePosture1 =
-        ApplePosture(
-          apple,
-          "demo_client",
-          "0.2.0",
-          "GV25GC21",
-          "macOS Tahoe 26.2",
-          "Apple M1 Max",
-          "2E9FF59D-2F25-4C70-BBD0-268CBB5678A6",
-          "format1",
-          AppleAttestationStatement(listOf("cert1", "cert2"), "receipt"),
-          AppleAuthData(
-            "8214b94cd8c44024e7f65a8bbf221b51f617fa4818a30761c596aa5e34dc3359",
-            "-X --intercept",
-            12L,
-            "2E9FF59D-2F25-4C70-BBD0-268CBB5678A7",
-            "credo",
-          ),
-          "signing",
-          AppleAssertionAuthenticatorData(
-            "8214b94cd8c44024e7f65a8bbf221b51f617fa4818a30761c596aa5e34dc3359",
-            42L,
-          ),
-          """{  "sub": "jens" }""",
-        )
+          ApplePosture(
+              apple,
+              "demo_client",
+              "0.2.0",
+              "GV25GC21",
+              "macOS Tahoe 26.2",
+              "Apple M1 Max",
+              "2E9FF59D-2F25-4C70-BBD0-268CBB5678A6",
+              "format1",
+              AppleAttestationStatement(listOf("cert1", "cert2"), "receipt"),
+              AppleAuthData(
+                  "8214b94cd8c44024e7f65a8bbf221b51f617fa4818a30761c596aa5e34dc3359",
+                  "-X --intercept",
+                  12L,
+                  "2E9FF59D-2F25-4C70-BBD0-268CBB5678A7",
+                  "credo",
+              ),
+              "signing",
+              AppleAssertionAuthenticatorData("8214b94cd8c44024e7f65a8bbf221b51f617fa4818a30761c596aa5e34dc3359", 42L),
+              """{  "sub": "jens" }""",
+          )
       val data = ClientStatementData("jens", Platform.APPLE, PostureType.APPLE, applePosture1, 4711L)
       val json = data.toJSON()
 
@@ -146,18 +144,19 @@ class ClientStatementDataTest : ZetaGuardFunSpec() {
       val publicKey = publicKeyBytes.toJSON()
       val windows = WindowsProductId("store", "family")
       val tpmPosture1 =
-        TPMPosture(
-          windows,
-          "demo_client",
-          "0.2.0",
-          "Windows",
-          "XP",
-          "i686",
-          publicKey,
-          "»Quote«, Ain't that a hole in the boat?",
-          "»Quote signature«",
-          "»Event Log«",
-          listOf("cert1", "cert2"))
+          TPMPosture(
+              windows,
+              "demo_client",
+              "0.2.0",
+              "Windows",
+              "XP",
+              "i686",
+              publicKey,
+              "»Quote«, Ain't that a hole in the boat?",
+              "»Quote signature«",
+              "»Event Log«",
+              listOf("cert1", "cert2"),
+          )
       val data = ClientStatementData("jens", Platform.LINUX, PostureType.TPM, tpmPosture1, 4711L)
       val json = data.toJSON()
 

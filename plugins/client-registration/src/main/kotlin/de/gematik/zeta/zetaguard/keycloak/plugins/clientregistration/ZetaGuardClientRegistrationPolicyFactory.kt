@@ -29,12 +29,15 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_ATTESTATION_S
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CREATED_AT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLIENT_REGISTRATION_POLICY_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_STARTUP_DELAY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_TTL
+import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SimpleSuccess
 import de.gematik.zeta.zetaguard.keycloak.commons.server.Success
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDuration
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toLocalDateTime
+import io.quarkus.arc.Arc
 import java.time.Duration
 import java.time.LocalDateTime
 import org.jboss.logging.Logger
@@ -51,6 +54,7 @@ import org.keycloak.timer.TimerProviderFactory
 // "Time-to-live" of a client registration in pending state in ISO-8601 format.
 private val CLIENT_REGISTRATION_TTL = System.getenv(ENV_CLIENT_REGISTRATION_TTL) ?: "PT5M"
 private val CLIENT_REGISTRATION_INTERVAL = System.getenv(ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL) ?: "PT2M"
+private val CLIENT_REGISTRATION_STARTUP_DELAY = System.getenv(ENV_CLIENT_REGISTRATION_STARTUP_DELAY) ?: "PT20S"
 
 /**
  * Setup initial state of newly created clients to "pending".
@@ -62,30 +66,38 @@ private val CLIENT_REGISTRATION_INTERVAL = System.getenv(ENV_CLIENT_REGISTRATION
  * Realm configuration in 10-configure-client-registration-policies.sh
  */
 class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory {
-  override fun create(session: KeycloakSession, model: ComponentModel) = ZetaGuardClientRegistrationPolicy()
+  internal lateinit var integrityProviderService: IntegrityProviderService
+
+  override fun create(session: KeycloakSession, model: ComponentModel) = ZetaGuardClientRegistrationPolicy(integrityProviderService)
 
   override fun getId(): String = CLIENT_REGISTRATION_POLICY_PROVIDER_ID
 
   override fun postInit(factory: KeycloakSessionFactory) {
     val interval = Duration.parse(CLIENT_REGISTRATION_INTERVAL)
+    val delayUntil = LocalDateTime.now().plus(Duration.parse(CLIENT_REGISTRATION_STARTUP_DELAY))
     val timerProviderFactory = factory.getProviderFactory(TimerProvider::class.java) as TimerProviderFactory
 
-    logger.info("Checking for outdated client registrations every $interval")
+    integrityProviderService = Arc.container().instance(IntegrityProviderService::class.java).get()
+
+    logger.info("⏳ Checking for outdated client registrations every $interval")
 
     timerProviderFactory
-      .create(factory.create())
-      .schedule(
-        {
-          runJobInTransaction(factory) { //
-            runExpiration(it).onLeft { //
-            e ->
-              logger.warn("Error while checking for client registration expiration", e)
-            }
-          }
-        },
-        interval.toMillis(),
-        CLIENT_REGISTRATION_POLICY_PROVIDER_ID,
-      )
+        .create(factory.create())
+        .schedule(
+            {
+              if (LocalDateTime.now().isAfter(delayUntil)) {
+                runJobInTransaction(factory) {
+                  runExpiration(it) //
+                      .onLeft { e ->
+                        logger.warn("⚠️ Error while checking for client registration expiration", e)
+                        throw e
+                      }
+                }
+              }
+            },
+            interval.toMillis(),
+            CLIENT_REGISTRATION_POLICY_PROVIDER_ID,
+        )
   }
 
   override fun getHelpText(): String = "Setup newly created clients"
@@ -103,35 +115,35 @@ class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory
   }
 
   private fun runExpiration(session: KeycloakSession): Either<Throwable, Success> =
-    Either.catch {
-      logger.debug("Checking for outdated client registrations")
-      val realm = session.realms().getRealmByName(ZETA_REALM)
+      Either.catch {
+        logger.info("⏳ Checking for outdated client registrations")
+        val realm = session.realms().getRealmByName(ZETA_REALM)
 
-      if (realm != null) { // May happen at startup
-        val clients = session.clients()
-        val timeToLive = CLIENT_REGISTRATION_TTL.toDuration()
-        val outdatedClients =
-          clients
-            .getClientsStream(realm) // Optimized/paginated stream
-            .filter { it.getAttribute(ATTRIBUTE_ATTESTATION_STATE) == ATTESTATION_STATE_PENDING }
-            .filter {
-              val createdAtString =
-                it.getAttribute(ATTRIBUTE_CREATED_AT) ?: error("Missing client attribute $ATTRIBUTE_CREATED_AT for client ${it.clientId}")
-              val createdAt = createdAtString.toLocalDateTime()
-              val expiresAt = createdAt.plus(timeToLive)
+        if (realm != null) { // May happen at startup
+          val clients = session.clients()
+          val timeToLive = CLIENT_REGISTRATION_TTL.toDuration()
+          val outdatedClients =
+              clients
+                  .getClientsStream(realm) // Optimized/paginated stream
+                  .filter { it.getAttribute(ATTRIBUTE_ATTESTATION_STATE) == ATTESTATION_STATE_PENDING }
+                  .filter {
+                    val createdAtString =
+                        it.getAttribute(ATTRIBUTE_CREATED_AT) ?: error("Missing client attribute »$ATTRIBUTE_CREATED_AT« for client »${it.clientId}«")
+                    val createdAt = createdAtString.toLocalDateTime()
+                    val expiresAt = createdAt.plus(timeToLive)
 
-              LocalDateTime.now().isAfter(expiresAt)
-            }
-            .map { it.id }
-            .toList()
+                    LocalDateTime.now().isAfter(expiresAt)
+                  }
+                  .map { it.id }
+                  .toList()
 
-        logger.debug("Outdated client registrations: $outdatedClients")
+          logger.debug("Outdated client registrations: $outdatedClients")
 
-        outdatedClients.forEach { clients.removeClient(realm, it) }
+          outdatedClients.forEach { clients.removeClient(realm, it) }
+        }
+
+        SimpleSuccess
       }
-
-      SimpleSuccess
-    }
 
   companion object {
     private val logger: Logger = Logger.getLogger(ZetaGuardClientRegistrationPolicyFactory::class.java)
