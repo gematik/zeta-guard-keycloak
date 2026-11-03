@@ -23,11 +23,8 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
-object OidcFlowSettings {
-  fun isEnabled(): Boolean = parse(System.getenv(ENV_OIDC_FLOW_ENABLED))
+import de.spree.keycloak.commons.getEnvironment
 
-  internal fun parse(raw: String?): Boolean {
-    val value = raw?.trim()?.lowercase() ?: return false
-    return value == "true" || value == "1" || value == "yes"
-  }
+object OidcFlowSettings {
+  fun isEnabled(): Boolean = getEnvironment(ENV_OIDC_FLOW_ENABLED, "false").toBoolean()
 }

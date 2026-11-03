@@ -19,19 +19,6 @@ stages:
   - publish_reports
 
 include:
-  - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-scanning@v0.4.2
-    inputs:
-      analyzer-image: $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX/aquasec/trivy:0.69.3@sha256:7228e304ae0f610a1fad937baa463598cadac0c2ac4027cc68f3a8b997115689
-      cs-image: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$CUSTOM_IMAGE_TAG"
-      git-strategy: fetch
-      job-dependencies: [ harden ]
-      job-stage: systemtest
-      openvex-file: ".vex/vulnerabilites.openvex.json"
-      severity: UNKNOWN,HIGH,CRITICAL
-    rules:
-      - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      - if: $CI_COMMIT_TAG
-      - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
 
   - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-signing@v1.2.0
     inputs:
@@ -85,6 +72,8 @@ variables:
   IMAGE_NAME: $CI_REGISTRY_IMAGE
   IMAGE_TAG: $CI_COMMIT_REF_SLUG
   HSM_SIM_IMAGE: $CI_REGISTRY/zeta/zeta-guard/ngx_pep/hsm_sim
+  GSI_FEDMASTER_IMAGE: $CI_REGISTRY/zeta/devops/gem-sekidp/gsi-fedmaster
+  GSI_SERVER_IMAGE: $CI_REGISTRY/zeta/devops/gem-sekidp/gsi-server
 
   # see also: https://gitlab.com/gitlab-org/gitlab/-/blob/master/lib/gitlab/ci/templates/Maven.gitlab-ci.yml
   # NOTE: we use --settings ci_settings.xml for all commands, because we want to use the
@@ -245,7 +234,7 @@ release:
     IMAGE_TAG: $CI_COMMIT_TAG
   stage: release
   script: |
-    mvn versions:set -DnewVersion=${CI_COMMIT_TAG}
+    mvn $MAVEN_CLI_OPTS org.codehaus.mojo:versions-maven-plugin:2.23.0:set -DnewVersion=${CI_COMMIT_TAG}
     mvn $MAVEN_CLI_OPTS \
       -DaltDeploymentRepository=gitlab::$CI_API_V4_URL/projects/$CI_PROJECT_ID/packages/maven \
       -DskipTests \
@@ -310,15 +299,11 @@ publish_artifacts:
       artifacts: true
     - job: sbom
       artifacts: true
-    - job: container-scanning
-      artifacts: true
-      optional: true
   script:
     - git clone https://zeta-sdk:${REPORTING_TOKEN}@tas-devtools-gitlab.spree.de/zeta/reporting.git
     - mkdir -p ./reporting/zeta-guard/keycloak-zeta/
     - find . -path ./reporting -prune -o -name 'jacoco.xml' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
     - find . -path ./reporting -prune -o -name 'bom.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
-    - find . -path ./reporting -prune -o -name 'gl-container-scanning-report.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
     - cd reporting
     - git config user.email "ci@tas-devtools-gitlab.spree.de"
     - git config  user.name "ci"

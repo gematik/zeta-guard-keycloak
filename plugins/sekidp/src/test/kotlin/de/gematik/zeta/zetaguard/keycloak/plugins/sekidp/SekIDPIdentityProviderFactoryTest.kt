@@ -25,15 +25,17 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.assertions.throwables.shouldThrow
-import io.kotest.core.spec.style.FunSpec
+import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import io.mockk.every
+import io.mockk.mockk
 import java.io.FileNotFoundException
+import org.keycloak.Config
 
-class SekIDPIdentityProviderFactoryTest : FunSpec() {
+class SekIDPIdentityProviderFactoryTest : ZetaGuardFunSpec() {
   init {
-    registerBouncyCastle()
-
     test("no certificate before init, so the entity statement stays mTLS-free") {
       SekIDPIdentityProviderFactory().mtlsClientCertificate shouldBe null
     }
@@ -63,8 +65,26 @@ class SekIDPIdentityProviderFactoryTest : FunSpec() {
       shouldThrow<IllegalArgumentException> { SekIDPIdentityProviderFactory().init(scope) }.message shouldContain "mtlsKeystorePassword"
     }
 
+    test("a complete mTLS config resolves the generated keystore into a published certificate") {
+      val scope = mtlsScope(enabled = true, keystoreLocation = CLIENT_KEYSTORE, keystorePassword = CLIENT_KEYSTORE_PASSWORD)
+      val factory = SekIDPIdentityProviderFactory().apply { init(scope) }
+
+      factory.mtlsClientCertificate.shouldNotBeNull().subjectX500Principal.name shouldContain "sekidp-mtls-test-client"
+      factory.close()
+    }
+
     test("close without init does not fail") {
       shouldNotThrowAny { SekIDPIdentityProviderFactory().close() }
     }
   }
+}
+
+/** SPI scope holding the mTLS keys the SekIDP provider factory reads. */
+private fun mtlsScope(enabled: Boolean, keystoreLocation: String? = null, keystorePassword: String? = null): Config.Scope {
+  val scope = mockk<Config.Scope>()
+  every { scope.getBoolean(SekIDPIdentityProviderFactory.CONFIG_MTLS_ENABLED, false) } returns enabled
+  every { scope.get(SekIDPIdentityProviderFactory.CONFIG_MTLS_KEYSTORE_LOCATION) } returns keystoreLocation
+  every { scope.get(SekIDPIdentityProviderFactory.CONFIG_MTLS_KEYSTORE_PASSWORD) } returns keystorePassword
+
+  return scope
 }

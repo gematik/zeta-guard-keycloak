@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🛠️ Setup ZETA mobile browser flow (zeta-mobile → Identity Provider Redirector → SekIDP)"
+echo "🛠️ Setup ZETA mobile browser flow (zeta-mobile → SekIDP Direct Redirector → SekIDP)"
 
 enabled=$(printf '%s' "${ZETA_OIDC_FLOW_ENABLED:-false}" | tr '[:upper:]' '[:lower:]')
 if [ "$enabled" != "true" ] && [ "$enabled" != "1" ] && [ "$enabled" != "yes" ]; then
@@ -8,17 +8,17 @@ if [ "$enabled" != "true" ] && [ "$enabled" != "1" ] && [ "$enabled" != "yes" ];
   exit 0
 fi
 
-# Browser flow for mobile clients: an Identity Provider Redirector with default IdP zeta-sekidp-oidc.
+# Browser flow for mobile clients: sekidp-direct-redirector, hardcoded to the zeta-sekidp-oidc alias.
 # Mobile clients get this flow during DCR as a browserFlow override (ZetaGuardClientRegistrationPolicy),
-# which enforces the SekIDP redirect server-side (no login screen).
+# which enforces the SekIDP redirect.
+# Runs AFTER script 13 so the zeta-sekidp-oidc alias the redirector below targets already exists.
 #
-# NOTE: the headless first-broker-login flow (zeta-mobile-first-login) is created in
-# 13-create-sekidp-identity-provider.sh — it must exist before the IdP, which references it directly.
-# This script runs AFTER the IdP so the redirector below can point at an existing default provider.
+# Uses our own sekidp-direct-redirector instead of Keycloak's stock identity-provider-redirector: the stock
+# authenticator redirects to /broker/{alias}/login first. This flow always forces exactly one IDP.
+# sekidp-direct-redirector always targets zeta-sekidp-oidc.
 
 REALM="zeta-guard"
 FLOW="zeta-mobile"
-IDP="zeta-sekidp-oidc"
 
 # 1) Create top-level browser flow (empty)
 ./kcadm.sh create authentication/flows -r "$REALM" \
@@ -26,15 +26,14 @@ IDP="zeta-sekidp-oidc"
   -s providerId=basic-flow \
   -s topLevel=true \
   -s builtIn=false \
-  -s "description=ZETA mobile: enforced redirect to the SekIDP (no login screen)"
+  -s "description=ZETA mobile: enforced redirect to the SekIDP"
 
-# 2) Add the Identity Provider Redirector as the only execution
+# 2) Add the SekIDP Direct Redirector as the only execution
 ./kcadm.sh create "authentication/flows/$FLOW/executions/execution" -r "$REALM" \
-  -b '{"provider":"identity-provider-redirector"}'
+  -b '{"provider":"sekidp-direct-redirector"}'
 
-# 3) Determine the execution id (the flow has exactly one execution → first "id"). No jq in the container.
-EXEC_ID=$(./kcadm.sh get "authentication/flows/$FLOW/executions" -r "$REALM" \
-  | grep '"id"' | head -1 | sed -E 's/.*"id"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')
+# 3) Determine the execution id (the flow has exactly one execution → first "id").
+EXEC_ID=$(./kcadm.sh get "authentication/flows/$FLOW/executions" -r "$REALM" | jq -r '.[0].id')
 echo "   execution id: $EXEC_ID"
 if [ -z "$EXEC_ID" ]; then
   echo "❌ Could not determine the execution id for flow '$FLOW' — aborting."
@@ -44,7 +43,3 @@ fi
 # 4) Set the redirector to REQUIRED
 ./kcadm.sh update "authentication/flows/$FLOW/executions" -r "$REALM" \
   -b "{\"id\":\"$EXEC_ID\",\"requirement\":\"REQUIRED\"}"
-
-# 5) Configure the default IdP → automatic redirect to the SekIDP
-./kcadm.sh create "authentication/executions/$EXEC_ID/config" -r "$REALM" \
-  -b "{\"alias\":\"$FLOW-redirector\",\"config\":{\"defaultProvider\":\"$IDP\"}}"

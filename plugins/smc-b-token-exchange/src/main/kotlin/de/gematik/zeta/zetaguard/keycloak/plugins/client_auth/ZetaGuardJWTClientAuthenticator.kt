@@ -41,16 +41,17 @@ class ZetaGuardJWTClientAuthenticator : JWTClientAuthenticator() {
 
     if (clientAssertion != null) {
       val header = TokenVerifier.create(clientAssertion, JsonWebToken::class.java).header
-      if (header.type != OAuth2Constants.JWT) {
-        val response =
-            ClientAuthUtil.errorResponse(
-                Response.Status.BAD_REQUEST.statusCode,
-                OAuthErrorException.INVALID_REQUEST,
-                "Invalid client assertion token type: »${header.type}«",
-            )
-        context.failure(AuthenticationFlowError.INVALID_CLIENT_CREDENTIALS, response)
-        return
+
+      fun reject(message: String) {
+        context.failure(
+            AuthenticationFlowError.INVALID_CLIENT_CREDENTIALS,
+            ClientAuthUtil.errorResponse(Response.Status.BAD_REQUEST.statusCode, OAuthErrorException.INVALID_REQUEST, message),
+        )
       }
+
+      if (header.type != OAuth2Constants.JWT) return reject("Invalid client assertion token type: »${header.type}«")
+      if (header.otherClaims.containsKey("crit")) return reject("Unsupported crit header parameter")
+      if (header.contentType != null) return reject("Unsupported cty header parameter")
     }
 
     super.authenticateClient(context)

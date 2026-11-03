@@ -50,6 +50,7 @@ class OpaSessionContextTest : FunSpec() {
               userProfessionOid = "1.2.276.0.76.4.49",
               userCommonName = "X110123456",
               deviceInfo = OpaDeviceInfo(os = "iOS", osVersion = "17.4.1", deviceModel = "iPhone15,2"),
+              attestationTimestamp = 1_753_272_000,
           )
 
       original.toJSON().toObject<OpaSessionContext>() shouldBe original
@@ -64,6 +65,7 @@ class OpaSessionContextTest : FunSpec() {
       parsed.scopes shouldBe null
       parsed.audiences shouldBe null
       parsed.deviceInfo shouldBe null
+      parsed.attestationTimestamp shouldBe null
     }
 
     test("opaTtlDurations skips partial values") {

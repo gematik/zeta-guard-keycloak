@@ -27,11 +27,12 @@ package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ADMIN_REVOKE_SESSION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.INITIAL_ACCESS_TOKEN_PATH
-import de.gematik.zeta.zetaguard.keycloak.commons.server.KEYCLOAK_CLIENT_REGISTRATION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KEYCLOAK_REALM_PATH
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OIDC_CERTIFICATES_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OIDC_CLIENT_REGISTRATION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.REVOCATION_FULL_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.USERINFO_PATH
+import de.gematik.zeta.zetaguard.keycloak.commons.server.WELLKNOWN_BASE_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import jakarta.ws.rs.core.UriBuilder
 import java.net.URI
@@ -66,11 +67,13 @@ class KeycloakUriBuilder(private val uriBuilder: UriBuilder) {
 
   fun realmUrl(realm: String = ZETA_REALM) = createUri(KEYCLOAK_REALM_PATH, realm)
 
-  fun clientRegistrationKeycloakUrl(realm: String = ZETA_REALM) = createUri(KEYCLOAK_CLIENT_REGISTRATION_PATH, realm)
-
   fun clientRegistrationOIDCUrl(realm: String = ZETA_REALM) = createUri(OIDC_CLIENT_REGISTRATION_PATH, realm)
 
+  fun jwksCertificatesUrl(realm: String = ZETA_REALM) = createUri(OIDC_CERTIFICATES_PATH, realm)
+
   fun logoutUrl(realm: String = ZETA_REALM) = createUri(ServiceUrlConstants.TOKEN_SERVICE_LOGOUT_PATH, realm)
+
+  fun wellknownUrl(path: String) = createUri("$WELLKNOWN_BASE_PATH/$path", ZETA_REALM)
 
   fun createUri(path: String, realm: String, vararg parameters: Pair<Regex, String>): URI {
     val replacements = listOf(*parameters).plus("\\{realm-name}".toRegex() to realm)

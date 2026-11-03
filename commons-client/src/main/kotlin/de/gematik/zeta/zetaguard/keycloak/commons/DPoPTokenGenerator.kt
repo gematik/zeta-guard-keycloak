@@ -25,6 +25,7 @@
 
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.createSignerContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toMinimalJWK
 import jakarta.ws.rs.HttpMethod
 import java.net.URI
@@ -32,7 +33,10 @@ import org.keycloak.OAuth2Constants.DPOP_DEFAULT_ALGORITHM
 import org.keycloak.OAuth2Constants.DPOP_JWT_HEADER_TYPE
 import org.keycloak.common.util.SecretGenerator
 import org.keycloak.common.util.Time.currentTime
+import org.keycloak.jose.jws.JWSBuilder
 import org.keycloak.jose.jws.JWSHeader
+import org.keycloak.jose.jws.crypto.HashUtils
+import org.keycloak.representations.dpop.DPoP
 import org.keycloak.util.DPoPGenerator
 
 object DPoPTokenGenerator : AbstractTokenGenerator() {
@@ -41,8 +45,21 @@ object DPoPTokenGenerator : AbstractTokenGenerator() {
    *
    * Inspired by [DPoPGenerator.generateRsaSignedDPoPProof]
    */
-  fun generateDPoPToken(endpointURL: URI, accessToken: String): String {
+  fun generateDPoPToken(endpointURL: URI, accessToken: String, nonce: String? = null): String {
     val jwsRsaHeader = JWSHeader(DPOP_DEFAULT_ALGORITHM, DPOP_JWT_HEADER_TYPE, keys.jwk.keyId, keys.keypair.public.toMinimalJWK())
+
+    if (nonce != null) {
+      val dpop = DPoP().apply {
+        id(SecretGenerator.getInstance().generateSecureID())
+        setHttpMethod(HttpMethod.POST)
+        setHttpUri(endpointURL.toString())
+        iat(currentTime().toLong())
+        setAccessTokenHash(HashUtils.accessTokenHash(DPOP_DEFAULT_ALGORITHM.toString(), accessToken, true))
+        setOtherClaims("nonce", nonce)
+      }
+      val signer = keys.keypair.createSignerContext()
+      return JWSBuilder().header(jwsRsaHeader).jsonContent(dpop).sign(signer)
+    }
 
     return DPoPGenerator()
         .generateSignedDPoPProof(

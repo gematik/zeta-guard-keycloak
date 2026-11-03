@@ -23,20 +23,25 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_IDENTITY_PROVIDER_ID
+import io.quarkus.arc.Arc
 import java.security.cert.X509Certificate
 import org.keycloak.Config
 import org.keycloak.broker.oidc.OIDCIdentityProviderConfig
-import org.keycloak.broker.oidc.OIDCIdentityProviderFactory
+import org.keycloak.broker.oidc.OIDCIdentityProviderFactoryWrapper
 import org.keycloak.broker.provider.AbstractIdentityProviderFactory
 import org.keycloak.models.IdentityProviderModel
 import org.keycloak.models.KeycloakSession
+import org.keycloak.models.KeycloakSessionFactory
 
 class SekIDPIdentityProviderFactory : AbstractIdentityProviderFactory<SekIDPIdentityProvider>() {
 
   /** Built once from SPI config in [init] — shared across all SekIDP provider instances. */
   private lateinit var sekIdpHttpClient: SekIdpHttpClient
+
+  private lateinit var integrityProviderService: IntegrityProviderService
 
   /** Published in the Guard's entity statement so the SekIDP can match the presented certificate. Null when mTLS is disabled. */
   internal val mtlsClientCertificate: X509Certificate?
@@ -50,16 +55,26 @@ class SekIDPIdentityProviderFactory : AbstractIdentityProviderFactory<SekIDPIden
     sekIdpHttpClient = SekIdpHttpClient(resolveMtlsConfig(config))
   }
 
+  override fun postInit(factory: KeycloakSessionFactory) {
+    integrityProviderService = Arc.container().instance(IntegrityProviderService::class.java).get()
+  }
+
   override fun create(session: KeycloakSession, model: IdentityProviderModel): SekIDPIdentityProvider? =
-      if (OidcFlowSettings.isEnabled()) SekIDPIdentityProvider(session, createOIDCIdentityProviderConfig(model), sekIdpHttpClient) else null
+      if (OidcFlowSettings.isEnabled()) {
+        SekIDPIdentityProvider(session, createOIDCIdentityProviderConfig(model), sekIdpHttpClient, integrityProviderService, federationMasterConfig.fedmasterUrl)
+      } else {
+        null
+      }
 
   override fun parseConfig(session: KeycloakSession, config: String): MutableMap<String, String?> =
-      OIDCIdentityProviderFactory().parseConfig(session, config)
+      OIDCIdentityProviderFactoryWrapper.parseConfig(session, config)
 
   override fun createConfig(): OIDCIdentityProviderConfig = createOIDCIdentityProviderConfig()
 
   override fun close() {
-    if (::sekIdpHttpClient.isInitialized) sekIdpHttpClient.close()
+    if (::sekIdpHttpClient.isInitialized) {
+      sekIdpHttpClient.close()
+    }
   }
 
   private fun createOIDCIdentityProviderConfig(model: IdentityProviderModel? = null) =
@@ -79,6 +94,8 @@ class SekIDPIdentityProviderFactory : AbstractIdentityProviderFactory<SekIDPIden
               keystoreLocation = requireNotNull(config[CONFIG_MTLS_KEYSTORE_LOCATION]) { "»$CONFIG_MTLS_KEYSTORE_LOCATION« must be set when mTLS is enabled" },
               keystorePassword = requireNotNull(config[CONFIG_MTLS_KEYSTORE_PASSWORD]) { "»$CONFIG_MTLS_KEYSTORE_PASSWORD« must be set when mTLS is enabled" },
           )
-        } else null
+        } else {
+          null
+        }
   }
 }

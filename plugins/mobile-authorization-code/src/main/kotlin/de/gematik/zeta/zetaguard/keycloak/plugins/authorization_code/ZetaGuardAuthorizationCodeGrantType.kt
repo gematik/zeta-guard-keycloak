@@ -39,9 +39,10 @@ import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.ZetaGuardTokenManager
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
-import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOtpMailer
-import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOtpService
-import de.gematik.zeta.zetaguard.keycloak.commons.email.maskEmail
+import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOTPMailer
+import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOTPService
+import de.gematik.zeta.zetaguard.keycloak.commons.email.verifiedEmail
+import de.gematik.zeta.zetaguard.keycloak.commons.maskEmail
 import de.gematik.zeta.zetaguard.keycloak.plugins.emailbinding.EMAIL_BINDING_SCOPE_NAMES
 import de.gematik.zeta.zetaguard.keycloak.plugins.emailbinding.withTokenScopesReducedTo
 import de.gematik.zeta.zetaguard.keycloak.plugins.mobile.MobileOpaGate
@@ -155,9 +156,9 @@ class ZetaGuardAuthorizationCodeGrantType(private val opaConfig: OPAConfig = OPA
     if (storedEmail.isNullOrBlank() || !user.isEmailVerified) {
       response.otherClaims[RESPONSE_MEMBER_BINDING_MODE] = BINDING_MODE_COLLECT_EMAIL
     } else {
-      val otp = EmailOtpService.issue(session, client.clientId)
+      val otp = EmailOTPService.issue(session, client.clientId)
       try {
-        EmailOtpMailer.send(session, storedEmail, otp)
+        EmailOTPMailer.send(session, storedEmail, otp)
       } catch (e: EmailException) {
         logger.errorf(e, "Failed to send email-binding OTP for client »%s«", client.clientId)
         throw ErrorResponseException("email_send_failed", "Failed to send verification email", Response.Status.INTERNAL_SERVER_ERROR)
@@ -165,14 +166,12 @@ class ZetaGuardAuthorizationCodeGrantType(private val opaConfig: OPAConfig = OPA
       logger.infof("Email-binding OTP (verify_otp) issued for client »%s«", client.clientId)
       binding.clientData.registrationStatus = ClientRegistrationStatus.OTP_PENDING
       response.otherClaims[RESPONSE_MEMBER_BINDING_MODE] = BINDING_MODE_VERIFY_OTP
-      response.otherClaims[RESPONSE_MEMBER_EMAIL_HINT] = maskEmail(storedEmail)
+      response.otherClaims[RESPONSE_MEMBER_EMAIL_HINT] = storedEmail.maskEmail()
     }
   }
 
-  private fun verifiedEmailOf(user: UserModel): String? = user.email?.takeIf { it.isNotBlank() && user.isEmailVerified }
-
   private fun bindingScopesFor(user: UserModel): Set<String> =
-      if (verifiedEmailOf(user) == null) EMAIL_BINDING_SCOPE_NAMES else setOf(SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION)
+      if (user.verifiedEmail() == null) EMAIL_BINDING_SCOPE_NAMES else setOf(SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION)
 
   private fun resolveIssuance(): Issuance {
     if (realm.name != ZETA_REALM || !OidcFlowSettings.isEnabled()) {

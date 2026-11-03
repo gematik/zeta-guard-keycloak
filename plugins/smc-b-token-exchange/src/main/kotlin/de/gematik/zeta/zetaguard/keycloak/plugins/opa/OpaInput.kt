@@ -52,6 +52,7 @@ data class OpaInput(val input: Input) {
   /** @see [https://github.com/gematik/zeta/blob/v1.3.0/src/schemas/policy-engine-client-data.yaml] */
   data class ZetaClientRegistration(
       @get:JsonProperty("attestation_result") val attestationResult: AttestationResult? = null,
+      @get:JsonProperty("attestation_timestamp") val attestationTimestamp: Long? = null,
       @get:JsonProperty("client_id") val clientId: String? = null,
       @get:JsonProperty("device_info") val deviceInfo: DeviceInfo? = null,
       val platform: String? = null,

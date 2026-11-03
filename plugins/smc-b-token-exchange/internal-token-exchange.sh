@@ -32,7 +32,7 @@ function pretty_print_json {
 }
 
 echo "------------------------------------------------------------------"
-echo "Step 1: Get initial access token for user '${USERNAME}' with '${CLIENT_A_ID}'"
+echo "Step 1: Get initial access token for user »${USERNAME}« with »${CLIENT_A_ID}«"
 echo "------------------------------------------------------------------"
 
 # Get the initial token using the password grant type.
@@ -60,7 +60,7 @@ echo "${INITIAL_TOKEN}"
 echo
 
 echo "------------------------------------------------------------------"
-echo "Step 2: Perform token exchange using '${CLIENT_B_ID}'"
+echo "Step 2: Perform token exchange using »${CLIENT_B_ID}«"
 echo "------------------------------------------------------------------"
 
 # client-b exchanges the initial token for a new one with client-c as the audience.

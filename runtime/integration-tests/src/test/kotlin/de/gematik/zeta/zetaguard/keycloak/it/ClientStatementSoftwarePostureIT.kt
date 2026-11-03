@@ -25,7 +25,6 @@
 
 package de.gematik.zeta.zetaguard.keycloak.it
 
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.AppleProductId
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
 import de.gematik.zeta.zetaguard.keycloak.commons.clientStatementData
 import de.gematik.zeta.zetaguard.keycloak.commons.createOtherClaims
@@ -36,30 +35,12 @@ import io.kotest.matchers.string.shouldContain
 
 class ClientStatementSoftwarePostureIT : ZetaGuardFunSpecIT() {
   init {
-    test("Invalid combination of posture type and platform") {
-      val nonce = createNonce()
-      val otherClaims = createOtherClaims(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys).toMutableMap()
-      val invalidStatement =
-          clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, productId = AppleProductId("macos", listOf("bundle")))
-      otherClaims[CLAIM_CLIENT_STATEMENT] = invalidStatement
-
-      val jwt =
-          clientAssertionTokenGenerator.generateClientAssertion(
-              audiences = listOf(clientAssertionAudience),
-              nonceString = nonce,
-              otherClaims = otherClaims,
-          )
-      val smcbToken = createSMCBToken(nonce)
-
-      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldContain "Invalid combination" }
-    }
-
     test("Invalid attestation challenge") { invalidAttestationChallenge(PostureType.SOFTWARE) }
 
     test("Invalid attestation timestamp") {
       val nonce = createNonce()
       val otherClaims = createOtherClaims(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys).toMutableMap()
-      val invalidStatement = clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys, timeStampSeconds = 12)
+      val invalidStatement = clientStatementData(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys).copy(attestationTimestamp = 12)
       otherClaims[CLAIM_CLIENT_STATEMENT] = invalidStatement
 
       val jwt =

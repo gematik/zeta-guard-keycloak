@@ -26,12 +26,15 @@
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
 import arrow.core.Either
+import com.webauthn4j.util.ECUtil
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
+import java.security.Key
 import java.security.KeyFactory
 import java.security.KeyPair
 import java.security.PrivateKey
 import java.security.PublicKey
 import java.security.SecureRandom
+import java.security.Signature
 import java.security.interfaces.ECPublicKey
 import java.security.interfaces.RSAPrivateCrtKey
 import java.security.interfaces.RSAPublicKey
@@ -44,12 +47,15 @@ import org.bouncycastle.jce.interfaces.ECPrivateKey
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
 import org.bouncycastle.jce.spec.ECNamedCurveSpec
 import org.bouncycastle.jce.spec.ECPublicKeySpec
+import org.keycloak.common.crypto.CryptoConstants
 import org.keycloak.common.crypto.CryptoIntegration
 import org.keycloak.common.util.PemUtils
 import org.keycloak.crypto.AsymmetricSignatureSignerContext
 import org.keycloak.crypto.AsymmetricSignatureVerifierContext
 import org.keycloak.crypto.ECDSASignatureSignerContext
 import org.keycloak.crypto.ECDSASignatureVerifierContext
+import org.keycloak.crypto.JavaAlgorithm
+import org.keycloak.crypto.KeyWrapper
 import org.keycloak.crypto.SignatureSignerContext
 import org.keycloak.crypto.SignatureVerifierContext
 import org.keycloak.jose.jwk.ECPublicJWK
@@ -60,11 +66,12 @@ import org.keycloak.jose.jwk.JWKParser
 import org.keycloak.util.JWKSUtils.computeThumbprint
 import org.keycloak.util.JWKSUtils.getKeyWrapper
 
-const val RSA_SIGNATURE_ALGORITHM = "SHA256WithRSA"
-const val ECDSA_SIGNATURE_ALGORITHM = "SHA256WithECDSA"
-const val EC_CURVE_P256 = "SECP256R1"
+const val RSA_SIGNATURE_ALGORITHM = JavaAlgorithm.RS256
+const val ECDSA_SIGNATURE_ALGORITHM = JavaAlgorithm.ES256
+val EC_CURVE_P256 = CryptoConstants.EC_KEY_SECP256R1.uppercase()
 
-private const val P256_MAGIC: Byte = 0x04
+private const val P256_MAGIC_UNCOMPRESSED: Byte = 0x04 // SEC1 Uncompressed: https://www.rfc-editor.org/info/rfc5480/#ref-SEC1
+private val P256_MAGIC_UNCOMPRESSED_BYTES = byteArrayOf(P256_MAGIC_UNCOMPRESSED)
 
 fun generateKeyPair(curveName: String = EC_CURVE_P256): KeyPair {
   try {
@@ -86,6 +93,19 @@ fun generateKeyPair(curveName: String = EC_CURVE_P256): KeyPair {
  * @See [https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#5.5.2.5.1]
  */
 fun JWK.toThumbprint(): ByteArray = computeThumbprint(this).fromBase64()
+
+/**
+ * Derive challenge from JWK, aka "PuK.Client.Sig"
+ *
+ * Includes optional nonce, as specified in https://github.com/gematik/zeta/blob/feature/zeta-stufe-2/src/schemas/dcr-request.yaml#L498
+ */
+fun JWK.toClientHashData(optionalNonce: ByteArray?): ByteArray {
+  val xBytes = getOtherClaim(ECPublicJWK.X, String::class.java).fromBase64()
+  val yBytes = getOtherClaim(ECPublicJWK.Y, String::class.java).fromBase64()
+  val nonce = optionalNonce ?: byteArrayOf()
+
+  return P256_MAGIC_UNCOMPRESSED_BYTES + xBytes + yBytes + nonce
+}
 
 fun PublicKey.toThumbprint(): ByteArray = this.toJWK().toThumbprint()
 
@@ -127,7 +147,6 @@ fun PrivateKey.getPublicKey(): PublicKey {
      * modulus AND the public exponent, which are the two components of an RSA public key.
      */
     is RSAPrivateCrtKey -> {
-      println("Key is RSA. Using modulus and public exponent.")
       val keyFactory = KeyFactory.getInstance("RSA", PROVIDER_NAME)
       val pubKeySpec = RSAPublicKeySpec(modulus, publicExponent)
 
@@ -157,14 +176,31 @@ fun PrivateKey.getPublicKey(): PublicKey {
 
 fun PublicKey.createVerifierContext(): SignatureVerifierContext {
   val jwk = createJWK()
-  val key = getKeyWrapper(jwk, true).apply { publicKey = this@createVerifierContext }
+  val keyWrapper = getKeyWrapper(jwk, true).apply { publicKey = this@createVerifierContext }
 
-  return when (this) {
-    is ECPublicKey -> ECDSASignatureVerifierContext(key)
-    is RSAPublicKey -> AsymmetricSignatureVerifierContext(key)
+  return keyWrapper.createVerifierContext()
+}
 
-    else -> throw unsupportedOperationException()
-  }
+fun KeyWrapper.createVerifierContext(): SignatureVerifierContext = when (publicKey) {
+  is ECPublicKey -> ECDSASignatureVerifierContext(this)
+  is RSAPublicKey -> AsymmetricSignatureVerifierContext(this)
+  else -> throw publicKey.unsupportedOperationException()
+}
+
+fun PublicKey.verifySignature(data: ByteArray, signature: ByteArray): Either<Throwable, Boolean> = Either.catch {
+  val signatureVerifier = Signature.getInstance(ECDSA_SIGNATURE_ALGORITHM)
+
+  signatureVerifier.initVerify(this)
+  signatureVerifier.update(data)
+  signatureVerifier.verify(signature)
+}
+
+fun PrivateKey.signData(data: ByteArray): Either<Throwable, ByteArray> = Either.catch {
+  val signatureVerifier = Signature.getInstance(ECDSA_SIGNATURE_ALGORITHM)
+
+  signatureVerifier.initSign(this)
+  signatureVerifier.update(data)
+  signatureVerifier.sign()
 }
 
 fun KeyPair.createSignerContext(includeKid: Boolean = true): SignatureSignerContext {
@@ -175,7 +211,9 @@ fun KeyPair.createSignerContext(includeKid: Boolean = true): SignatureSignerCont
         privateKey = private
         // JWKBuilder auto-populates a kid that JWSBuilder would otherwise emit as the JOSE `kid` header.
         // Clearing it produces a token without `header.kid` (verified via x5c, so no kid is needed).
-        if (!includeKid) kid = null
+        if (!includeKid) {
+          kid = null
+        }
       }
 
   return when (public) {
@@ -204,8 +242,7 @@ fun KeyPair.signingAlgorithm() =
 
 fun KeyPair.unsupportedOperationException() = public.unsupportedOperationException()
 
-fun PublicKey.unsupportedOperationException(): UnsupportedOperationException =
-    UnsupportedOperationException("Public key type $javaClass not supported.")
+fun Key.unsupportedOperationException() = UnsupportedOperationException("Key type $javaClass not supported.")
 
 fun JWK.toPublicKey(): PublicKey = JWKParser.create(this).toPublicKey()
 
@@ -219,13 +256,18 @@ fun String.toJWKS(): JSONWebKeySet = toObject<JSONWebKeySet>()
  */
 fun String.toPublicKey(): Either<String, PublicKey> =
     Either.catch {
-          if (isPEMFormat()) {
-            PemUtils.decodePublicKey(this)
-          } else {
-            decodeECPublicKey()
-          }
-        }
-        .mapLeft { it.message ?: "Could not extract public key from $this" }
+      if (isPEMFormat()) {
+        PemUtils.decodePublicKey(this)
+      } else {
+        decodeECPublicKey()
+      }
+    }.mapLeft { it.message ?: "Could not extract public key from $this" }
+
+/**
+ * Convert the public key point into X9.62 uncompressed format (65 bytes starting with byte 0x04 followed by 32-byte X and Y coordinates)
+ * and hash the result
+ */
+fun PublicKey.toAppleKeyId() = ECUtil.createUncompressedPublicKey(this as ECPublicKey).toHash()
 
 /**
  * Decode a base64-encoded EC public key into a Java PublicKey instance.
@@ -242,15 +284,16 @@ private fun String.decodeECPublicKey(): PublicKey {
       when (rawBytes.size) {
         // Raw P-256 key without magic header
         64 ->
-            ByteArray(65).apply {
-              this[0] = P256_MAGIC
-              System.arraycopy(rawBytes, 0, this, 1, 64)
-            }
+          ByteArray(65).apply {
+            this[0] = P256_MAGIC_UNCOMPRESSED
+            System.arraycopy(rawBytes, 0, this, 1, 64)
+          }
         // Raw P-256 key
         65 -> {
-          require(rawBytes[0] == P256_MAGIC) { "Expected 0x04 byte header for P-256 key" }
+          require(rawBytes[0] == P256_MAGIC_UNCOMPRESSED) { "Expected 0x04 byte header for P-256 key" }
           rawBytes
         }
+
         else -> {
           val spec = X509EncodedKeySpec(rawBytes)
           return KeyFactory.getInstance("EC", PROVIDER_NAME).generatePublic(spec)

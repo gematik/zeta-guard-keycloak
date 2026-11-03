@@ -1,0 +1,1 @@
+../scripts-repository/19-create-client-management-scope.sh

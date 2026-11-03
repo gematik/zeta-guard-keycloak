@@ -53,6 +53,7 @@ data class ZetaGuardTokenExchangeData
     "audiences",
     "scopes",
     "deviceInfo",
+    "attestationTimestamp",
 )
 constructor(
     val authenticationMethodsReferences: List<String>,
@@ -73,4 +74,5 @@ constructor(
     val audiences: List<String>? = null,
     val scopes: List<String>? = null,
     val deviceInfo: OpaDeviceInfo? = null,
+    val attestationTimestamp: Long? = null,
 )

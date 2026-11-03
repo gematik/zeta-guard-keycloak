@@ -1,0 +1,31 @@
+{
+  "token_endpoint_auth_method": "private_key_jwt",
+  "grant_types": [
+    "urn:ietf:params:oauth:grant-type:token-exchange",
+    "refresh_token",
+    "urn:ietf:params:oauth:grant-type:jwt-bearer"
+  ],
+  "response_types": [
+    "token",
+    "code"
+  ],
+  "client_name": "demo-client",
+  "redirect_uris": [
+    "de.gematik.zeta://app",
+    "de.gematik.zeta://oidc"
+  ],
+  "jwks": {
+    "keys": [
+      {
+        "kid": "qF87pXxr1HlUzEZaldkHWHLqghlYGxzOWDsGhVbv4Fs",
+        "kty": "EC",
+        "alg": "ES256",
+        "use": "sig",
+        "crv": "P-256",
+        "x": "uhgmaIjJsTFQSecSoiCZyxyUULGqa55pXvZ2DfgqSo8",
+        "y": "QWLj-UDV1Ohk11ArKNdQeiA04gnvbEmG8h8vAkD7A28"
+      }
+    ]
+  },
+  "attestation_type": "software"
+}

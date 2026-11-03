@@ -45,6 +45,6 @@ fun Posture.toOpaDeviceInfo(): OpaDeviceInfo =
       is TPMPosture -> OpaDeviceInfo(os = os, osVersion = osVersion, deviceModel = null)
       is ApplePosture -> OpaDeviceInfo(os = systemName, osVersion = systemVersion, deviceModel = deviceModel)
       // Interim mapping until the gematik schema names an Android source for os/os_version.
-      is AndroidPosture -> OpaDeviceInfo(os = "Android", osVersion = build.version.sdkInit.toString(), deviceModel = build.model)
+      is AndroidPosture -> OpaDeviceInfo(os = "Android", osVersion = build.version.sdkInt.toString(), deviceModel = build.model)
       else -> OpaDeviceInfo(os = null, osVersion = null, deviceModel = null)
     }

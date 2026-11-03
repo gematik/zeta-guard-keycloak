@@ -23,8 +23,64 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.client_attestation
 
+import arrow.core.Either
+import arrow.core.raise.either
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.jsontype.NamedType
+import com.fasterxml.jackson.dataformat.cbor.CBORFactory
+import com.webauthn4j.appattest.data.attestation.statement.AppleAppAttestAttestationStatement
+import com.webauthn4j.converter.AttestationObjectConverter
+import com.webauthn4j.converter.AuthenticatorDataConverter
+import com.webauthn4j.converter.util.ObjectConverter
+import com.webauthn4j.data.attestation.AttestationObject
+import com.webauthn4j.data.attestation.authenticator.AAGUID
+import com.webauthn4j.data.attestation.authenticator.AuthenticatorData
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_APPLE_APP_ATTEST_AAGUID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.setupBouncyCastleProvider
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toHash
+import org.apache.commons.lang3.SystemUtils.getEnvironmentVariable
+import org.bouncycastle.asn1.ASN1Sequence
+import org.bouncycastle.asn1.DEROctetString
+import org.bouncycastle.asn1.DERSequence
+import org.bouncycastle.asn1.DERTaggedObject
+import org.keycloak.util.JsonSerialization
+
+const val APPLE_APP_ATTEST_AAGUID_PRODUCTION = "appattest"
+const val APPLE_APP_ATTEST_AAGUID_DEVELOPMENT = "appattestdevelop"
+
+private val APPLE_APP_ATTEST_AAGUID_STRING = getEnvironmentVariable(ENV_APPLE_APP_ATTEST_AAGUID, APPLE_APP_ATTEST_AAGUID_PRODUCTION)
+val APPLE_APP_ATTEST_AAGUID = AAGUID(APPLE_APP_ATTEST_AAGUID_STRING.toByteArray().copyOf(16))
+
+@Suppress("unused")
+object AttestationUtil {
+  val cborMapper = ObjectMapper(CBORFactory())
+  private val objectConverter = ObjectConverter(JsonSerialization.mapper, cborMapper)
+  private val attestationObjectConverter = AttestationObjectConverter(objectConverter)
+  private val authenticatorDataConverter = AuthenticatorDataConverter(objectConverter)
+
+  init {
+    cborMapper.registerSubtypes(
+        NamedType(AppleAppAttestAttestationStatement::class.java, AppleAppAttestAttestationStatement.FORMAT)
+    )
+
+    setupBouncyCastleProvider()
+  }
+
+  fun ByteArray.toAppleAttestationObject(): Either<Throwable, AttestationObject> = either {
+    Either.catch<AttestationObject?> { attestationObjectConverter.convert(this@toAppleAttestationObject) }.bind()
+      ?: raise(IllegalStateException("Could not parse AppleAttestationObject"))
+  }
+
+  fun ByteArray.extractRawAuthenticationData(): Either<Throwable, ByteArray> = either {
+    Either.catch { attestationObjectConverter.extractAuthenticatorData(this@extractRawAuthenticationData) }.bind()
+      ?: raise(IllegalStateException("Could not extract AuthenticationData"))
+  }
+
+  fun AttestationObject.toCBOR(): Either<Throwable, ByteArray> = Either.catch { attestationObjectConverter.convertToBytes(this@toCBOR) }
+
+  fun AuthenticatorData<*>.toCBOR(): Either<Throwable, ByteArray> = Either.catch { authenticatorDataConverter.convert(this@toCBOR) }
+}
 
 /**
  * Calculate attestation challenge = SHA-256( SHA-256(pubKey) || nonce ). (BASE64 encoded)
@@ -36,3 +92,10 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.toHash
  * @return BASE64-encoded attestation challenge
  */
 fun calculateAttestationChallenge(jwkThumbPrint: ByteArray, nonce: ByteArray): String = toHash(jwkThumbPrint, nonce).toBase64()
+
+fun ByteArray.toAppleASN1Sequence(): ASN1Sequence {
+  val octet = DEROctetString(this)
+  val taggedObject = DERTaggedObject(true, 1, octet)
+
+  return DERSequence(arrayOf(taggedObject))
+}

@@ -23,27 +23,27 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.revocation
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJsonNode
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 
 /** The field names are the contract with the PEP (see its `block_list::Block`), so they are asserted literally rather than through a round-trip. */
 class BlockTest :
-    StringSpec({
-      val block = Block(`when` = 1786020754, until = 1786021034, what = "mzEPAZMnxCwiDaN8D7DVDi91")
+  StringSpec({
+    val block = Block(`when` = 1786020754, until = 1786021034, what = "mzEPAZMnxCwiDaN8D7DVDi91")
 
-      "serializes to exactly the three fields the PEP parses" {
-        val fields = ObjectMapper().readTree(block.toJson()).fieldNames().asSequence().toList()
+    "serializes to exactly the three fields the PEP parses" {
+      val fields = block.toJson().toJsonNode().fieldNames().asSequence().toList()
 
-        fields shouldContainExactlyInAnyOrder listOf("when", "until", "what")
-      }
+      fields shouldContainExactlyInAnyOrder listOf("when", "until", "what")
+    }
 
-      "survives a round trip" { Block.fromJson(block.toJson()) shouldBe block }
+    "survives a round trip" { Block.fromJson(block.toJson()) shouldBe block }
 
-      "reads a block that carries unknown fields" {
-        val json = """{"when":1,"until":2,"what":"sid","future":"ignored"}"""
+    "reads a block that carries unknown fields" {
+      val json = """{"when":1,"until":2,"what":"sid","future":"ignored"}"""
 
-        Block.fromJson(json) shouldBe Block(`when` = 1, until = 2, what = "sid")
-      }
-    })
+      Block.fromJson(json) shouldBe Block(`when` = 1, until = 2, what = "sid")
+    }
+  })

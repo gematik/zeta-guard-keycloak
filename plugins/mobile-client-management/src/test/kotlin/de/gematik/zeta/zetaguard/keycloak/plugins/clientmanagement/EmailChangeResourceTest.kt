@@ -23,67 +23,110 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
 import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
+import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardUserData
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkConstructor
+import io.mockk.unmockkAll
+import io.mockk.verify
 import jakarta.ws.rs.core.Response
-import java.net.URI
-import org.keycloak.http.HttpRequest
+import java.util.Base64
+import org.keycloak.models.ClientModel
 import org.keycloak.models.KeycloakContext
 import org.keycloak.models.KeycloakSession
-import org.keycloak.models.KeycloakUriInfo
 import org.keycloak.models.RealmModel
 
 /**
- * The resource is the authentication gate — no request without a fitting client assertion may reach the
- * [EmailChangeHandler]. The happy path through validator and handler is covered by their own tests.
+ * The resource only resolves the caller from the PEP-forwarded client data — no request without a usable header and a
+ * known, enabled client may reach the [EmailChangeHandler]. The domain checks are covered by the handler's own tests.
  */
 class EmailChangeResourceTest :
     StringSpec({
-      fun sessionMock(): KeycloakSession {
-        val realmModel =
-            mockk<RealmModel> {
-              every { name } returns "zeta-guard"
-              every { getClientByClientId(any()) } returns null
-            }
-        val uriInfo =
-            mockk<KeycloakUriInfo> {
-              every { baseUri } returns URI.create("http://localhost:8080")
-              every { requestUri } returns URI.create("http://localhost:8080/realms/zeta-guard/zeta/identity/email")
-            }
-        val request = mockk<HttpRequest> { every { httpMethod } returns "POST" }
-        val keycloakContext =
-            mockk<KeycloakContext> {
-              every { realm } returns realmModel
-              every { uri } returns uriInfo
-              every { httpRequest } returns request
-            }
-        return mockk<KeycloakSession> { every { context } returns keycloakContext }
+      lateinit var realm: RealmModel
+      lateinit var session: KeycloakSession
+      val client =
+          mockk<ClientModel> {
+            every { clientId } returns "mobile-client"
+            every { isEnabled } returns true
+          }
+
+      fun tokenContent(json: String): String = Base64.getUrlEncoder().encodeToString(json.toByteArray())
+
+      fun clientData(clientId: String): String =
+          tokenContent("""{"client_id":"$clientId","product_id":"demo_client","product_version":"0.1.0","platform":"apple"}""")
+
+      // the caller must be a confirmed mobile client (PepClientDataService)
+      fun registered(clientId: String): ZetaGuardClientData =
+          ZetaGuardClientData(clientId, currentTime(), currentTime()).apply {
+            clientAuthMethod = ClientAuthMethod.SEK_IDP
+            attestationState = ClientAttestationState.VALID
+            registrationStatus = ClientRegistrationStatus.CONFIRMED
+            userData = ZetaGuardUserData("user", currentTime(), currentTime())
+          }
+
+      val mobileClientData = registered("mobile-client")
+
+      beforeTest {
+        realm = mockk { every { getClientByClientId(any()) } returns null }
+        val context = mockk<KeycloakContext> { every { this@mockk.realm } returns realm }
+        session = mockk { every { this@mockk.context } returns context }
+        mockkConstructor(ZetaGuardDataService::class)
+        every { anyConstructed<ZetaGuardDataService>().findClientData(any()) } returns null
+        every { anyConstructed<ZetaGuardDataService>().findClientData("mobile-client") } returns mobileClientData
+        mockkConstructor(EmailChangeHandler::class)
+        every { anyConstructed<EmailChangeHandler>().handle(any(), any()) } returns Response.accepted().build()
       }
 
-      "a missing Client-Assertion header is rejected with 401 popRequired before anything else runs" {
-        val response = EmailChangeResource(mockk<KeycloakSession>()).changeEmail(null, EmailChangeRequest())
+      afterTest { unmockkAll() }
+
+      "a request without the PEP header is rejected with 401 unauthorized before anything else runs" {
+        val response = EmailChangeResource(session).changeEmail(null, EmailChangeRequest())
 
         response.status shouldBe 401
         response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
-        response.entityMap()["code"] shouldBe ProblemCodes.POP_REQUIRED
+        response.entityMap()["code"] shouldBe ProblemCodes.UNAUTHORIZED
+        verify(exactly = 0) { anyConstructed<EmailChangeHandler>().handle(any(), any()) }
       }
 
-      "a blank Client-Assertion header is rejected with 401 popRequired" {
-        val response = EmailChangeResource(mockk<KeycloakSession>()).changeEmail("  ", EmailChangeRequest())
+      "an unparsable header is rejected with 401 unauthorized" {
+        val response = EmailChangeResource(session).changeEmail("garbage", EmailChangeRequest())
 
         response.status shouldBe 401
-        response.entityMap()["code"] shouldBe ProblemCodes.POP_REQUIRED
+        response.entityMap()["code"] shouldBe ProblemCodes.UNAUTHORIZED
       }
 
-      "an unparseable client assertion is rejected with 401 invalidSignature — the handler is never reached" {
-        val response = EmailChangeResource(sessionMock()).changeEmail("not-a-jwt", EmailChangeRequest())
+      "client data whose client_id is not a registered client is rejected with 401 unauthorized" {
+        val response = EmailChangeResource(session).changeEmail(clientData("nobody"), EmailChangeRequest())
 
         response.status shouldBe 401
-        response.entityMap()["code"] shouldBe ProblemCodes.INVALID_SIGNATURE
+        response.entityMap()["code"] shouldBe ProblemCodes.UNAUTHORIZED
+        verify(exactly = 0) { anyConstructed<EmailChangeHandler>().handle(any(), any()) }
+      }
+
+      "a disabled client is rejected with 401 unauthorized" {
+        every { realm.getClientByClientId("mobile-client") } returns mockk { every { isEnabled } returns false }
+
+        EmailChangeResource(session).changeEmail(clientData("mobile-client"), EmailChangeRequest()).status shouldBe 401
+      }
+
+      "the client_id of the forwarded client data selects the client data handed to the handler" {
+        every { realm.getClientByClientId("mobile-client") } returns client
+        val request = EmailChangeRequest()
+
+        val response = EmailChangeResource(session).changeEmail(clientData("mobile-client"), request)
+
+        response.status shouldBe 202
+        verify { anyConstructed<EmailChangeHandler>().handle(mobileClientData, request) }
       }
     })
 

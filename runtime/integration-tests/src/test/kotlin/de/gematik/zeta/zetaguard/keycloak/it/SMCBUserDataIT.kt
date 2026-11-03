@@ -25,7 +25,7 @@ package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CRT_GEMATIK_LEAF_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.PROFESSION_OID
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_LAST_ACCESS
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_USER_LAST_ACCESS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
@@ -71,29 +71,29 @@ class SMCBUserDataIT : ZetaGuardFunSpecIT() {
       } else {
         user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_NAME }.value shouldStartWith CRT_GEMATIK_LEAF_NAME
         user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_PROFESSION_OID }.value shouldBe PROFESSION_OID
-        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_LAST_ACCESS }.value.toLocalDateTime() shouldBeAfter now
+        user.attributes.first { it.name == ATTRIBUTE_USER_LAST_ACCESS }.value.toLocalDateTime() shouldBeAfter now
       }
     }
   }
+}
 
-  private fun lookupUser(userName: String): UserEntity {
-    val entityClasses =
-        arrayOf(
-            UserEntity::class.java,
-            UserAttributeEntity::class.java,
-            UserRequiredActionEntity::class.java,
-            CredentialEntity::class.java,
-            FederatedIdentityEntity::class.java,
-        )
+fun lookupUser(userName: String): UserEntity {
+  val entityClasses =
+      arrayOf(
+          UserEntity::class.java,
+          UserAttributeEntity::class.java,
+          UserRequiredActionEntity::class.java,
+          CredentialEntity::class.java,
+          FederatedIdentityEntity::class.java,
+      )
 
-    return JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
-      val userEntity =
-          it.createEntityManager()
-              .createQuery("SELECT u FROM UserEntity u WHERE u.username = :userName") //
-              .setParameter("userName", userName)
-              .singleResult as UserEntity
+  return JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
+    val userEntity =
+        it.createEntityManager()
+            .createQuery("SELECT u FROM UserEntity u WHERE u.username = :userName") //
+            .setParameter("userName", userName)
+            .singleResult as UserEntity
 
-      userEntity.also { user -> Hibernate.initialize(user.attributes) } // Avoid LazyInitializationException
-    }
+    userEntity.also { user -> Hibernate.initialize(user.attributes) } // Avoid LazyInitializationException
   }
 }

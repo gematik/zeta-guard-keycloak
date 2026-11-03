@@ -24,6 +24,10 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_IDENTITY_PROVIDER_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
+import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
+import de.spree.keycloak.commons.getEnvironment
 import jakarta.ws.rs.NotFoundException
 import org.keycloak.broker.provider.IdentityProvider
 import org.keycloak.common.util.KeyUtils
@@ -43,22 +47,64 @@ import org.keycloak.wellknown.WellKnownProvider
 /** Entity-statement TTL. Kept short so realm key rotations propagate quickly to the federation. */
 private const val ENTITY_STATEMENT_TTL_SECONDS = 3600L
 
-// internal: also read by SekIDPIdentityProvider for the trust-chain fetch.
-internal const val SEKIDP_CONFIG_FEDMASTER_URL = "fedmasterUrl"
+private const val ENV_ENTITY_STATEMENT_ID_TOKEN_VERSION = "ENTITY_STATEMENT_ID_TOKEN_VERSION"
+private const val ENV_ENTITY_STATEMENT_CLIENT_NAME = "ENTITY_STATEMENT_CLIENT_NAME"
+private const val ENV_ENTITY_STATEMENT_ORGANIZATION_NAME = "ENTITY_STATEMENT_ORGANIZATION_NAME"
+private const val ENV_ENTITY_STATEMENT_CONTACT_EMAIL = "ENTITY_STATEMENT_CONTACT_EMAIL"
+private const val ENV_ENTITY_STATEMENT_PRODUCT_TYPE_VERSION = "ENTITY_STATEMENT_PRODUCT_TYPE_VERSION"
+private const val ENV_ENTITY_STATEMENT_REDIRECT_URIS = "ENTITY_STATEMENT_REDIRECT_URIS"
+
+private const val DEFAULT_PRODUCT_TYPE_VERSION = "1.0.0"
+
+internal data class EntityStatementConfig(
+    val idTokenVersions: List<String>,
+    val clientName: String,
+    val organizationName: String,
+    val contactEmail: String,
+    val productTypeVersion: String,
+    val redirectUris: List<String> = emptyList(),
+)
+
+internal fun resolveEntityStatementConfig(
+    env: (String, String) -> String = ::getEnvironment,
+    requireEnv: (String) -> String = ::safeGetenv,
+): EntityStatementConfig = EntityStatementConfig(
+    idTokenVersions = env(ENV_ENTITY_STATEMENT_ID_TOKEN_VERSION, "1.0.0")
+        .split(",").map { it.trim() }.filter { it.isNotEmpty() },
+    clientName = requireEnv(ENV_ENTITY_STATEMENT_CLIENT_NAME),
+    organizationName = requireEnv(ENV_ENTITY_STATEMENT_ORGANIZATION_NAME),
+    contactEmail = requireEnv(ENV_ENTITY_STATEMENT_CONTACT_EMAIL),
+    productTypeVersion = env(ENV_ENTITY_STATEMENT_PRODUCT_TYPE_VERSION, DEFAULT_PRODUCT_TYPE_VERSION),
+    redirectUris = env(ENV_ENTITY_STATEMENT_REDIRECT_URIS, "")
+        .split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinct(),
+)
+
+/**
+ * A statically configured list replaces the redirect URIs derived from the realm's SekIDP clients completely; those are
+ * only used when no list is configured.
+ */
+internal fun effectiveRedirectUris(configured: List<String>, derived: () -> List<String>): List<String> = configured.ifEmpty(derived)
+
+internal val entityStatementConfig: EntityStatementConfig by lazy {
+  resolveEntityStatementConfig()
+}
+
+private const val productType = "ZETA Guard"
 
 /**
  * Serves the ZETA Guard's own OpenID-Federation entity statement (A_23034-02) under
  * `/realms/{realm}/.well-known/openid-federation`. The realm URL is the federation entity id and
  * the `client_id` towards the SekIDP, which fetches this statement during automatic registration.
  */
-class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : WellKnownProvider {
+class ZetaGuardEntityStatementProvider(private val session: KeycloakSession, private val fedmasterUrl: String) : WellKnownProvider {
 
   override fun getConfig(): Any {
     val realm = session.context.realm
     val idp =
         session.identityProviders().getByAlias(SEKIDP_IDENTITY_PROVIDER_ID)
-            ?: throw NotFoundException(
-                "SekIDP identity provider »$SEKIDP_IDENTITY_PROVIDER_ID« is not configured in realm »${realm.name}«")
+          ?: throw NotFoundException(
+              "SekIDP identity provider »$SEKIDP_IDENTITY_PROVIDER_ID« is not configured in realm »${realm.name}«"
+          )
 
     val entityId =
         session.context
@@ -72,8 +118,9 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
     // A_23034-02
     val sigKey =
         session.keys().getActiveKey(realm, KeyUse.SIG, Algorithm.ES256)
-            ?: throw NotFoundException(
-                "No active ES256 signing key in realm »${realm.name}« — add an »ecdsa-generated« key provider (ecdsaEllipticCurveKey=P-256)")
+          ?: throw NotFoundException(
+              "No active ES256 signing key in realm »${realm.name}« — add an »ecdsa-generated« key provider (ecdsaEllipticCurveKey=P-256)"
+          )
     val encKey =
         session
             .keys()
@@ -107,11 +154,18 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
                   mtlsCertificate?.let { add(JWKBuilder.create().kid(KeyUtils.createKeyId(it.publicKey)).ec(it.publicKey, listOf(it), KeyUse.SIG)) }
                 })
 
+    // gemSpec_IDP_Sek, Tab. 28: the entity statement of a Fachdienst carries a federation_entity block.
+    val federationEntity =
+        mapOf(
+            "name" to entityStatementConfig.clientName,
+            "organization_name" to entityStatementConfig.organizationName,
+        )
+
     // Field set per A_23034-02 — everything below is REQUIRED,
     // including `scope`: the SekIDP validates the PAR scopes against this list A_29660.
     val openidRelyingParty =
         mapOf(
-            "redirect_uris" to clientRedirectUris(realm),
+            "redirect_uris" to redirectUris(realm),
             "response_types" to listOf("code"),
             "grant_types" to listOf("authorization_code"),
             "client_registration_types" to listOf("automatic"),
@@ -122,6 +176,17 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
             "id_token_encrypted_response_enc" to "A256GCM",
             "scope" to idp.config["defaultScope"],
             "jwks" to relyingPartyJwks,
+            "ti_features_supported" to mapOf(
+                "id_token_version_supported" to entityStatementConfig.idTokenVersions
+            ),
+            "client_name" to entityStatementConfig.clientName,
+            "organization_name" to entityStatementConfig.organizationName,
+            "keywords" to listOf(
+                "product_type_version:${entityStatementConfig.productTypeVersion}",
+                "product_type:$productType",
+            ),
+            "contacts" to listOf(entityStatementConfig.contactEmail),
+            "default_acr_values" to listOf(SEKIDP_DEFAULT_ACR),
         )
 
     val now = Time.currentTime().toLong()
@@ -132,23 +197,32 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
             "iat" to now,
             "exp" to now + ENTITY_STATEMENT_TTL_SECONDS,
             "jwks" to federationJwks,
-            // with A_29737 fedmaster url will be available in the provisioned image
-            "authority_hints" to listOf(idp.config[SEKIDP_CONFIG_FEDMASTER_URL]),
-            "metadata" to mapOf("openid_relying_party" to openidRelyingParty),
+            "authority_hints" to listOf(fedmasterUrl),
+            "metadata" to
+                mapOf(
+                    "federation_entity" to federationEntity,
+                    "openid_relying_party" to openidRelyingParty,
+                ),
         )
 
     val signer = session.getProvider(SignatureProvider::class.java, sigKey.algorithmOrDefault).signer(sigKey)
     return JWSBuilder().type("entity-statement+jwt").kid(sigKey.kid).jsonContent(body).sign(signer)
   }
 
-  // A_25656: the redirect URLs of all permitted clients.
-  private fun clientRedirectUris(realm: RealmModel): List<String> =
-      session
-          .clients()
-          .getClientsStream(realm)
-          .toList()
-          .flatMap { client -> client.redirectUris.orEmpty() }
-          .distinct()
+  // A_25656: the redirect URLs of all permitted SekIDP clients.
+  private fun redirectUris(realm: RealmModel): List<String> =
+      effectiveRedirectUris(entityStatementConfig.redirectUris) { clientRedirectUris(realm) }
+
+  private fun clientRedirectUris(realm: RealmModel): List<String> {
+    val sekIdpClientIds = ZetaGuardDataService(DefaultEMCreator(session)).findSekIdpClientIds().toSet()
+    return session
+        .clients()
+        .getClientsStream(realm)
+        .filter { it.clientId in sekIdpClientIds }
+        .toList()
+        .flatMap { client -> client.redirectUris.orEmpty() }
+        .distinct()
+  }
 
   override fun close() {
     // No-op

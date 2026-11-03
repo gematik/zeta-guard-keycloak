@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
+import arrow.core.getOrElse
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.problem
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
@@ -34,61 +35,37 @@ import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import org.keycloak.models.KeycloakSession
-import org.keycloak.services.Urls
-
-/** Name of the assertion header of the client-management API ([zeta-guard-client-management], A_30101). */
-const val CLIENT_ASSERTION_HEADER = "Client-Assertion"
 
 /**
  * JAX-RS sub-resource for `POST /realms/{realm}/zeta/identity/email`, mounted via a sub-resource locator in
  * [ZetaEmailBindingResourceProvider] (the owner of the `zeta` realm-resource id — one factory per id).
  *
- * This HTTP layer is the authentication gate: it states explicitly what the client assertion must be bound to and
- * rejects the request if the assertion is missing or does not fit (A_30101). Only an authenticated client reaches
- * the domain checks in [EmailChangeHandler].
+ * Reachable only through the PEP, which verifies access token, DPoP proof and scope and forwards the client data in
+ * [HEADER_ZETA_CLIENT_DATA]. This layer only resolves the calling client from that client data (`client_id`); the
+ * domain checks live in [EmailChangeHandler].
  */
 class EmailChangeResource(private val session: KeycloakSession) {
+
+  private val dataService = ZetaGuardDataService(DefaultEMCreator(session))
+  private val pepClientDataService = PepClientDataService(dataService)
 
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  fun changeEmail(@HeaderParam(CLIENT_ASSERTION_HEADER) clientAssertion: String?, request: EmailChangeRequest?): Response {
-    if (clientAssertion.isNullOrBlank()) {
-      return problem(
-          Response.Status.UNAUTHORIZED,
-          ProblemCodes.POP_REQUIRED,
-          "Client assertion required",
-          "Email change must be authorized by possession of the registered instance key F2 (»$CLIENT_ASSERTION_HEADER« header, A_30101)",
-      )
-    }
+  fun changeEmail(@HeaderParam(HEADER_ZETA_CLIENT_DATA) zetaClientData: String?, request: EmailChangeRequest?): Response = session.problemOnError {
+    val zetaClient =
+        pepClientDataService.clientFromPep(zetaClientData).mapLeft {
+          problem(
+              Response.Status.UNAUTHORIZED,
+              ProblemCodes.UNAUTHORIZED,
+              "Caller unknown",
+              "Email change requires the client data forwarded by the PEP (header »zeta-client-data«)",
+          )
+        }.getOrElse { return it }
 
-    val context = session.context
+    session.context.realm.getClientByClientId(zetaClient.id)?.takeIf { it.isEnabled }
+      ?: return problem(Response.Status.UNAUTHORIZED, ProblemCodes.UNAUTHORIZED, "Caller unknown", "Unknown or disabled client")
 
-    // Resolve the addressed client — the client_id from the assertion is only a non-secret selector (A_30101);
-    // trust is established by the validation below.
-    val clientId = ClientAssertionValidator.unverifiedClientId(clientAssertion)
-    val client = clientId?.let { context.realm.getClientByClientId(it) }
-    if (client == null || !client.isEnabled) {
-      return problem(Response.Status.UNAUTHORIZED, ProblemCodes.INVALID_SIGNATURE, "Client assertion rejected", "Unknown or disabled client")
-    }
-
-    val validator =
-        ClientAssertionValidator(
-            session,
-            ClientAssertionValidator.defaultChecks(
-                expectedAudience = Urls.realmIssuer(context.uri.baseUri, context.realm.name),
-                expectedHttpMethod = context.httpRequest.httpMethod,
-                expectedTargetUri = context.uri.requestUri,
-            ),
-        )
-    when (val outcome = validator.validate(clientAssertion, client)) {
-      is ClientAssertionResult.Invalid -> return problem(outcome.status, outcome.code, "Client assertion rejected", outcome.detail)
-      is ClientAssertionResult.Valid -> Unit
-    }
-
-    return EmailChangeHandler(
-        session,
-        ZetaGuardDataService(DefaultEMCreator(session))
-    ).handle(client, request)
+    EmailChangeHandler(session, dataService).handle(zetaClient, request)
   }
 }

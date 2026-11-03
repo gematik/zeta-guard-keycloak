@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
+import arrow.core.Either
 import de.gematik.zeta.zetaguard.keycloak.commons.resolveClientIP
 import io.opentelemetry.api.trace.Tracer
 import jakarta.ws.rs.core.Response
@@ -42,7 +43,7 @@ val KeycloakSession.tracingProvider: TracingProvider
 val KeycloakSession.serverHost: String get() = context.authServerUrl.host
 
 val KeycloakSession.clientIP: String?
-  get() = runCatching { resolveClientIP(context.connection?.remoteAddr) { context.requestHeaders?.getHeaderString(it) } }.getOrNull()
+  get() = Either.catch { resolveClientIP(context.connection?.remoteAddr) { context.requestHeaders?.getHeaderString(it) } }.getOrNull()
 
 fun rememberLastClientIp(session: KeycloakSession, client: ClientModel) {
   session.clientIP?.let { client.setAttribute(ATTRIBUTE_LAST_CLIENT_IP, it) }

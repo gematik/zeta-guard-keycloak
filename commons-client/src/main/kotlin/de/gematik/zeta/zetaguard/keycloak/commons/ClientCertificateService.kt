@@ -31,10 +31,10 @@ import java.security.cert.X509Certificate
 import java.util.zip.ZipFile
 import org.apache.commons.io.IOUtils
 
-object ClientCertificateService {
+class ClientCertificateService(fileName: String) {
   private val zipFile: ZipFile by lazy {
     val tempFile = File.createTempFile("certificates", ".zip").apply { deleteOnExit() }
-    IOUtils.copy(ClientCertificateService::class.java.getResourceAsStream("/smcb-certificates-client.zip"), tempFile.outputStream())
+    IOUtils.copy(ClientCertificateService::class.java.getResourceAsStream("/$fileName"), tempFile.outputStream())
 
     ZipFile(tempFile)
   }

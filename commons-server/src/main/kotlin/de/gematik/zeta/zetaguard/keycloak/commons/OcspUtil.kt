@@ -287,7 +287,7 @@ object OcspUtil {
     issuers.getTsp(issuer)?.let { issuerTsp ->
       val signerTsp = signers.getTsp(signer)
       if (issuerTsp != signerTsp) {
-        return "OCSP signer TSP '$signerTsp' does not match issuer TSP '$issuerTsp'".left()
+        return "OCSP signer TSP »$signerTsp« does not match issuer TSP »$issuerTsp«".left()
       }
     }
 

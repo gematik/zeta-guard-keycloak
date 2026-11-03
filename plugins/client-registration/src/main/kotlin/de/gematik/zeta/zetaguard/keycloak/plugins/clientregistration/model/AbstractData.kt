@@ -40,16 +40,25 @@ const val COLUMN_CREATED_AT = "CREATED_AT"
  * @property createdAt The timestamp when the entity was created.
  * @property lastAccess The timestamp when the entity was last accessed.
  */
-@Suppress("JpaEntityWithValAttributesInspection")
+@Suppress("CanBePrimaryConstructorProperty")
+// No vals: all-open doesn't touch backing fields, and Hibernate's enhancer skips lazy-load interception for final fields.
 @MappedSuperclass
 abstract class AbstractData(
-    @Id @Column(name = COLUMN_ID, nullable = false, updatable = false, length = 255) //
-    val id: String,
-    @Column(name = COLUMN_CREATED_AT, nullable = false) //
-    val createdAt: LocalDateTime,
-    @Column(name = COLUMN_LAST_ACCESS, nullable = false) //
-    var lastAccess: LocalDateTime,
+    id: String,
+    createdAt: LocalDateTime,
+    lastAccess: LocalDateTime,
 ) {
+  @Id @Column(name = COLUMN_ID, nullable = false, updatable = false, length = 255) //
+  var id: String = id
+    protected set
+
+  @Column(name = COLUMN_CREATED_AT, nullable = false) //
+  var createdAt: LocalDateTime = createdAt
+    protected set
+
+  @Column(name = COLUMN_LAST_ACCESS, nullable = false) //
+  var lastAccess: LocalDateTime = lastAccess
+
   override fun equals(other: Any?): Boolean =
       when {
         this === other -> true

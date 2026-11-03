@@ -32,6 +32,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.expirationDate
 import de.gematik.zeta.zetaguard.keycloak.commons.issuedAt
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toJWKS

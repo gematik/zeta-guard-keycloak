@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
+import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_A_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.it.RevocationStream.Companion.FIELD_UNTIL
@@ -31,7 +32,7 @@ import de.gematik.zeta.zetaguard.keycloak.it.RevocationStream.Companion.FIELD_WH
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
-import io.kotest.matchers.longs.shouldBeBetween
+import io.kotest.matchers.comparables.shouldBeBetween
 import io.kotest.matchers.longs.shouldBeGreaterThan
 import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -90,6 +91,19 @@ class RevocationIT : ZetaGuardFunSpecIT() {
         val until = (stream.awaitBlock(sessionId)[FIELD_UNTIL] as Number).toLong()
         until shouldBeGreaterThan accessToken.exp
         until.shouldBeBetween(accessToken.exp + 3000, accessToken.exp + 4200)
+      }
+    }
+
+    test("A client logging out blocks its session, without anyone reporting a token") {
+      RevocationStream(keycloakWebClient).use { stream ->
+        val tokens = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().responseObject
+        val sessionId = tokens.token.toAccessToken().sessionId.shouldNotBeNull()
+
+        keycloakWebClient.logoutSession(tokens.refreshToken.shouldNotBeNull(), CLIENT_A_ID).shouldBeRight()
+
+        // Like an admin deletion, a logout reaches the block list through the LOGOUT event, with the flat block TTL.
+        stream.awaitBlock(sessionId)[FIELD_WHAT] shouldBe sessionId
+        keycloakWebClient.adminRevokeSession(sessionId).shouldBeLeft().statusCode shouldBe SC_NOT_FOUND
       }
     }
 

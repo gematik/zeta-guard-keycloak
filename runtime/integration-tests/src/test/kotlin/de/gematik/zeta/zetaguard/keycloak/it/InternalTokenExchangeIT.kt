@@ -29,12 +29,10 @@ import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SECRET
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_C_ID
-import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
-import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
@@ -42,14 +40,10 @@ import io.kotest.matchers.string.shouldContain
 import org.keycloak.OAuth2Constants.ACCESS_TOKEN_TYPE
 import org.keycloak.util.TokenUtil.TOKEN_TYPE_BEARER
 
-class InternalTokenExchangeIT : FunSpec() {
-  val keycloakWebClient = KeycloakWebClient.instance()
-
+class InternalTokenExchangeIT : ZetaGuardFunSpecIT() {
   init {
-    afterSpec { keycloakWebClient.close() }
-
     test("Internal token exchange with explicit client scopes/audiences") {
-      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = CLIENT_A_SCOPE).shouldBeRight().reponseObject
+      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = CLIENT_A_SCOPE).shouldBeRight().responseObject
 
       accessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
 
@@ -69,7 +63,7 @@ class InternalTokenExchangeIT : FunSpec() {
                   requestedTokenType = ACCESS_TOKEN_TYPE,
               )
               .shouldBeRight()
-              .reponseObject
+              .responseObject
       newAccessTokenResponse.tokenType shouldBe TOKEN_TYPE_BEARER
       val newAccessToken = newAccessTokenResponse.token.toAccessToken()
 
@@ -80,7 +74,7 @@ class InternalTokenExchangeIT : FunSpec() {
     }
 
     test("Token exchange without client scopes/audiences") {
-      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().reponseObject
+      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().responseObject
       val accessToken = accessTokenResponse.token.toAccessToken()
 
       accessToken.email shouldBe "user1@foo.bar.com"

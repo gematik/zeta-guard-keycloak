@@ -1,18 +1,140 @@
-<img align="right" width="250" height="47" src="docs/img/Gematik_Logo_Flag.png"/> <br/>
+<img align="right" width="250" height="47" src="docs/img/Gematik_Logo_Flag.png" alt="gematik"/> <br/>
 
 # Release Notes ZETA PDP
 
-## Release 1.3.3
+## Release 2.0.1
+
+### added:
+- The entity statement at `.well-known/openid-federation` carries `metadata.federation_entity` with `name` and
+  `organization_name` (gemSpec_IDP_Sek, Tab. 28), taken from `ENTITY_STATEMENT_CLIENT_NAME` and
+  `ENTITY_STATEMENT_ORGANIZATION_NAME`
+- `ENTITY_STATEMENT_REDIRECT_URIS` configures the entity statement's `openid_relying_party.redirect_uris` statically as a
+  comma-separated list. Unset, they are still derived from the realm's SekIDP clients
 
 ### changed:
-- **Hardened Dynamic Client Registration against privilege escalation (CVE-2026-15572).**
-  Keycloak's native client-registration endpoints (`default`, `install`,
-  `saml2-entity-descriptor`) are disabled, and the RFC 7592 update/delete operations
-  (`PUT`/`DELETE`) are removed from the OIDC registration — only `POST`/`GET` on
-  `/clients-registrations/openid-connect` remain. This closes the mapper type-swap on
-  update (an allowed mapper type could be swapped to a disallowed one such as
-  `oidc-hardcoded-role-mapper` via the update endpoint, injecting privileged roles) and
-  the broad `ClientRepresentation` registration surface it relied on.
+- **BREAKING** Hardening: Keycloak features not used by 𝝵-Guard are disabled in the image (`KC_FEATURES_DISABLED`):
+  `account`, `account-api`, `ciba`, `device-flow`, `jwt-authorization-grant`, `authorization`,
+  `admin-fine-grained-authz`, `impersonation`, `workflows`, `identity-brokering-api`, `twitter-broker`, and the
+  `.well-known/uma2-configuration` endpoint. Their endpoints (e.g. `/realms/{realm}/account`, device and CIBA
+  endpoints) return 404, their grant types are rejected with `unsupported_grant_type`
+
+## Release 2.0.0
+
+### changed:
+- **BREAKING** The SekIDP federation master URL is no longer read from the identity provider config map (`fedmasterUrl`).
+  It is now resolved from a provisioned `federation-master.json` file pointed to by the new environment variable
+  `FEDERATION_MASTER_LOCATION` (A_29737). Deployments with `ZETA_OIDC_FLOW_ENABLED=true` must set this variable and
+  provide the file; otherwise Keycloak will fail to start.
+- E-mails sent by the authserver (verification code, notice to the previous address after an e-mail change) are in German
+- Updated dependency of VAU Integrity Provider to 2.0.10, for better performance and improved security. If the 
+  provider is enabled for a VAU deployment: **no rolling update**, make sure to shut down all cluster nodes running 
+  older software releases before starting the first node with the current release!
+- OPA input `client_registration_data.registration_timestamp` (and `client_registration.datetime` of the security event
+  `authn_token_created`) is now the time of the initial client registration instead of the client's last access, as
+  defined by `policy-engine-client-data.yaml`. It is now also converted to epoch seconds in the server's time zone; before,
+  it was off by the UTC offset (e.g. two hours in the future with `Europe/Berlin`)
+- **BREAKING** `GET /realms/{realm}/zeta/userinfo/email?id=<KVNR>` is no longer a stub: it returns the user's email,
+  and only once it is verified. The calling resource server must authenticate with an mTLS client certificate trusted
+  by the resource server truststore, otherwise it gets 401. A missing or malformed KVNR in `id`, an unknown user or an
+  unverified email all get the same 404. See [Environment variables](docs/references/Environment_variables.md#resource-server-access-to-userinfoemail).
+- the two log lines Keycloak's `nginx` x509cert-lookup writes for every resource server call ("No issuer certificate
+  …" and the misleading "Impossible to rebuild end user cert chain …") are demoted to DEBUG via a Quarkus log filter
+  in `conf/quarkus.properties`. Only these two messages of `NginxProxySslClientCertificateLookup` are affected; add
+  `org.keycloak.services.x509.NginxProxySslClientCertificateLookup:debug` to `KC_LOG_LEVEL` to see them again.
+- bump version of spree-integrity-provider (SIP) to 2.0.9, with better support for composite keys; includes DB migration
+- **BREAKING** no longer accept dpop-tokens without nonce. Nonce value has to be the same as in the rest of the requests.
+  Client-SDK is already compliant.
+- JWTs with `crit` or `cty` header parameters are now rejected across token exchange (subject token + client assertion), 
+  email change und SekIDP federation (A_27802-03)
+- MariaDB JDBC driver for Keycloak bumped to version 3.5.9 via override of Jar-Files in the OCI image (CVE-2026-55856, CVE-2026-55857, CVE-2026-55858)
+- Netty dependencies for Keycloak bumped to version 4.1.139 via override of Jar-Files in the OCI image
+- BouncyCastle dependencies for Keycloak bumped to version 1.86 via override of Jar-Files in the OCI image
+- **BREAKING** SekIDP login (A_26973-03): `common_name` in the access token of an insured person is now the display name from
+  the ID-token claim `urn:telematik:claims:display_name` instead of the KVNR; an ID token without this claim is rejected. The
+  OPA input `user_info.commonName` carries the same value. The identity provider's `defaultScope` must additionally contain
+  `urn:telematik:geburtsdatum` (`urn:telematik:display_name urn:telematik:versicherter urn:telematik:geburtsdatum openid`).
+- the Apple and Google (Android Key Attestation) truststores and the Google certificate status list
+  (`GOOGLE_CERTIFICATE_STATUS_LOCATION`) are now reloaded like the SMC-B, TPM and OCSP truststores: checked every
+  `TRUSTSTORE_RELOAD_INTERVAL` and adopted without a restart when a file changed (switched off by
+  `TRUSTSTORE_RELOAD_ENABLED=false`). All truststores are loaded once by the new SPI `zeta-guard-trust-material`
+  (plugin jar `zeta-commons-plugins.jar`) and shared by token exchange and client registration; a missing or
+  unparsable file still fails the startup.
+- **BREAKING** `POST .../zeta/identity/email` no longer accepts a `Client-Assertion`; it is reachable only through the PEP
+  (see added). The e-mail binding of the registration (`identity/bind-email`, `/resend`, `/verify`) is served behind the PEP
+  as well: the binding token carries the Guard audience and ZETA claims via mappers on `zeta:email-verify`, the authserver
+  takes the caller from `zeta-client-data`. Deploy the chart (PEP routes, Terraform mappers) before this image.
+- Session revocation: reporting a token now also ends an offline session with the same session id, not only the online
+  one. Otherwise the offline session could keep refreshing tokens after the block expired.
+- PKCS#12 truststores without any entries with friendly names (aliases) are now rejected at startup instead of failing
+  later when a certificate is looked up
+- Jackson dependencies (`jackson-core`, `jackson-databind`) for Keycloak bumped to version 2.21.7 via override of Jar-Files in the OCI image (CVE-2026-68494, CVE-2026-68497, CVE-2026-89425, CVE-2026-91776, CVE-2026-91777, CVE-2026-89407, CVE-2026-19032, CVE-2026-77310, CVE-2026-83557)
+- Jackson dependencies for Keycloak bumped to version 2.21.7 via override of Jar-Files in the OCI image
+
+### added:
+- Client data according to `policy-engine-client-data.yaml` is stored in `ZETA_CLIENT_DATA` (A_26585-02): platform,
+  product id and version, device info (os, os version, device model) and the attestation timestamp, taken from the client
+  statement of the last successful authentication
+- Session data is stored in the PDP database (A_26586-01): `ZETA_CLIENT_DATA.SESSION_DATA` holds the policy engine input
+  (`policy-engine-input.yaml`) of the client's last successful authentication or refresh. It is deleted together with the
+  client. Both use new nullable columns, added by an additive Liquibase migration
+- OPA input `client_registration_data.attestation_timestamp` from the client statement
+- Implemented Apple App Attestation for client registration (DCR), mostly following [Apple Guide](https://developer.apple.com/documentation/devicecheck/attestation-object-validation-guide)
+- **BREAKING:** New required Environment variables `APPLE_KEYSTORE_LOCATION` and `APPLE_KEYSTORE_PASSWORD` (PKCS#12 truststore containing the
+    Apple App Attest root CA). See Helm chart documentation for details.
+- Implemented Android Key Attestation for client registration (DCR), following [Android Guide](https://developer.android.com/privacy-and-security/security-key-attestation#verifying):
+  certificate chain, attestation challenge, hardware-backed key (TEE/StrongBox), locked bootloader and verified boot state
+- **BREAKING:** New required Environment variables `GOOGLE_KEYSTORE_LOCATION`, `GOOGLE_CERTIFICATE_STATUS_LOCATION` and `GOOGLE_KEYSTORE_PASSWORD` (PKCS#12 truststore containing the
+    Google Hardware Attestation root CAs). See Helm chart documentation for details.
+- **BREAKING** Implemented software attestation for client registration (DCR) (gemSpec_ZETA 5.3.2.3.3): the client data
+  signature `signed_hash_puk_client_sig` is verified, and a valid server nonce is mandatory.
+- Client management for mobile clients, served behind the PEP with the scope `zeta:client-management` (assigned as a
+  default scope at registration), used by the ZETA SDK: `GET /realms/{realm}/zeta/clients` lists the identity's devices
+  (`client_id`, `name`), `DELETE .../clients/{client_id}` removes one, e.g. a lost device (the Keycloak client and the
+  ZETA data are deleted; its sessions are ended, and once the deletion has committed, their session ids are blocked on
+  the revocation stream so that enforcement points reject the device's remaining access tokens), `POST .../identity/email` with
+  `/verify` and `/resend` changes the identity's e-mail address, confirmed by a one-time code sent to the new address.
+  The authserver takes the caller from the PEP header `zeta-client-data` and checks no token itself; errors are problem+json.
+- Client management notifications by e-mail: N1 `client_added` when another client is bound to an identity
+  with a verified address, N3 `client_removed` when a client is deleted by the user or removed by ZETA Guard (expiration,
+  maximum number of clients, pending clients after an e-mail change), N5 `email_changed` to the previous address. They are
+  fired as ZETA-marked Keycloak events (`CLIENT_REGISTER`, `REVOKE_GRANT`, `UPDATE_EMAIL` with detail `zeta_event`) and
+  sent once the change has committed
+  **The realm must list the new event listener `zeta-guard-notifications` in `eventsListeners`**, otherwise no
+  notifications are sent; the existing notice of the previous address after an e-mail change now depends on it too.
+- The security event `authn_client_deleted` is now also logged when the user deletes a client (`user_request`), for
+  expired clients (`expired`) and for clients removed after an e-mail change (`email_change_pending`), not only when the
+  maximum number of clients is exceeded. See [Telemetry](docs/references/Telemetry.md).
+- Client management calls are logged as admin events: deleting a client (`DELETE` on `CLIENT`), the
+  e-mail change (`UPDATE` on `USER`) and binding another client to an existing identity (`CREATE` on `CLIENT`), with the
+  end user and the calling client as actor and the detail `zeta_event`; `zeta_user` names the identity by its ZETA user id (the Keycloak username).
+  They reach the event store if admin events are enabled, and the realm's event listeners, i.e. the admin event log of the PDP database (`zeta-guard-admin-events`).
+- Client policy executor `zeta-outer-par` (A_29660): the outer PAR request of the SekIDP flow must carry all required values
+- New plugin `mobile-authorization-endpoint` and authenticator `SekIdpDirectRedirectAuthenticator`: in
+  the `zeta-mobile` browser flow the user is redirected directly to the sectoral IDP, without Keycloak's
+  intermediate redirects relying on cookies.
+- API Version 2.0.0 listed in authserver well-known
+- Configuration `KC_SPI_REALM_RESTAPI_EXTENSION__ZETA__RESOURCE_SERVER_TRUSTSTORE_FILE` / `_PASSWORD`: truststore
+  dedicated to resource servers calling `userinfo/email`. It defaults to Keycloak's HTTPS truststore
+  (`KC_HTTPS_TRUST_STORE_FILE` / `_PASSWORD`). The client certificate is read via Keycloak's `x509cert-lookup` SPI
+  (TLS connection or an ingress header).
+- SekIDP login (A_26973-03): the consent-dependent ID-token claim `birthdate` (YYYY-MM-DD) is passed into the access
+  token as `birthdate`, from where the PEP writes it into `ZETA-User-Info`. A missing claim is no error; a value that is
+  no valid YYYY-MM-DD date is dropped with a warning.
+- SekIDP login (A_26973-02): the user data of the ID token — KVNR, display name, birthdate, profession OID and organization —
+  is now stored at the user as attributes `zetaguard.mobileuser.*`, encrypted by the integrity provider when it is enabled.
+  It is synchronised on every login: a claim the ID token no longer carries, e.g. the birthdate after a withdrawn consent,
+  is removed. While the enabled integrity provider is not yet running, the login is refused with HTTP 503.
+
+### fixed:
+- the refresh token's `exp` (and `refresh_expires_in`) no longer outlives the user session behind it: it is capped at
+  the realm's SSO session limits, so a refresh before `exp` no longer fails with "Session not active".
+  Rotation no longer extends it either — the session ends with the first refresh token's `exp` after full
+  authentication (A_25662). Realm session limits must be at least the policy's refresh-token TTL.
+- the maximum number of clients per user (`SMCB_USER_MAX_CLIENTS`, A_25748-02) now also holds for concurrent token
+  exchanges, across all Keycloak instances. Previously, concurrent requests of the same user could exceed the limit,
+  or, with the limit reached, all but one of them were rejected with "Too many clients" instead of evicting the oldest
+  client. Binding a new client now locks the user's row in `ZETA_USER_DATA`, so such requests are serialized, and a
+  user who already exceeds the limit is brought back to it with the next new client.
 
 ## Release 1.3.2
 
@@ -34,7 +156,6 @@
   ```
   On startup this release then re-runs the whole changelog and recreates both tables.
   A `validCheckSum` workaround was deliberately not used.
-
 
 ## Release 1.3.1
 
@@ -248,9 +369,6 @@
 - `CHECK_CLIENT_ATTESTATION_ENABLED` for client software attestation has been removed. Attestation verification is now always enforced.
 
 ## Release 0.3.2
-
-> [!IMPORTANT]  
-> The source code for this release relies on a [patched version of Keycloak](https://github.com/techatspree/keycloak), which is not yet merged into the main Keycloak repository. To build this project from source code, you will need to clone the patched Keycloak repository and build it locally using the special version tag '999.0.0-SNAPSHOT' first. 
 
 ### changed:
 - update release notes

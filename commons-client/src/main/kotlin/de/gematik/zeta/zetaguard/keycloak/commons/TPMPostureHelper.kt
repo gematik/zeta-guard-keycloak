@@ -41,7 +41,7 @@ const val CRT_TPM_ROOT = "tpm-root"
  */
 object TPMPostureHelper {
   private val stream = TPMPostureHelper::class.java.getResourceAsStream("/tpm-certificates.p12")!!
-  private val keystoreService = KeystoreService(stream, TPM_KEYSTORE_PASSWORD)
+  private val keystoreService = KeystoreService("TPM", stream, TPM_KEYSTORE_PASSWORD)
 
   val intermediateCertificate = keystoreService.findCertificate(CRT_TPM_INTERMEDIATE)!!
   val rootCertificate = keystoreService.findCertificate(CRT_TPM_ROOT)!!

@@ -27,41 +27,35 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.networknt.schema.JsonSchemaFactory
 import com.networknt.schema.SpecVersion
-import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakResponse
-import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
-import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_FULL_PATH
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJsonNode
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
+import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_IDENTITY_PROVIDER_ID
-import de.gematik.zeta.zetaguard.keycloak.commons.server.WELLKNOWN_BASE_PATH
-import de.gematik.zeta.zetaguard.keycloak.commons.server.WELLKNOWN_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
+import de.gematik.zeta.zetaguard.keycloak.it.Docker.kcHostname
 import de.gematik.zeta.zetaguard.keycloak.plugins.wellknown.ApiVersion
 import de.gematik.zeta.zetaguard.keycloak.plugins.wellknown.ZetaGuardWellKnownConfiguration
 import io.kotest.assertions.arrow.core.shouldBeRight
-import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import org.apache.http.client.methods.RequestBuilder.get
 
-class WellKnownEndpointIT : FunSpec() {
-  val keycloakWebClient = KeycloakWebClient.instance()
-
+class WellKnownEndpointIT : ZetaGuardFunSpecIT() {
   init {
-    afterSpec { keycloakWebClient.close() }
+    val json = keycloakWebClient.fetchWellKnownJson().shouldBeRight().responseObject
 
     test("Query well-known endpoint") {
-      val wellknown = keycloakWebClient.getWellknown().shouldBeRight().reponseObject
-      val nonceUri = keycloakWebClient.uriBuilder().createUri(NONCE_FULL_PATH, ZETA_REALM)
+      val wellknown = json.toObject<ZetaGuardWellKnownConfiguration>()
 
-      wellknown.nonceEndpoint shouldBe nonceUri
+      wellknown.nonceEndpoint.toString() shouldBe "$kcHostname/realms/$ZETA_REALM/$NONCE_PROVIDER_ID"
       wellknown.serviceDocumentation.toString() shouldContain "https://gemspec.gematik.de/"
 
       wellknown.responseTypesSupported.shouldContainExactlyInAnyOrder("code", "token")
     }
 
     test("Well-known announces PAR, redirection, revocation and api versions") {
-      val wellknown = keycloakWebClient.getWellknown().shouldBeRight().reponseObject
+      val wellknown = json.toObject<ZetaGuardWellKnownConfiguration>()
 
       // A_29660
       wellknown.pushedAuthorizationRequestEndpoint.toString() shouldContain "/realms/$ZETA_REALM/protocol/openid-connect/ext/par/request"
@@ -71,28 +65,17 @@ class WellKnownEndpointIT : FunSpec() {
       // A_29996
       wellknown.revocationEndpoint.toString() shouldContain "/realms/$ZETA_REALM/protocol/openid-connect/revoke"
       // A_29691
-      wellknown.apiVersionsSupported shouldBe listOf(ApiVersion(majorVersion = 1, version = "1.0.0", status = "stable"))
+      wellknown.apiVersionsSupported shouldBe listOf(
+          ApiVersion(majorVersion = 1, version = "1.0.0", status = "stable"),
+          ApiVersion(majorVersion = 2, version = "2.0.0", status = "stable")
+      )
     }
 
     test("Well-known response validates against as-well-known.yaml schema") {
-      val json = keycloakWebClient.getWellknownJson().shouldBeRight().reponseObject
-
-      val schemaNode = ObjectMapper(YAMLFactory()).readTree(javaClass.getResource("/as-well-known.yaml"))
+      val schemaNode = ObjectMapper(YAMLFactory()).readTree(javaClass.getResourceAsStream("/as-well-known.yaml"))
       val schema = JsonSchemaFactory.getInstance(SpecVersion.VersionFlag.V7).getSchema(schemaNode)
 
-      schema.validate(ObjectMapper().readTree(json)).shouldBeEmpty()
+      schema.validate(json.toJsonNode()).shouldBeEmpty()
     }
   }
-}
-
-private fun KeycloakWebClient.getWellknown(): KeycloakResponse<ZetaGuardWellKnownConfiguration> {
-  val request = get(uriBuilder().createUri("$WELLKNOWN_BASE_PATH/$WELLKNOWN_PROVIDER_ID", ZETA_REALM))
-
-  return httpClient().execute(request.build()).mapJSONResponse<ZetaGuardWellKnownConfiguration>()
-}
-
-private fun KeycloakWebClient.getWellknownJson(): KeycloakResponse<String> {
-  val request = get(uriBuilder().createUri("$WELLKNOWN_BASE_PATH/$WELLKNOWN_PROVIDER_ID", ZETA_REALM))
-
-  return httpClient().execute(request.build()).mapStringResponse()
 }

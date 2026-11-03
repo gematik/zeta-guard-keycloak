@@ -28,7 +28,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
-import com.fasterxml.jackson.annotation.JsonValue
+import de.gematik.zeta.zetaguard.keycloak.commons.Platform
 import java.beans.ConstructorProperties
 
 const val PROPERTY_PLATFORM_DISCRIMINATOR = "platform"
@@ -49,17 +49,6 @@ const val PROPERTY_APPLICATION_ID = "application_id"
 // Windows
 const val PROPERTY_STORE_ID = "store_id"
 const val PROPERTY_PACKAGE_FAMILY_NAME = "package_family_name"
-
-@Suppress("unused")
-enum class Platform {
-  ANDROID,
-  APPLE,
-  LINUX,
-  WINDOWS;
-
-  @JsonValue //
-  val value = name.lowercase()
-}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonTypeInfo(use = JsonTypeInfo.Id.NAME, include = JsonTypeInfo.As.PROPERTY, property = PROPERTY_PLATFORM_DISCRIMINATOR, visible = true)

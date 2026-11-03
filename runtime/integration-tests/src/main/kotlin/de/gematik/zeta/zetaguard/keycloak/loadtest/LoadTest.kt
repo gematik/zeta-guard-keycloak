@@ -26,10 +26,12 @@ package de.gematik.zeta.zetaguard.keycloak.loadtest
 import arrow.core.Either
 import arrow.core.getOrElse
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
+import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFactory
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientResponseRepresentation
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakSuccessResponse
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
@@ -50,7 +52,11 @@ class LoadTest(index: Int) : AutoCloseable {
     smcb.smcbTokenGenerator.defaultDpopKeyJkt = DPoPTokenGenerator.keys.jwkThumbPrint.toBase64()
   }
 
-  fun registerClient() = keycloakWebClient.createClientOIDC(clientAssertionTokenGenerator.keys.jwks).getRight()
+  fun registerClient(): ZetaGuardOIDCClientResponseRepresentation {
+    val request = ClientRegistrationRequestFactory.createClientRegistrationRequest(clientAssertionTokenGenerator.keys, null)
+
+    return keycloakWebClient.registerClientOIDC(clientRegistrationRequest = request).getRight()
+  }
 
   fun tokenExchange(oidcClientResponse: OIDCClientRepresentation): AccessTokenResponse {
     val nonce = keycloakWebClient.getNonce().getRight()
@@ -64,7 +70,7 @@ class LoadTest(index: Int) : AutoCloseable {
             issuedFor = oidcClientResponse.clientId,
             certificateChain = listOf(smcb.leafCertificate),
         )
-    val dPoPToken = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smbcToken)
+    val dPoPToken = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smbcToken, nonce = nonce)
 
     return keycloakWebClient
         .tokenExchange(
@@ -92,7 +98,7 @@ class LoadTest(index: Int) : AutoCloseable {
             issuedFor = clientId,
             certificateChain = listOf(smcb.leafCertificate),
         )
-    val dPoPToken = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smbcToken)
+    val dPoPToken = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smbcToken, nonce = nonce)
 
     return keycloakWebClient.refreshToken(accessTokenResponse.refreshToken, jws, dPoPToken).getRight()
   }
@@ -102,4 +108,5 @@ class LoadTest(index: Int) : AutoCloseable {
   }
 }
 
-private fun <T> Either<KeycloakError, KeycloakSuccessResponse<T>>.getRight() = getOrElse { throw RuntimeException(it.errorDescription) }.reponseObject
+private fun <T> Either<KeycloakError, KeycloakSuccessResponse<T>>.getRight() =
+    getOrElse { throw RuntimeException(it.errorDescription) }.responseObject

@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJsonNode
 import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaDeviceInfo
 import io.kotest.assertions.json.shouldContainJsonKey
 import io.kotest.assertions.json.shouldContainJsonKeyValue
@@ -30,7 +31,6 @@ import io.kotest.assertions.json.shouldNotContainJsonKey
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
-import org.keycloak.util.JsonSerialization
 
 class OpaPayloadBuilderTest :
     FunSpec({
@@ -53,7 +53,7 @@ class OpaPayloadBuilderTest :
                     previousIpAddress = null,
                 )
             )
-        val node = JsonSerialization.mapper.readTree(json)
+        val node = json.toJsonNode()
         val req = node["input"]["authorization_request"]
         req["scopes"].shouldBeNull()
       }
@@ -77,7 +77,7 @@ class OpaPayloadBuilderTest :
                     previousIpAddress = null,
                 )
             )
-        val node = JsonSerialization.mapper.readTree(json)
+        val node = json.toJsonNode()
         val req = node["input"]["authorization_request"]
         req["audience"].shouldBeNull()
       }
@@ -101,7 +101,7 @@ class OpaPayloadBuilderTest :
                     previousIpAddress = null,
                 )
             )
-        val node = JsonSerialization.mapper.readTree(json)
+        val node = json.toJsonNode()
         val req = node["input"]["authorization_request"]
         req["aud"].shouldBeNull()
         req["audience"].map { it.asText() } shouldBe listOf("audience-1", "audience-2")
@@ -217,7 +217,7 @@ class OpaPayloadBuilderTest :
                     previousIpAddress = null,
                 )
             )
-        val withIp = JsonSerialization.mapper.readTree(withIpJson)
+        val withIp = withIpJson.toJsonNode()
         withIp["input"]["authorization_request"]["ip_address"].asText() shouldBe "10.0.0.1"
 
         val withoutIpJson =
@@ -238,7 +238,7 @@ class OpaPayloadBuilderTest :
                     previousIpAddress = null,
                 )
             )
-        val withoutIp = JsonSerialization.mapper.readTree(withoutIpJson)
+        val withoutIp = withoutIpJson.toJsonNode()
         withoutIp["input"]["authorization_request"]["ip_address"].shouldBeNull()
       }
 
@@ -316,6 +316,7 @@ class OpaPayloadBuilderTest :
                         userProfessionOid = "1.2.3",
                         userCommonName = "kvnr",
                         deviceInfo = OpaDeviceInfo(os = "iOS", osVersion = "17.4.1", deviceModel = "iPhone15,2"),
+                        attestationTimestamp = 1753272000,
                     )
                 )
             )
@@ -326,6 +327,7 @@ class OpaPayloadBuilderTest :
         json.shouldContainJsonKeyValue("$.input.client_registration_data.device_info.os", "iOS")
         json.shouldContainJsonKeyValue("$.input.client_registration_data.device_info.os_version", "17.4.1")
         json.shouldContainJsonKeyValue("$.input.client_registration_data.device_info.device_model", "iPhone15,2")
+        json.shouldContainJsonKeyValue("$.input.client_registration_data.attestation_timestamp", 1753272000)
         json.shouldContainJsonKeyValue("$.input.user_info.identifier", "kvnr")
         json.shouldContainJsonKeyValue("$.input.user_info.commonName", "kvnr")
         json.shouldContainJsonKeyValue("$.input.authorization_request.grant_type", "authorization_code")
@@ -354,6 +356,7 @@ class OpaPayloadBuilderTest :
         withoutJson shouldNotContainJsonKey "$.input.client_registration_data.device_info.os"
         withoutJson shouldNotContainJsonKey "$.input.client_registration_data.device_info.os_version"
         withoutJson shouldNotContainJsonKey "$.input.client_registration_data.device_info.device_model"
+        withoutJson shouldNotContainJsonKey "$.input.client_registration_data.attestation_timestamp"
 
         val blankJson = OpaPayloadBuilder.build(params.copy(deviceInfo = OpaDeviceInfo(os = "Windows", osVersion = " ", deviceModel = "")))
         blankJson.shouldContainJsonKeyValue("$.input.client_registration_data.device_info.os", "Windows")

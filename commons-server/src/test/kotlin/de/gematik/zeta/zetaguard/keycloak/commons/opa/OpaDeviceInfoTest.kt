@@ -26,7 +26,7 @@ package de.gematik.zeta.zetaguard.keycloak.commons.opa
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.AndroidPosture
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.AndroidProductId
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.AppleAssertionAuthenticatorData
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.AppleAttestationStatement
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.ApplePostureAttestationStatement
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.AppleAuthData
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ApplePosture
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.AppleProductId
@@ -72,7 +72,7 @@ class OpaDeviceInfoTest : ZetaGuardFunSpec() {
               "Apple M1 Max",
               "key-id",
               "format1",
-              AppleAttestationStatement(listOf("cert1"), "receipt"),
+              ApplePostureAttestationStatement(listOf("cert1"), "receipt"),
               AppleAuthData("hash", "flags", 12L, "aaguid", "credo"),
               "signing",
               AppleAssertionAuthenticatorData("hash", 42L),
@@ -95,6 +95,7 @@ class OpaDeviceInfoTest : ZetaGuardFunSpec() {
               BiometricManager(true, biometricStrong = false),
               DevicePolicyManager(4),
               listOf("cert1"),
+              "play","noncence", "hash"
           )
 
       posture.toOpaDeviceInfo() shouldBe OpaDeviceInfo(os = "Android", osVersion = "42", deviceModel = "Galaxy")

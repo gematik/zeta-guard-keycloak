@@ -37,8 +37,9 @@ import kotlin.random.nextInt
 @Suppress("unused")
 class SMCBTokenHelper(index: Int = Random.nextInt(0..5000)) {
   val telematikId = TELEMATIK_ID + index.toLeafSuffix()
-  val leafCertificate = ClientCertificateService.getCertificate(index)
-  val privateKey = ClientCertificateService.getPrivateKey(index)
+  val clientCertificateService = ClientCertificateService("smcb-certificates-client.zip")
+  val leafCertificate = clientCertificateService.getCertificate(index)
+  val privateKey = clientCertificateService.getPrivateKey(index)
   val publicKey = privateKey.getPublicKey()
   val subjectKeyPair = KeyPair(publicKey, privateKey)
   val smcbTokenGenerator = SMCBTokenGenerator(subjectKeyPair)

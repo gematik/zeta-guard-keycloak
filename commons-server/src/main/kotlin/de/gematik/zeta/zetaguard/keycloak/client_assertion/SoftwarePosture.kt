@@ -25,6 +25,7 @@ package de.gematik.zeta.zetaguard.keycloak.client_assertion
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonPropertyDescription
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.PROPERTY_NONCE
 import java.beans.ConstructorProperties
 
 private const val PUBLIC_KEY = "public_key"
@@ -41,14 +42,21 @@ class SoftwarePosture
     PROPERTY_ARCHITECTURE,
     PUBLIC_KEY,
     ATTESTATION_CHALLENGE,
+    PROPERTY_NONCE
 )
 constructor(
     platformProductId: ProductId?,
     productId: String,
     productVersion: String,
-    @field:JsonPropertyDescription("Operating system name") @field:JsonProperty(PROPERTY_OS) val os: String,
-    @field:JsonPropertyDescription("Operating system version") @field:JsonProperty(PROPERTY_OS_VERSION) val osVersion: String,
-    @field:JsonPropertyDescription("Hardware Architecture") @field:JsonProperty(PROPERTY_ARCHITECTURE) val arch: String,
+    @field:JsonPropertyDescription("Operating system name")
+    @field:JsonProperty(PROPERTY_OS)
+    val os: String,
+    @field:JsonPropertyDescription("Operating system version")
+    @field:JsonProperty(PROPERTY_OS_VERSION)
+    val osVersion: String,
+    @field:JsonPropertyDescription("Hardware Architecture")
+    @field:JsonProperty(PROPERTY_ARCHITECTURE)
+    val arch: String,
     @field:JsonPropertyDescription("The public self-signed signing key (PEM or base64 DER encoded).")
     @field:JsonProperty(PUBLIC_KEY)
     val publicKey: String,
@@ -57,4 +65,11 @@ constructor(
     )
     @field:JsonProperty(ATTESTATION_CHALLENGE)
     val attestationChallenge: String,
+
+    @field:JsonPropertyDescription(
+        "The nonce from AuthS. Checked and consumed by the Authorization Server in one atomic step, once per request"
+    )
+    @field:JsonProperty(PROPERTY_NONCE)
+    var nonce: String? = null
+
 ) : Posture(platformProductId, productId, productVersion)

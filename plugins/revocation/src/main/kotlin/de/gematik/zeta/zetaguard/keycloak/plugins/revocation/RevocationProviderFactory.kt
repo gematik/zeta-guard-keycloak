@@ -25,24 +25,32 @@
 
 package de.gematik.zeta.zetaguard.keycloak.plugins.revocation
 
+import arrow.core.Either
 import de.gematik.zeta.zetaguard.keycloak.commons.server.REVOCATION_PROVIDER_ID
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
+import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import org.keycloak.Config
+import org.keycloak.connections.jpa.JpaConnectionProvider
 import org.keycloak.infinispan.util.InfinispanUtils
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.KeycloakSessionFactory
 import org.keycloak.models.utils.KeycloakModelUtils
+import org.keycloak.provider.Provider
 import org.keycloak.services.resource.RealmResourceProviderFactory
 
 /** REST endpoint under .../realms/{realm}/zeta-guard-revocation */
 open class RevocationProviderFactory : RealmResourceProviderFactory {
-  /** Drives the keep-alive comments of every open subscription on this node. */
-  private lateinit var scheduler: ScheduledExecutorService
-
   override fun getId() = REVOCATION_PROVIDER_ID
 
-  override fun create(session: KeycloakSession) = RevocationProvider(session, scheduler)
+  override fun create(session: KeycloakSession) = RevocationProvider(session)
+
+  /**
+   * Avoid race condition with JPA provider, causing
+   *
+   * "Cannot invoke "jakarta.persistence.EntityManagerFactory.createEntityManager(jakarta.persistence.SynchronizationType)" because "emf" is null"
+   *
+   * @see [https://github.com/playa-ru/keycloak-russian-providers/issues/68]
+   */
+  override fun dependsOn(): Set<Class<out Provider>> = setOf(JpaConnectionProvider::class.java)
 
   /**
    * In embedded mode the cache is ours to declare; in dedicated-Infinispan mode it lives on the server, outside this artifact and therefore able to
@@ -51,21 +59,25 @@ open class RevocationProviderFactory : RealmResourceProviderFactory {
    */
   override fun postInit(factory: KeycloakSessionFactory) {
     KeycloakModelUtils.runJobInTransaction(factory) { session ->
-      try {
-        if (!InfinispanUtils.isRemoteInfinispan()) defineEmbeddedCache(session)
+      Either.catch {
+        if (!InfinispanUtils.isRemoteInfinispan()) {
+          defineEmbeddedCache(session)
+        }
+
         BlockStore.of(session).probe()
-      } catch (e: Exception) {
-        throw IllegalStateException("cache '$REVOCATION_CACHE' is not available; $REVOCATION_PROVIDER_ID cannot operate without it", e)
+      }.onLeft {
+        logger.error("Could not verify cache", it)
+
+        throw IllegalStateException("Cache »$REVOCATION_CACHE« is not available; »$REVOCATION_PROVIDER_ID« cannot operate without it", it)
       }
     }
   }
 
   override fun init(config: Config.Scope) {
-    scheduler =
-        Executors.newSingleThreadScheduledExecutor { runnable -> Thread(runnable, "zeta-guard-revocation-keepalive").apply { isDaemon = true } }
+    // No-op
   }
 
   override fun close() {
-    if (::scheduler.isInitialized) scheduler.shutdownNow()
+    // No-op
   }
 }

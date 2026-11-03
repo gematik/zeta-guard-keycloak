@@ -23,23 +23,22 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
+import arrow.core.Either
+import arrow.core.raise.either
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import jakarta.ws.rs.core.Response
 import java.net.URI
 import org.jboss.logging.Logger
 import org.keycloak.jose.jws.JWSInput
-import org.keycloak.jose.jws.JWSInputException
 import org.keycloak.models.ClientModel
 import org.keycloak.models.KeycloakSession
 import org.keycloak.representations.JsonWebToken
 
 private val logger: Logger = Logger.getLogger(ClientAssertionValidator::class.java)
 
-sealed interface ClientAssertionResult {
-  data class Valid(val token: JsonWebToken) : ClientAssertionResult
+data class ValidClientAssertionResult(val token: JsonWebToken)
 
-  data class Invalid(val status: Response.Status, val code: String, val detail: String) : ClientAssertionResult
-}
+data class InvalidClientAssertionResult(val status: Response.Status, val code: String, val detail: String)
 
 /** Everything a [ClientAssertionCheck] may look at: the parsed assertion plus the client it must belong to. */
 class ClientAssertionContext(
@@ -50,17 +49,14 @@ class ClientAssertionContext(
     val token: JsonWebToken,
 )
 
-/** Outcome of a single [ClientAssertionCheck]. */
-sealed interface ClientAssertionCheckResult {
-  data object Passed : ClientAssertionCheckResult
+object ClientAssertionCheckPassed
 
-  data class Rejected(val status: Response.Status, val code: String, val detail: String) : ClientAssertionCheckResult
-}
+data class ClientAssertionCheckRejected(val status: Response.Status, val code: String, val detail: String)
 
 /**
  * One validation step of the client-assertion policy (strategy). Implementations are small, self-contained classes
- * (see ClientAssertionChecks.kt) returning [ClientAssertionCheckResult.Passed] or the
- * [ClientAssertionCheckResult.Rejected] that rejects the request.
+ * (see ClientAssertionChecks.kt) returning [ClientAssertionCheckPassed] or the
+ * [ClientAssertionCheckRejected] that rejects the request.
  */
 fun interface ClientAssertionCheck {
   fun check(context: ClientAssertionContext): ClientAssertionCheckResult
@@ -88,7 +84,7 @@ class ClientAssertionValidator(
      * (A_30101: the client_id is non-secret); trust is established solely by [validate].
      */
     fun unverifiedClientId(assertion: String): String? =
-        runCatching { JWSInput(assertion).readJsonContent(JsonWebToken::class.java) }.getOrNull()
+        Either.catch { JWSInput(assertion).readJsonContent(JsonWebToken::class.java) }.getOrNull()
             ?.let { token -> token.subject?.takeIf { it.isNotBlank() && it == token.issuer } }
 
     /**
@@ -99,7 +95,7 @@ class ClientAssertionValidator(
      */
     fun defaultChecks(expectedAudience: String, expectedHttpMethod: String, expectedTargetUri: URI): List<ClientAssertionCheck> =
         listOf(
-            TypeHeaderCheck(),
+            ProtectedHeaderCheck(),
             ClientBindingCheck(),
             SignatureCheck(),
             AudienceCheck(expectedAudience),
@@ -109,40 +105,33 @@ class ClientAssertionValidator(
   }
 
   /** Parses [assertion] and runs all [checks] against it and the given [client]; first rejection wins. */
-  fun validate(assertion: String, client: ClientModel): ClientAssertionResult {
+  fun validate(assertion: String, client: ClientModel): Either<InvalidClientAssertionResult, ValidClientAssertionResult> = either {
     val jws =
-        try {
-          JWSInput(assertion)
-        } catch (e: JWSInputException) {
-          return invalid("parse", rejected(ProblemCodes.INVALID_SIGNATURE, "Malformed client assertion"))
-        }
-
-    val token =
-        try {
-          jws.readJsonContent(JsonWebToken::class.java)
-        } catch (_: JWSInputException) {
-          return invalid("parse", rejected(ProblemCodes.INVALID_SIGNATURE, "Unreadable client assertion payload"))
-        }
-
+        Either.catch { JWSInput(assertion) }
+            .mapLeft { invalid("parse", rejected(ProblemCodes.INVALID_SIGNATURE, "Malformed client assertion: »${it.message}«")) }
+            .bind()
+    val token = Either.catch { jws.readJsonContent(JsonWebToken::class.java) }
+        .mapLeft {
+          invalid("parse", rejected(ProblemCodes.INVALID_SIGNATURE, "Unreadable client assertion payload: »${it.message}«"))
+        }.bind()
     val context = ClientAssertionContext(session, client, assertion, jws, token)
-    checks.forEach { check ->
-      when (val result = check.check(context)) {
-        is ClientAssertionCheckResult.Rejected -> return invalid(check.javaClass.simpleName, result)
-        is ClientAssertionCheckResult.Passed -> Unit
-      }
-    }
 
-    return ClientAssertionResult.Valid(token)
+    checks.forEach { check -> check.check(context).mapLeft { invalid(check.javaClass.simpleName, it) }.bind() }
+
+    ValidClientAssertionResult(token)
   }
 
-  private fun invalid(source: String, rejection: ClientAssertionCheckResult.Rejected): ClientAssertionResult.Invalid {
+  private fun invalid(source: String, rejection: ClientAssertionCheckRejected): InvalidClientAssertionResult {
     logger.warnf("Client assertion rejected by %s (%s): %s", source, rejection.code, rejection.detail)
-    return ClientAssertionResult.Invalid(rejection.status, rejection.code, rejection.detail)
+
+    return InvalidClientAssertionResult(rejection.status, rejection.code, rejection.detail)
   }
 }
 
 /** Shorthands for check implementations — client-assertion failures are `401` problems ([zeta-guard-client-management]). */
-internal fun rejected(code: String, detail: String, status: Response.Status = Response.Status.UNAUTHORIZED): ClientAssertionCheckResult.Rejected =
-    ClientAssertionCheckResult.Rejected(status, code, detail)
+internal fun rejected(
+    code: String,
+    detail: String,
+    status: Response.Status = Response.Status.UNAUTHORIZED
+) = ClientAssertionCheckRejected(status, code, detail)
 
-internal fun passed(): ClientAssertionCheckResult = ClientAssertionCheckResult.Passed

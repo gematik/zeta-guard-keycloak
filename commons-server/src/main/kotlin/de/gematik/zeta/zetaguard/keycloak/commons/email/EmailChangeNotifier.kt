@@ -33,21 +33,20 @@ import org.keycloak.models.KeycloakSession
  * identity owner's primary chance to detect a hostile takeover of the email factor F1.
  *
  * Best effort: the change is already durable when this runs, so a mail failure is logged but never fails the
- * request (hardcoded English body for now, like EmailOtpMailer — proper templates come with the
- * EmailTemplateProvider).
+ * request (hardcoded German body, like EmailOTPMailer — proper templates come with the EmailTemplateProvider).
  */
 object EmailChangeNotifier {
   private val logger: Logger = Logger.getLogger(EmailChangeNotifier::class.java)
 
 
   fun notifyOldAddress(session: KeycloakSession, oldEmail: String) {
-    val subject = "Your email address was changed"
+    val subject = "Ihre E-Mail-Adresse wurde geändert"
     val textBody =
-        "The email address bound to your identity was just changed from this address to a new one.\n\n" +
-            "If you did not request this change, contact your provider's support immediately."
+        "Die mit Ihrer Identität verknüpfte E-Mail-Adresse wurde geändert.\n\n" +
+            "Falls Sie diese Änderung nicht veranlasst haben, wenden Sie sich bitte umgehend an den Support Ihres Anbieters."
     val htmlBody =
-        "<p>The email address bound to your identity was just changed from this address to a new one.</p>" +
-            "<p><strong>If you did not request this change, contact your provider's support immediately.</strong></p>"
+        "<p>Die mit Ihrer Identität verknüpfte E-Mail-Adresse wurde geändert.</p>" +
+            "<p><strong>Falls Sie diese Änderung nicht veranlasst haben, wenden Sie sich bitte umgehend an den Support Ihres Anbieters.</strong></p>"
     try {
       session.getProvider(EmailSenderProvider::class.java).send(session.context.realm.smtpConfig, oldEmail, subject, textBody, htmlBody)
     } catch (e: EmailException) {

@@ -25,24 +25,44 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_RESOURCE_ID
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement.userinfo.ResourceServerCertificateValidator
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement.userinfo.ResourceServerTruststore
+import org.jboss.logging.Logger
 import org.keycloak.Config
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.KeycloakSessionFactory
 import org.keycloak.services.resource.RealmResourceProvider
 import org.keycloak.services.resource.RealmResourceProviderFactory
 
+private val logger: Logger = Logger.getLogger(ZetaEmailBindingResourceProviderFactory::class.java)
+
 /**
  * Registers the [ZetaEmailBindingResourceProvider] under `.../realms/{realm}/zeta/...`
  * ([ZETA_RESOURCE_ID] is the first path segment / provider id).
  */
 class ZetaEmailBindingResourceProviderFactory : RealmResourceProviderFactory {
+  private var resourceServerValidator = ResourceServerCertificateValidator(emptySet())
+
   override fun getId() = ZETA_RESOURCE_ID
 
   override fun create(session: KeycloakSession): RealmResourceProvider? =
-      if (OidcFlowSettings.isEnabled()) ZetaEmailBindingResourceProvider(session) else null
+      if (OidcFlowSettings.isEnabled()) ZetaEmailBindingResourceProvider(session, resourceServerValidator) else null
 
+  /** A configured but unreadable truststore fails here, at start-up; none at all leaves `userinfo/email` answering 401. */
   override fun init(config: Config.Scope) {
-    // No-op
+    if (!OidcFlowSettings.isEnabled()) return
+
+    val location = ResourceServerTruststore.resolveLocation(config)
+
+    if (location == null) {
+      logger.warn("No resource server truststore configured, userinfo/email rejects every request")
+      return
+    }
+
+    val certificates = ResourceServerTruststore.load(location)
+    resourceServerValidator = ResourceServerCertificateValidator(certificates)
+
+    logger.infof("Resource server truststore »%s« (%s) loaded with %d certificates", location.file, location.option, certificates.size)
   }
 
   override fun postInit(factory: KeycloakSessionFactory) {

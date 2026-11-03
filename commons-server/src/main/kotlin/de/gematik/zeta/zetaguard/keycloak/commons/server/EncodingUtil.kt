@@ -25,9 +25,6 @@ package de.gematik.zeta.zetaguard.keycloak.commons.server
 
 import arrow.core.Either
 import arrow.core.left
-import java.io.File
-import java.io.FileInputStream
-import java.io.InputStream
 import java.lang.System.getenv
 import java.net.URI
 import java.security.MessageDigest
@@ -80,13 +77,5 @@ fun String.toHash() = this.toByteArray().toHash().toBase64()
 fun ByteArray.toHash() = toHash(this)
 
 fun safeGetenv(name: String) = getenv(name) ?: error("Missing environment variable »$name«")
-
-fun String.toInputStream(): InputStream {
-  val file = File(this)
-
-  check(file.exists() && file.isFile && file.length() > 0) { "No valid data file found using path »$this«" }
-
-  return FileInputStream(file)
-}
 
 fun KeycloakUriInfo.baseUrl(): String = this.baseUri.toString().let { if (it.endsWith("/")) it else "$it/" }

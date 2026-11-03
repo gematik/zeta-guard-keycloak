@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
+import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import de.spree.keycloak.commons.configuration.LOG_STATE_OPERATIONAL
 import de.spree.keycloak.commons.configuration.SystemState
@@ -38,13 +39,18 @@ private const val OPERATIONAL_POLL_INTERVAL_MILLIS = 5000L
  * Owns the compose stack for the whole suite. Registered via `kotest.properties`.
  */
 class KotestProjectConfig : AbstractProjectConfig() {
-
   override suspend fun beforeProject() {
-    Docker.start()
-    awaitIntegrityProvider()
+    if (!keycloakRunning) {
+      Docker.start()
+      awaitIntegrityProvider()
+    }
   }
 
-  override suspend fun afterProject() = Docker.stop()
+  override suspend fun afterProject() {
+    if (!keycloakRunning) {
+      Docker.stop()
+    }
+  }
 
   /**
    * Blocks until the Spree integrity provider reports [SystemState.OPERATIONAL], so no spec runs
@@ -73,5 +79,12 @@ class KotestProjectConfig : AbstractProjectConfig() {
     // guaranteed to run once beforeProject failed.
     Docker.stop()
     exitProcess(1)
+  }
+
+  companion object {
+    @JvmStatic
+    private val keycloakRunning: Boolean by lazy {
+      KeycloakWebClient.instance().getNonce().isRight()
+    }
   }
 }

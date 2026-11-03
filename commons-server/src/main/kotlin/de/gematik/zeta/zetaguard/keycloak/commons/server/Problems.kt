@@ -42,10 +42,13 @@ object ProblemCodes {
   const val STALE_REQUEST = "staleRequest"
   const val POP_REQUIRED = "popRequired"
   const val FACTOR_REQUIRED = "factorRequired"
-  const val STEP_UP_REQUIRED = "stepUpRequired"
-  const val EMAIL_MISMATCH = "emailMismatch"
-  const val FORBIDDEN_TARGET = "forbiddenTarget"
-  const val TOO_MANY_ATTEMPTS = "tooManyAttempts"
+  const val UNAUTHORIZED = "unauthorized"
+  const val NOT_FOUND = "notFound"
+  const val INTERNAL_ERROR = "internal"
+  // OTP challenge of the e-mail change (identity/email/verify|resend)
+  const val INVALID_CODE = "invalidCode"
+  const val NO_PENDING_CHALLENGE = "noPendingChallenge"
+  const val UNSUPPORTED_VERIFY_TYPE = "unsupportedVerifyType"
 }
 
 /**

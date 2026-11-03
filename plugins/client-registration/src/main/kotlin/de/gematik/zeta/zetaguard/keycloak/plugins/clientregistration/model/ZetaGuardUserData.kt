@@ -23,10 +23,10 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model
 
-import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import jakarta.persistence.CascadeType
 import jakarta.persistence.Entity
 import jakarta.persistence.Index
+import jakarta.persistence.LockModeType
 import jakarta.persistence.NamedQueries
 import jakarta.persistence.NamedQuery
 import jakarta.persistence.OneToMany
@@ -44,9 +44,9 @@ const val TABLE_NAME_USER_DATA = "ZETA_USER_DATA"
  * Returns: List of user IDs sorted by their `lastAccess` in descending order.
  */
 const val FIND_EXPIRED_USER_DATA = "ZetaGuardUserData.findExpiredUserData"
+const val LOCK_USER_DATA = "ZetaGuardUserData.lockUserData"
 
 /** Store user-related data. */
-@Suppress("JpaEntityWithValAttributesInspection", "KotlinRedundantDefaultConstructorJpaCompilerPluginInspection")
 @Entity
 @Table(name = TABLE_NAME_USER_DATA, indexes = [Index(name = "IDX_USER_EXPIATION", columnList = COLUMN_LAST_ACCESS)])
 @NamedQueries(
@@ -63,14 +63,18 @@ const val FIND_EXPIRED_USER_DATA = "ZetaGuardUserData.findExpiredUserData"
     ORDER BY u.lastAccess DESC
     """,
               resultClass = String::class,
-          )
+          ),
+          // SELECT … FOR UPDATE, serializes concurrent changes to the clients of a user across all Keycloak instances
+          NamedQuery(
+              name = LOCK_USER_DATA,
+              query = """SELECT u FROM ZetaGuardUserData u WHERE u.id = :userName""",
+              lockMode = LockModeType.PESSIMISTIC_WRITE,
+          ),
         ]
 )
+// No vals: all-open doesn't touch backing fields, and Hibernate's enhancer skips lazy-load interception for final fields.
 class ZetaGuardUserData(userName: String, createdAt: LocalDateTime, lastAccess: LocalDateTime) : AbstractData(userName, createdAt, lastAccess) {
   @OneToMany(cascade = [CascadeType.REMOVE], orphanRemoval = true, mappedBy = "userData") //
-  val clients: MutableSet<ZetaGuardClientData> = HashSet()
-
-  // JPA requires a no-arg constructor for entity classes
-  @Suppress("unused")
-  constructor() : this("", currentTime(), currentTime())
+  var clients: MutableSet<ZetaGuardClientData> = HashSet()
+    protected set
 }

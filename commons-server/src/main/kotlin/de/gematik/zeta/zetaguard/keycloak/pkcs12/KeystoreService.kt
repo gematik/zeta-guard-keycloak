@@ -25,37 +25,48 @@ package de.gematik.zeta.zetaguard.keycloak.pkcs12
 
 import java.io.InputStream
 import java.security.KeyStore
+import java.security.KeyStoreException
 import java.security.PrivateKey
 import java.security.cert.X509Certificate
 import javax.security.auth.x500.X500Principal
 import org.bouncycastle.jce.provider.BouncyCastleProvider.PROVIDER_NAME
 import org.keycloak.common.util.KeystoreUtil.KeystoreFormat.PKCS12
 
-open class KeystoreService(stream: InputStream, password: String) {
+open class KeystoreService(name: String, stream: InputStream, password: String) {
   private val keystore: KeyStore by lazy {
-    KeyStore.getInstance(PKCS12.name, PROVIDER_NAME) // Always use BC in order to handle Brainpool curve
-        .apply { load(stream, password.toCharArray()) }
+    stream.use {
+      KeyStore.getInstance(PKCS12.name, PROVIDER_NAME).apply { load(stream, password.toCharArray()) }
+    }
   }
+
   private val certificates: Map<String, X509Certificate> by lazy {
     val aliases = keystore.aliases().toList().map { it.uppercase() }.toSet()
+
+    if (aliases.isEmpty()) {
+      throw KeyStoreException("Keystore »${name}« does not contain any certificates with CA friendly names (aka aliases)")
+    }
 
     aliases.associateWith { getCertificate(it) }
   }
 
-  private val certificatesBySubject: Map<X500Principal, X509Certificate> by lazy { certificates.values.associateBy { it.subjectX500Principal } }
+  private val certificatesBySubject: Map<X500Principal, X509Certificate> by lazy {
+    certificates.values.associateBy {
+      it.subjectX500Principal
+    }
+  }
 
   protected val aliasBySubject: Map<X500Principal, String> by lazy { certificates.map { it.value.subjectX500Principal to it.key }.toMap() }
 
   fun aliases() = certificates.keys
 
-  fun hasCertificate(name: String): Boolean = aliases().contains(name.uppercase())
+  fun hasCertificate(name: String) = aliases().contains(name.uppercase())
 
-  fun hasCertificate(certificate: X509Certificate): Boolean = aliasBySubject[certificate.subjectX500Principal] != null
+  fun hasCertificate(certificate: X509Certificate) = aliasBySubject[certificate.subjectX500Principal] != null
 
   fun getPrivateKey(name: String, password: String): PrivateKey {
     val key = keystore.getKey(name.uppercase(), password.toCharArray()) ?: keystore.getCertificate(name)
 
-    requireNotNull(key) { "Key »$name« not found." }
+    requireNotNull(key) { "Private key »$name« not found." }
 
     return key as PrivateKey
   }
@@ -65,9 +76,9 @@ open class KeystoreService(stream: InputStream, password: String) {
   fun findIssuerCertificate(certificate: X509Certificate): X509Certificate? = certificatesBySubject[certificate.issuerX500Principal]
 
   private fun getCertificate(name: String): X509Certificate {
-    val certificate = keystore.getCertificate(name.uppercase()) ?: keystore.getCertificate(name)
-
-    requireNotNull(certificate) { "Certificate »$name« not found." }
+    val certificate = keystore.getCertificate(name.uppercase())
+      ?: keystore.getCertificate(name)
+      ?: error("Certificate »$name« not found.")
 
     return certificate as X509Certificate
   }

@@ -5,6 +5,14 @@ ENV KC_DB=postgres
 ENV KC_HEALTH_ENABLED=true
 ENV KC_METRICS_ENABLED=true
 
+# Disable Keycloak's own client registration endpoints, only 𝝵-Guard DCR (/clients-registrations/openid-connect) is supported.
+# Build-time option, also needed in the runtime stage since startup.sh re-runs kc.sh build
+ENV KC_SPI_CLIENT_REGISTRATION__DEFAULT__ENABLED=false
+ENV KC_SPI_CLIENT_REGISTRATION__INSTALL__ENABLED=false
+ENV KC_SPI_CLIENT_REGISTRATION__SAML2_ENTITY_DESCRIPTOR__ENABLED=false
+ENV KC_SPI_WELL_KNOWN__UMA2_CONFIGURATION__ENABLED=false
+ENV KC_FEATURES_DISABLED=account,account-api,ciba,device-flow,jwt-authorization-grant,authorization,admin-fine-grained-authz,impersonation,workflows,identity-brokering-api
+
 WORKDIR /opt/keycloak
 
 # Provide default certificates for TPM-based authentication

@@ -45,6 +45,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import de.gematik.zeta.zetaguard.keycloak.commons.toIDTokenInfo
+import de.gematik.zeta.zetaguard.keycloak.commons.toJsonWebToken
 import de.gematik.zeta.zetaguard.keycloak.commons.toRefreshToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeRight
@@ -62,6 +63,12 @@ import org.keycloak.util.TokenUtil.TOKEN_TYPE_DPOP
 
 typealias ErrorHandler = (KeycloakError) -> Unit
 
+sealed interface DPoPMode {
+  data object Disabled : DPoPMode
+  data object WithoutNonce : DPoPMode
+  data class Enabled(val nonce: String? = null) : DPoPMode
+}
+
 abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
   protected val smcb: SMCBTokenHelper by lazy { SMCBTokenHelper() }
   protected val keycloakWebClient = KeycloakWebClient.instance()
@@ -76,7 +83,7 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
     afterSpec { keycloakWebClient.close() }
   }
 
-  protected fun createNonce(): String = keycloakWebClient.getNonce().shouldBeRight().reponseObject
+  protected fun createNonce(): String = keycloakWebClient.getNonce().shouldBeRight().responseObject
 
   protected fun createSMCBToken(nonce: String, subject: String = smcb.telematikId): String =
       smcb.smcbTokenGenerator.generateSMCBToken(
@@ -106,11 +113,20 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
       clientId: String = ZETA_CLIENT,
       clientAssertion: String?,
       requestedClientScope: String? = CLIENT_B_SCOPE,
-      useDPoP: Boolean = true,
+      dpop: DPoPMode = DPoPMode.Enabled(),
       audience: String? = "http://localhost:18080",
       expectedError: ErrorHandler? = null,
   ): AccessTokenResponse {
-    val dPoPToken = if (useDPoP) generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = subjectToken) else null
+    val dPoPToken =
+        when (dpop) {
+          is DPoPMode.Enabled -> {
+            @Suppress("kotlin:S6530")
+            val nonce = dpop.nonce ?: subjectToken.toJsonWebToken().otherClaims["nonce"] as? String
+            generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = subjectToken, nonce = nonce)
+          }
+          is DPoPMode.WithoutNonce -> generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = subjectToken)
+          is DPoPMode.Disabled -> null
+        }
 
     val either =
         keycloakWebClient.tokenExchange(
@@ -123,19 +139,19 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
             audience = audience,
         )
 
-    if (expectedError != null) {
+    return if (expectedError != null) {
       either.isLeft() shouldBe true
       either.onLeft { expectedError(it) }
 
-      return AccessTokenResponse()
+      AccessTokenResponse()
     } else {
-      val newAccessTokenResponse = either.shouldBeRight().reponseObject
+      val newAccessTokenResponse = either.shouldBeRight().responseObject
       val newAccessToken = newAccessTokenResponse.token.toAccessToken()
       val newRefreshToken = newAccessTokenResponse.refreshToken.toRefreshToken()
 
       checkJSON(newAccessTokenResponse)
 
-      if (useDPoP) {
+      if (dpop is DPoPMode.Enabled) {
         newAccessTokenResponse.tokenType shouldBe TOKEN_TYPE_DPOP
         newAccessToken.confirmation.keyThumbprint shouldBe DPoPTokenGenerator.keys.jwkThumbPrint.toBase64()
       } else {
@@ -159,7 +175,7 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
 
       newRefreshToken.subject shouldBe smcb.telematikId
 
-      return newAccessTokenResponse
+      newAccessTokenResponse
     }
   }
 }

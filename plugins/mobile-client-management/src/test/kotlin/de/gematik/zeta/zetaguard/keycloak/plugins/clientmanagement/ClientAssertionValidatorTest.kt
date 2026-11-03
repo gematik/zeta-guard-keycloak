@@ -23,22 +23,30 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
+import arrow.core.getOrElse
+import arrow.core.left
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.setupSecurityProviders
 import de.gematik.zeta.zetaguard.keycloak.commons.server.createSignerContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generateKeyPair
+import de.gematik.zeta.zetaguard.keycloak.commons.server.signData
+import io.kotest.assertions.arrow.core.shouldBeLeft
+import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import java.net.URI
+import java.nio.charset.StandardCharsets
 import java.security.KeyPair
 import java.util.UUID
 import org.keycloak.common.crypto.CryptoIntegration
+import org.keycloak.common.util.Base64Url
 import org.keycloak.common.util.Time
+import org.keycloak.crypto.Algorithm
+import org.keycloak.crypto.ECDSAAlgorithm
 import org.keycloak.crypto.KeyType
 import org.keycloak.crypto.KeyUse
 import org.keycloak.crypto.KeyWrapper
@@ -49,6 +57,7 @@ import org.keycloak.models.ClientModel
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.SingleUseObjectProvider
 import org.keycloak.representations.JsonWebToken
+import org.keycloak.util.JsonSerialization
 
 private const val CLIENT_ID = "mobile-client-1"
 private const val BASE_URI = "http://localhost:8080"
@@ -79,171 +88,198 @@ private class Fixture(jtiFresh: Boolean = true) {
               expectedHttpMethod = "POST",
               expectedTargetUri = URI.create(REQUEST_URI),
           ),
-  ): ClientAssertionResult = ClientAssertionValidator(session, checks).validate(assertion, client)
+  ) = ClientAssertionValidator(session, checks).validate(assertion, client)
+}
+
+private fun buildAssertionWithExtraHeaders(
+    signingKeyPair: KeyPair,
+    extraHeaders: Map<String, Any> = emptyMap(),
+): String {
+  val header = buildMap<String, Any> {
+    put("alg", Algorithm.ES256)
+    put("typ", "JWT")
+    putAll(extraHeaders)
+  }
+  val token =
+      JsonWebToken().apply {
+        id(UUID.randomUUID().toString())
+        issuer(CLIENT_ID)
+        subject(CLIENT_ID)
+        audience(EXPECTED_AUDIENCE)
+        iat(Time.currentTime().toLong())
+        exp(Time.currentTime() + 30L)
+        setOtherClaims("htm", "POST")
+        setOtherClaims("htu", REQUEST_URI)
+      }
+  val encodedHeader = Base64Url.encode(JsonSerialization.writeValueAsBytes(header))
+  val encodedPayload = Base64Url.encode(JsonSerialization.writeValueAsBytes(token))
+  val signingInput = "$encodedHeader.$encodedPayload"
+  val data = signingInput.toByteArray(StandardCharsets.UTF_8)
+  val derSignature = signingKeyPair.private.signData(data).getOrElse { throw it }
+  val rawSignature = ECDSAAlgorithm.asn1derToConcatenatedRS(derSignature, ECDSAAlgorithm.getSignatureLength(Algorithm.ES256))
+
+  return "$signingInput.${Base64Url.encode(rawSignature)}"
 }
 
 class ClientAssertionValidatorTest :
-    StringSpec({
-      // The server initializes the crypto provider at startup; unit tests must do it themselves (cf. ZetaGuardFunSpec)
-      setupSecurityProviders()
-      CryptoIntegration.init(ClientAssertionValidatorTest::class.java.classLoader)
-      val keyPair = generateKeyPair()
+  StringSpec({
+    // The server initializes the crypto provider at startup; unit tests must do it themselves (cf. ZetaGuardFunSpec)
+    setupSecurityProviders()
+    CryptoIntegration.init(ClientAssertionValidatorTest::class.java.classLoader)
+    val keyPair = generateKeyPair()
 
-      fun buildAssertion(
-          issuer: String = CLIENT_ID,
-          subject: String = CLIENT_ID,
-          audience: String = EXPECTED_AUDIENCE,
-          jti: String? = UUID.randomUUID().toString(),
-          lifetimeSeconds: Long = 30,
-          iatOffsetSeconds: Long = 0,
-          htm: String? = "POST",
-          htu: String? = REQUEST_URI,
-          typ: String? = "JWT",
-          signingKeyPair: KeyPair = keyPair,
-      ): String {
-        val token =
-            JsonWebToken().apply {
-              jti?.let { id(it) }
-              issuer(issuer)
-              subject(subject)
-              audience(audience)
-              iat(Time.currentTime() + iatOffsetSeconds)
-              exp(Time.currentTime() + iatOffsetSeconds + lifetimeSeconds)
-              htm?.let { setOtherClaims("htm", it) }
-              htu?.let { setOtherClaims("htu", it) }
-            }
-        return JWSBuilder().type(typ).jsonContent(token).sign(signingKeyPair.createSignerContext())
+    fun buildAssertion(
+        issuer: String = CLIENT_ID,
+        subject: String = CLIENT_ID,
+        audience: String = EXPECTED_AUDIENCE,
+        jti: String? = UUID.randomUUID().toString(),
+        lifetimeSeconds: Long = 30,
+        iatOffsetSeconds: Long = 0,
+        htm: String? = "POST",
+        htu: String? = REQUEST_URI,
+        typ: String? = "JWT",
+        signingKeyPair: KeyPair = keyPair,
+    ): String {
+      val token =
+          JsonWebToken().apply {
+            jti?.let { id(it) }
+            issuer(issuer)
+            subject(subject)
+            audience(audience)
+            iat(Time.currentTime() + iatOffsetSeconds)
+            exp(Time.currentTime() + iatOffsetSeconds + lifetimeSeconds)
+            htm?.let { setOtherClaims("htm", it) }
+            htu?.let { setOtherClaims("htu", it) }
+          }
+      return JWSBuilder().type(typ).jsonContent(token).sign(signingKeyPair.createSignerContext())
+    }
+
+    fun mockRegisteredInstanceKey(registeredKeyPair: KeyPair = keyPair) {
+      mockkStatic(PublicKeyStorageManager::class)
+      every { PublicKeyStorageManager.getClientPublicKeyWrapper(any(), any(), any<JWSInput>()) } returns
+          KeyWrapper().apply {
+            publicKey = registeredKeyPair.public
+            type = KeyType.EC
+            algorithm = ES256
+            use = KeyUse.SIG
+          }
+    }
+
+    afterTest { unmockkAll() }
+
+    "the check pipeline is pluggable — a custom check list replaces the default policy" {
+      val customCheck = ClientAssertionCheck { rejected(ProblemCodes.FACTOR_REQUIRED, "custom rejection").left() }
+
+      Fixture().validate(buildAssertion(), checks = listOf(customCheck))
+          .shouldBeLeft().code shouldBe ProblemCodes.FACTOR_REQUIRED
+    }
+
+    "a valid client assertion signed with the registered instance key is accepted" {
+      mockRegisteredInstanceKey()
+
+      Fixture().validate(buildAssertion()).shouldBeRight()
+    }
+
+    "an htu with query and fragment still matches (RFC 9449 §4.2 comparison rules)" {
+      mockRegisteredInstanceKey()
+
+      Fixture().validate(buildAssertion(htu = "$REQUEST_URI?x=1#frag")).shouldBeRight()
+    }
+
+    "a malformed assertion is rejected as invalidSignature" {
+      Fixture().validate("not-a-jwt").shouldBeLeft().code shouldBe ProblemCodes.INVALID_SIGNATURE
+    }
+
+    "a typ header other than JWT is rejected (A_25338-01)" {
+      Fixture().validate(buildAssertion(typ = "at+jwt")).shouldBeLeft().code shouldBe ProblemCodes.INVALID_SIGNATURE
+    }
+
+    "iss and sub must both carry the client_id" {
+      Fixture().validate(buildAssertion(issuer = "someone-else")).shouldBeLeft().code shouldBe ProblemCodes.INVALID_SIGNATURE
+    }
+
+    "an assertion issued for a different client than the addressed one is rejected" {
+      Fixture().validate(buildAssertion(issuer = "other-client", subject = "other-client"))
+          .shouldBeLeft().code shouldBe ProblemCodes.INVALID_SIGNATURE
+    }
+
+    "unverifiedClientId extracts the selector only when iss equals sub" {
+      ClientAssertionValidator.unverifiedClientId(buildAssertion()) shouldBe CLIENT_ID
+      ClientAssertionValidator.unverifiedClientId(buildAssertion(issuer = "someone-else")) shouldBe null
+      ClientAssertionValidator.unverifiedClientId("not-a-jwt") shouldBe null
+    }
+
+    "an assertion signed with a foreign key is rejected" {
+      mockRegisteredInstanceKey(registeredKeyPair = keyPair)
+
+      Fixture().validate(buildAssertion(signingKeyPair = generateKeyPair())).shouldBeLeft().code shouldBe ProblemCodes.INVALID_SIGNATURE
+    }
+
+    "a wrong audience is rejected as wrongAudience" {
+      mockRegisteredInstanceKey()
+
+      Fixture().validate(buildAssertion(audience = "https://other-guard.example/realms/zeta"))
+          .shouldBeLeft().code shouldBe ProblemCodes.WRONG_AUDIENCE
+    }
+
+    "a missing or wrong htm is rejected as invalidBinding" {
+      mockRegisteredInstanceKey()
+      val fixture = Fixture()
+
+      fixture.validate(buildAssertion(htm = null)).shouldBeLeft().code shouldBe ProblemCodes.INVALID_BINDING
+      fixture.validate(buildAssertion(htm = "DELETE")).shouldBeLeft().code shouldBe ProblemCodes.INVALID_BINDING
+    }
+
+    "an htu for a different endpoint is rejected as invalidBinding (no cross-endpoint replay)" {
+      mockRegisteredInstanceKey()
+
+      Fixture().validate(buildAssertion(htu = "$BASE_URI/realms/$REALM_NAME/zeta/clients/other"))
+          .shouldBeLeft().code shouldBe ProblemCodes.INVALID_BINDING
+    }
+
+    "an expired assertion is rejected as staleRequest" {
+      mockRegisteredInstanceKey()
+
+      Fixture().validate(buildAssertion(lifetimeSeconds = -90)).shouldBeLeft().code shouldBe ProblemCodes.STALE_REQUEST
+    }
+
+    "an assertion issued longer ago than the 60s max lifetime is rejected as staleRequest" {
+      mockRegisteredInstanceKey()
+
+      Fixture().validate(buildAssertion(iatOffsetSeconds = -120, lifetimeSeconds = 3600)).shouldBeLeft().code shouldBe ProblemCodes.STALE_REQUEST
+    }
+
+    "an assertion without jti is rejected as staleRequest" {
+      mockRegisteredInstanceKey()
+
+      Fixture().validate(buildAssertion(jti = null)).shouldBeLeft().code shouldBe ProblemCodes.STALE_REQUEST
+    }
+
+    "a replayed jti is rejected as staleRequest" {
+      mockRegisteredInstanceKey()
+
+      Fixture(jtiFresh = false).validate(buildAssertion()).shouldBeLeft().code shouldBe ProblemCodes.STALE_REQUEST
+    }
+
+    "a client assertion with a crit header naming an unsupported extension is rejected (RFC 7515 §5.2 step 5, A_27802-03)" {
+      mockRegisteredInstanceKey()
+
+      val assertion = buildAssertionWithExtraHeaders(keyPair, extraHeaders = mapOf("crit" to listOf("x-custom-ext"), "x-custom-ext" to "value"))
+
+      Fixture().validate(assertion).shouldBeLeft().let {
+        it.code shouldBe ProblemCodes.INVALID_SIGNATURE
+        it.detail shouldBe "Unsupported crit header parameter"
       }
+    }
 
-      fun mockRegisteredInstanceKey(registeredKeyPair: KeyPair = keyPair) {
-        mockkStatic(PublicKeyStorageManager::class)
-        every { PublicKeyStorageManager.getClientPublicKeyWrapper(any(), any(), any<JWSInput>()) } returns
-            KeyWrapper().apply {
-              publicKey = registeredKeyPair.public
-              type = KeyType.EC
-              algorithm = ES256
-              use = KeyUse.SIG
-            }
+    "a client assertion with any cty header is rejected (RFC 7519 §7.2 step 8, A_27802-03)" {
+      mockRegisteredInstanceKey()
+
+      val assertion = buildAssertionWithExtraHeaders(keyPair, extraHeaders = mapOf("cty" to "JWT"))
+
+      Fixture().validate(assertion).shouldBeLeft().let {
+        it.code shouldBe ProblemCodes.INVALID_SIGNATURE
+        it.detail shouldBe "Unsupported cty header parameter"
       }
-
-      afterTest { unmockkAll() }
-
-      "the check pipeline is pluggable — a custom check list replaces the default policy" {
-        val customCheck = ClientAssertionCheck { rejected(ProblemCodes.FACTOR_REQUIRED, "custom rejection") }
-
-        val result = Fixture().validate(buildAssertion(), checks = listOf(customCheck))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.FACTOR_REQUIRED
-      }
-
-      "a valid client assertion signed with the registered instance key is accepted" {
-        mockRegisteredInstanceKey()
-        val result = Fixture().validate(buildAssertion())
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Valid>()
-      }
-
-      "an htu with query and fragment still matches (RFC 9449 §4.2 comparison rules)" {
-        mockRegisteredInstanceKey()
-
-        val result = Fixture().validate(buildAssertion(htu = "$REQUEST_URI?x=1#frag"))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Valid>()
-      }
-
-      "a malformed assertion is rejected as invalidSignature" {
-        val result = Fixture().validate("not-a-jwt")
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_SIGNATURE
-      }
-
-      "a typ header other than JWT is rejected (A_25338-01)" {
-        val result = Fixture().validate(buildAssertion(typ = "at+jwt"))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_SIGNATURE
-      }
-
-      "iss and sub must both carry the client_id" {
-        val result = Fixture().validate(buildAssertion(issuer = "someone-else"))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_SIGNATURE
-      }
-
-      "an assertion issued for a different client than the addressed one is rejected" {
-        val result = Fixture().validate(buildAssertion(issuer = "other-client", subject = "other-client"))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_SIGNATURE
-      }
-
-      "unverifiedClientId extracts the selector only when iss equals sub" {
-        ClientAssertionValidator.unverifiedClientId(buildAssertion()) shouldBe CLIENT_ID
-        ClientAssertionValidator.unverifiedClientId(buildAssertion(issuer = "someone-else")) shouldBe null
-        ClientAssertionValidator.unverifiedClientId("not-a-jwt") shouldBe null
-      }
-
-      "an assertion signed with a foreign key is rejected" {
-        mockRegisteredInstanceKey(registeredKeyPair = keyPair)
-
-        val result = Fixture().validate(buildAssertion(signingKeyPair = generateKeyPair()))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_SIGNATURE
-      }
-
-      "a wrong audience is rejected as wrongAudience" {
-        mockRegisteredInstanceKey()
-
-        val result = Fixture().validate(buildAssertion(audience = "https://other-guard.example/realms/zeta"))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.WRONG_AUDIENCE
-      }
-
-      "a missing or wrong htm is rejected as invalidBinding" {
-        mockRegisteredInstanceKey()
-        val fixture = Fixture()
-
-        fixture.validate(buildAssertion(htm = null))
-            .shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_BINDING
-        fixture.validate(buildAssertion(htm = "DELETE"))
-            .shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_BINDING
-      }
-
-      "an htu for a different endpoint is rejected as invalidBinding (no cross-endpoint replay)" {
-        mockRegisteredInstanceKey()
-
-        val result = Fixture().validate(buildAssertion(htu = "$BASE_URI/realms/$REALM_NAME/zeta/clients/other"))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.INVALID_BINDING
-      }
-
-      "an expired assertion is rejected as staleRequest" {
-        mockRegisteredInstanceKey()
-
-        val result = Fixture().validate(buildAssertion(lifetimeSeconds = -90))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.STALE_REQUEST
-      }
-
-      "an assertion issued longer ago than the 60s max lifetime is rejected as staleRequest" {
-        mockRegisteredInstanceKey()
-
-        val result = Fixture().validate(buildAssertion(iatOffsetSeconds = -120, lifetimeSeconds = 3600))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.STALE_REQUEST
-      }
-
-      "an assertion without jti is rejected as staleRequest" {
-        mockRegisteredInstanceKey()
-
-        val result = Fixture().validate(buildAssertion(jti = null))
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.STALE_REQUEST
-      }
-
-      "a replayed jti is rejected as staleRequest" {
-        mockRegisteredInstanceKey()
-
-        val result = Fixture(jtiFresh = false).validate(buildAssertion())
-
-        result.shouldBeInstanceOf<ClientAssertionResult.Invalid>().code shouldBe ProblemCodes.STALE_REQUEST
-      }
-    })
+    }
+  })

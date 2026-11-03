@@ -24,6 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
@@ -34,8 +35,8 @@ class ZetaGuardClientExpirationServiceTest : AbstractUserDataTest() {
   init {
     test("Find expired client registrations") {
       val expirationService = ZetaGuardClientExpirationDao { entityManager }
-      val clientData1 = dataService.createClientData("client1").apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
-      val clientData2 = dataService.createClientData("client2").apply { lastAccess = LocalDateTime.now().minusMinutes(12) }
+      val clientData1 = dataService.createClientData("client1", ClientAuthMethod.SMC_B).apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
+      val clientData2 = dataService.createClientData("client2", ClientAuthMethod.SMC_B).apply { lastAccess = LocalDateTime.now().minusMinutes(12) }
 
       newTransaction()
 
@@ -48,8 +49,8 @@ class ZetaGuardClientExpirationServiceTest : AbstractUserDataTest() {
     test("Find expired clients") {
       val expirationService = ZetaGuardClientExpirationDao { entityManager }
       val userData1 = dataService.createUserData("user1").apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
-      val clientData1 = dataService.createClientData("client1").apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
-      val clientData2 = dataService.createClientData("client2").apply { lastAccess = LocalDateTime.now().minusMinutes(12) }
+      val clientData1 = dataService.createClientData("client1", ClientAuthMethod.SMC_B).apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
+      val clientData2 = dataService.createClientData("client2", ClientAuthMethod.SMC_B).apply { lastAccess = LocalDateTime.now().minusMinutes(12) }
 
       clientData1.userData = userData1
       clientData2.userData = userData1
@@ -67,7 +68,7 @@ class ZetaGuardClientExpirationServiceTest : AbstractUserDataTest() {
 
     test("User expiry") {
       val expirationService = ZetaGuardClientExpirationDao { entityManager }
-      val clientData2 = dataService.createClientData("client2")
+      val clientData2 = dataService.createClientData("client2", ClientAuthMethod.SMC_B)
       val userData1 = dataService.createUserData("user1").apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
       val userData2 = dataService.createUserData("user2").apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
 

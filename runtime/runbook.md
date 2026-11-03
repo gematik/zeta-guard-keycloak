@@ -126,14 +126,14 @@ Writes a JFR file to `../target/zeta-guard.jfr` on container
 stop.
 
 ```shell
-docker compose -f compose-profiling.yaml up
+docker compose -f compose.yaml -f overlays/compose.profiling.yaml up
 ```
 
 Stop the stack to flush the profiler output (grace period:
 30 s):
 
 ```shell
-docker compose -f compose-profiling.yaml down
+docker compose -f compose.yaml -f overlays/compose.profiling.yaml down
 ```
 
 Open the `.jfr` file with IntelliJ, JDK Mission Control, or
@@ -156,6 +156,9 @@ Override these on the shell before running
 | `SPREE_ENABLE_COLUMN_ENCRYPTION`     | `true`                                     | Enable column encryption                                                          |
 | `IMAGE_KEYCLOAK_CONFIG`              | `zeta/zeta-guard/keycloak-config-cli`      | Override the config-cli image                                                     |
 | `HSM_SIM_IMAGE` / `HSM_SIM_TAG`      | `zeta/zeta-guard/ngx_pep/hsm_sim` / `main` | HSM simulator image                                                               |
+| `GSI_FEDMASTER_IMAGE`                | `zeta/devops/gem-sekidp/gsi-fedmaster`     | SekIDP federation master image, for integration tests                             |
+| `GSI_SERVER_IMAGE`                   | `zeta/devops/gem-sekidp/gsi-server`        | SekIDP server image, for integration tests                                        |
+| `GSI_TAG`                            | `8.5.1`                                    | Tag of both SekIDP images                                                         |
 
 ## Overlay composition reference
 

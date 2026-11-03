@@ -48,7 +48,7 @@ internal fun ClientSessionContext.withTokenScopesReducedTo(
   scopeNames.forEach { name ->
     val scope =
         KeycloakModelUtils.getClientScopeByName(clientSession.realm, name)
-            ?: throw IllegalStateException("Client scope '$name' not found.")
+            ?: throw IllegalStateException("Client scope »$name« not found.")
     kept[scope.id] = scope
   }
 

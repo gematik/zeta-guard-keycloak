@@ -23,12 +23,13 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.client_assertion
 
-import de.gematik.zeta.zetaguard.keycloak.client_attestation.calculateAttestationChallenge
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
+import de.gematik.zeta.zetaguard.keycloak.commons.Platform
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generateKeyPair
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generatePKIData
+import de.gematik.zeta.zetaguard.keycloak.client_attestation.calculateAttestationChallenge
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
@@ -49,6 +50,7 @@ class ClientStatementDataTest : ZetaGuardFunSpec() {
               BiometricManager(true, biometricStrong = false),
               DevicePolicyManager(4),
               listOf("cert1", "cert2"),
+              "play","noncence", "hash"
           )
       val data = ClientStatementData("jens", Platform.ANDROID, PostureType.ANDROID, androidPosture1, 4711L)
       val json = data.toJSON()
@@ -66,6 +68,8 @@ class ClientStatementDataTest : ZetaGuardFunSpec() {
       androidPosture2.packageManager shouldBe androidPosture1.packageManager
       androidPosture2.keyguardManager shouldBe androidPosture1.keyguardManager
       androidPosture2.devicePolicyManager shouldBe androidPosture1.devicePolicyManager
+      androidPosture2.signedClientDataHash shouldBe androidPosture1.signedClientDataHash
+      androidPosture2.nonce shouldBe androidPosture1.nonce
       androidPosture2.keyAttestationCertificateChain shouldBe androidPosture1.keyAttestationCertificateChain
       androidPosture2.ro shouldBe androidPosture1.ro
       androidPosture2.build shouldBe androidPosture1.build
@@ -83,7 +87,7 @@ class ClientStatementDataTest : ZetaGuardFunSpec() {
               "Apple M1 Max",
               "2E9FF59D-2F25-4C70-BBD0-268CBB5678A6",
               "format1",
-              AppleAttestationStatement(listOf("cert1", "cert2"), "receipt"),
+              ApplePostureAttestationStatement(listOf("cert1", "cert2"), "receipt"),
               AppleAuthData(
                   "8214b94cd8c44024e7f65a8bbf221b51f617fa4818a30761c596aa5e34dc3359",
                   "-X --intercept",

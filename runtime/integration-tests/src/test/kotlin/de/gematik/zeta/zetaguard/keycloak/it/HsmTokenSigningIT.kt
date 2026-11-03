@@ -24,6 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ECDSA_SIGNATURE_ALGORITHM
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveAtLeastSize
 import io.kotest.matchers.nulls.shouldNotBeNull
@@ -92,7 +93,7 @@ class HsmTokenSigningIT : FunSpec() {
 
       // JWS signature is P1363 (r||s), JCA Signature expects ASN.1 DER
       val derSignature = ECDSAAlgorithm.concatenatedRSToASN1DER(jws.signature, ECDSAAlgorithm.getSignatureLength(Algorithm.ES256))
-      val verifier = Signature.getInstance("SHA256withECDSA")
+      val verifier = Signature.getInstance(ECDSA_SIGNATURE_ALGORITHM)
       verifier.initVerify(publicKey)
       verifier.update(jws.encodedSignatureInput.toByteArray(Charsets.UTF_8))
       verifier.verify(derSignature) shouldBe true

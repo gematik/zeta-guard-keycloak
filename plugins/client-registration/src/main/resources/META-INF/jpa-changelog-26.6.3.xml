@@ -151,9 +151,34 @@
             </column>
             <column name="CLIENT_REGISTRATION_STATUS" type="VARCHAR(32)"/>
         </addColumn>
+
         <update tableName="ZETA_CLIENT_DATA">
             <column name="CLIENT_AUTH_METHOD" value="SMC_B"/>
             <where>CLIENT_AUTH_METHOD IS NULL</where>
         </update>
+    </changeSet>
+
+    <changeSet id="client-registration-fields" author="Markus Dahm">
+        <addColumn tableName="ZETA_CLIENT_DATA">
+            <column name="ATTESTATION_TYPE" type="VARCHAR(30)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Client data according to policy-engine-client-data.yaml (A_26585-02) and session data, i.e. the policy engine
+         input of the last successful authentication (A_26586-01). Additive, nullable columns: rolling-upgrade safe. -->
+    <changeSet id="client-data-policy-engine-fields" author="Maximilian Brodda">
+        <addColumn tableName="ZETA_CLIENT_DATA">
+            <column name="PLATFORM" type="VARCHAR(20)"/>
+            <column name="PRODUCT_ID" type="VARCHAR(255)"/>
+            <column name="PRODUCT_VERSION" type="VARCHAR(255)"/>
+            <column name="OS" type="VARCHAR(255)"/>
+            <column name="OS_VERSION" type="VARCHAR(255)"/>
+            <column name="DEVICE_MODEL" type="VARCHAR(255)"/>
+            <column name="ATTESTATION_TIMESTAMP" type="TIMESTAMP"/>
+            <column name="SESSION_DATA" type="CLOB"/>
+            <column name="SESSION_UPDATED_AT" type="TIMESTAMP"/>
+        </addColumn>
     </changeSet>
 </databaseChangeLog>

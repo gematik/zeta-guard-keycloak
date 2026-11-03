@@ -23,12 +23,11 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
-import com.fasterxml.jackson.databind.ObjectMapper
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_A_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJsonNode
 import de.gematik.zeta.zetaguard.keycloak.commons.USER1
 import de.gematik.zeta.zetaguard.keycloak.commons.USER1_PASSWORD
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
-import io.kotest.core.spec.style.FunSpec
+import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
@@ -43,7 +42,6 @@ import org.apache.http.impl.client.HttpClients
 import org.keycloak.OAuth2Constants.PASSWORD
 import org.keycloak.OAuth2Constants.USERNAME
 import org.keycloak.crypto.Algorithm
-import org.keycloak.jose.jwk.JSONWebKeySet
 import org.keycloak.jose.jws.JWSInput
 import org.keycloak.protocol.oidc.OIDCLoginProtocol.CLIENT_ID_PARAM
 import org.keycloak.protocol.oidc.OIDCLoginProtocol.GRANT_TYPE_PARAM
@@ -56,17 +54,13 @@ import org.testcontainers.DockerClientFactory
  * fail-closed behaviour, then restart it so later ITs see a healthy stack.
  *
  * Scope: this covers the **warm-cache** fail-closed path — Keycloak already has an HSM KeyWrapper, so signing fails at the gRPC layer with a 5xx, and
- * no software key materialises. The **cold-start** path through [HsmTokenSigningKeyProviderFactory.createFallbackKeys] (HSM unreachable at boot,
+ * no software key materialises. The **cold-start** path through [de.gematik.zeta.zetaguard.keycloak.plugins.hsm.tokensigning.HsmTokenSigningKeyProviderFactory.createFallbackKeys] (HSM unreachable at boot,
  * component present, no cached KeyWrapper) is covered by unit tests only — exercising it in-stack would need a Keycloak restart with hsm-sim already
  * down, which this IT framework can't do cleanly.
  */
-class HsmUnreachableIT : FunSpec() {
-
+class HsmUnreachableIT : ZetaGuardFunSpecIT() {
   init {
-    val baseUrl = "http://${Docker.kchost}:${Docker.kcport}"
-    val mapper = ObjectMapper()
     val dockerClient = DockerClientFactory.instance().client()
-
     var hsmContainerId: String? = null
     var baselineSigKids: Set<String> = emptySet()
 
@@ -76,7 +70,7 @@ class HsmUnreachableIT : FunSpec() {
 
       // Snapshot the SIG keys exposed by zeta-guard's JWKS BEFORE HSM goes down. A software
       // fallback would later add new kids; comparing kid sets makes the assertion precise.
-      val baseline = fetchJwks(baseUrl, mapper, ZETA_REALM)
+      val baseline = keycloakWebClient.fetchJwks().shouldBeRight().responseObject
       baselineSigKids = baseline.keys.filter { it.publicKeyUse == "sig" }.mapNotNull { it.keyId }.toSet()
       baseline.keys.filter { it.algorithm == Algorithm.ES256 && it.publicKeyUse == "sig" }.size shouldBeGreaterThanOrEqual 1
 
@@ -85,11 +79,11 @@ class HsmUnreachableIT : FunSpec() {
 
     afterSpec {
       hsmContainerId?.let { runCatching { dockerClient.startContainerCmd(it).exec() } }
-      awaitStableHsmRecovery(baseUrl)
+      awaitStableHsmRecovery()
     }
 
     test("token endpoint returns 5xx when HSM is unreachable (no software-signed JWT)") {
-      val (status, body) = postTokenRequest(baseUrl)
+      val (status, body) = postTokenRequest()
 
       status shouldNotBe HttpStatus.SC_OK
       // Keycloak surfaces signing failures as 5xx
@@ -101,9 +95,9 @@ class HsmUnreachableIT : FunSpec() {
       // Exercise the fallback path multiple times — each failure that does NOT persist a
       // software key is the contract we care about. A pre-fix build would materialise an
       // ecdsa-generated ComponentModel after the first attempt; we'd see a new kid here.
-      repeat(3) { postTokenRequest(baseUrl) }
+      repeat(3) { postTokenRequest() }
 
-      val jwks = fetchJwks(baseUrl, mapper, ZETA_REALM)
+      val jwks = keycloakWebClient.fetchJwks().shouldBeRight().responseObject
 
       // No RSA signing keys whatsoever (Decision 6).
       jwks.keys.filter { it.publicKeyUse == "sig" && it.keyType == "RSA" }.shouldBeEmpty()
@@ -122,13 +116,17 @@ class HsmUnreachableIT : FunSpec() {
       val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30)
       var lastStatus = 0
       var token: String? = null
+
       while (System.currentTimeMillis() < deadline) {
-        val (status, body) = postTokenRequest(baseUrl)
+        val (status, body) = postTokenRequest()
         lastStatus = status
+
         if (status == HttpStatus.SC_OK) {
-          token = mapper.readTree(body)["access_token"]?.asText()
+          val node = body.toJsonNode()
+          token = node["access_token"]?.asText()
           break
         }
+
         Thread.sleep(1000)
       }
 
@@ -141,25 +139,20 @@ class HsmUnreachableIT : FunSpec() {
   }
 
   /** Polls token issuance until 3 consecutive 200s, or fails. authserver's gRPC channel can stay flaky for several seconds after hsm-sim restart. */
-  private fun awaitStableHsmRecovery(baseUrl: String) {
+  private fun awaitStableHsmRecovery() {
     val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(60)
     var consecutive = 0
+
     while (consecutive < 3 && System.currentTimeMillis() < deadline) {
-      if (postTokenRequest(baseUrl).first == HttpStatus.SC_OK) consecutive++ else consecutive = 0
+      if (postTokenRequest().first == HttpStatus.SC_OK) consecutive++ else consecutive = 0
       if (consecutive < 3) Thread.sleep(1000)
     }
     check(consecutive >= 3) { "hsm-sim recovery unstable: $consecutive/3 consecutive 200s within 60s" }
   }
 
-  private fun fetchJwks(baseUrl: String, mapper: ObjectMapper, realm: String): JSONWebKeySet {
-    val url = "$baseUrl/realms/$realm/protocol/openid-connect/certs"
-    val response =
-        HttpClients.createDefault().use { client -> client.execute(RequestBuilder.get(url).build()) { resp -> resp.entity.content.readBytes() } }
-    return mapper.readValue(response, JSONWebKeySet::class.java)
-  }
+  private fun postTokenRequest(): Pair<Int, String> {
+    val url = keycloakWebClient.uriBuilder().tokenUrl()
 
-  private fun postTokenRequest(baseUrl: String): Pair<Int, String> {
-    val url = "$baseUrl/realms/zeta-guard/protocol/openid-connect/token"
     val request =
         RequestBuilder.post(url)
             .addHeader(CONTENT_TYPE, APPLICATION_FORM_URLENCODED.mimeType)

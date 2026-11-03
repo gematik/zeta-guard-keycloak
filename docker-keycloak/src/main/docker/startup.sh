@@ -27,6 +27,8 @@ if [ "${SPREE_INTEGRITY_PROVIDER_ENABLED}" != "true" ]; then
   # See dependencies of docker-keycloak/pom.xml
   # Among other reasons, the deletion prevents the creation of the checksum tables in the database
   rm -fv /opt/keycloak/providers/spree-encryption-provider.jar
+  rm -fv /opt/keycloak/providers/spree-bootstrap-provider.jar
+  rm -fv /opt/keycloak/providers/spree-crypto-update-provider.jar
 else
   echo "🔐 Spree encryption provider enabled"
 
@@ -40,6 +42,18 @@ else
     echo "☑️ SPREE_KEYCHAIN_FILE is set and the file exists."
   else
     echo "⚠️ SPREE_KEYCHAIN_FILE is not set or the file does not exist. Assuming keychain data is set directly via environment variables."
+  fi
+
+  if [[ -n "${SPREE_FUTURE_KEYCHAIN_FILE}" && -f "${SPREE_FUTURE_KEYCHAIN_FILE}" ]]; then
+    echo "☑️ SPREE_FUTURE_KEYCHAIN_FILE is set and the file exists."
+  else
+    echo "⚠️ SPREE_FUTURE_KEYCHAIN_FILE is not set or the file does not exist. Assuming optional keychain data is set directly via environment variables."
+  fi
+
+  if [[ -n "${SPREE_PREVIOUS_KEYCHAIN_FILE}" && -f "${SPREE_PREVIOUS_KEYCHAIN_FILE}" ]]; then
+    echo "☑️ SPREE_PREVIOUS_KEYCHAIN_FILE is set and the file exists."
+  else
+    echo "⚠️ SPREE_PREVIOUS_KEYCHAIN_FILE is not set or the file does not exist. Assuming optional keychain data is set directly via environment variables."
   fi
 fi
 
@@ -76,10 +90,11 @@ fi
 # shellcheck disable=SC2164
 cd /opt/keycloak/bin
 
-# Disable Keycloak's own client registration endpoints, only 𝝵-Guard DCR (/clients-registrations/openid-connect) is supported.
 KC_SPI_CLIENT_REGISTRATION__DEFAULT__ENABLED=false \
 KC_SPI_CLIENT_REGISTRATION__INSTALL__ENABLED=false \
 KC_SPI_CLIENT_REGISTRATION__SAML2_ENTITY_DESCRIPTOR__ENABLED=false \
+KC_SPI_WELL_KNOWN__UMA2_CONFIGURATION__ENABLED=false \
+KC_FEATURES_DISABLED=account,account-api,ciba,device-flow,jwt-authorization-grant,authorization,admin-fine-grained-authz,impersonation,workflows,identity-brokering-api \
 KC_DEBUG=false ./kc.sh build
 
 rm -f /opt/keycloak/data/*.jfr

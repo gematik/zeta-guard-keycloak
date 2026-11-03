@@ -84,6 +84,11 @@ entities:
 
   - entity:
       name: org.keycloak.models.jpa.entities.ClientAttributeEntity
+      primary_key:
+        class_name: org.keycloak.models.jpa.entities.ClientAttributeEntity$Key
+        properties:
+          - name: client
+          - name: name
       encrypted_properties:
         - name: value
       is_volatile: true   # updated on each token exchange
@@ -115,6 +120,11 @@ entities:
 
   - entity:
       name: org.keycloak.models.jpa.entities.RealmAttributeEntity
+      primary_key:
+        class_name: org.keycloak.models.jpa.entities.RealmAttributeEntity$Key
+        properties:
+          - name: realm
+          - name: name
       encrypted_properties:
         - name: value
       is_volatile: true
@@ -144,6 +154,11 @@ entities:
 
   - entity:
       name: org.keycloak.models.jpa.entities.ClientScopeAttributeEntity
+      primary_key:
+        class_name: org.keycloak.models.jpa.entities.ClientScopeAttributeEntity$Key
+        properties:
+          - name: clientScope
+          - name: name
 
   - entity:
       name: org.keycloak.models.jpa.entities.ProtocolMapperEntity
@@ -156,6 +171,11 @@ entities:
 
   - entity:
       name: org.keycloak.models.jpa.entities.CompositeRoleEntity
+      primary_key:
+        class_name: org.keycloak.models.jpa.entities.CompositeRoleEntity$Key
+        properties:
+          - name: childRole
+          - name: parentRole
 
   - entity:
       name: org.keycloak.models.jpa.entities.IdentityProviderEntity

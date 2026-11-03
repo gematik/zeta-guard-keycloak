@@ -5,20 +5,9 @@
 # - If it is determined that we are unaffected please make use of .vex/vulnerabilites.openvex.json
 ###############################################
 
-# medium, affected: glibc, glibc-common, glibc-langpack-en - glibc: glibc: Heap Buffer Overflow in `scanf` with `%mc` format specifier and...
-CVE-2026-5450 exp:2026-09-15
-
 # low (Bewertung durch tech@spree, offiziell medium), affected: org.postgresql/postgresql - Silent channel-binding authentication downgrade via unsupported certificate algorithms
 # Dieses ignore muss erhalten bleiben, bis org.postgresql/postgresql im Keycloak-Image in jeder gescannter Version auf 42.7.12 hochgezogen ist
 CVE-2026-54291
-
-# high, blocking Release 1.3.1
-CVE-2026-11822 exp:2026-09-15
-CVE-2026-11824 exp:2026-09-15
-
-# critical, affected: io.netty.netty-handler-4.1.135.Final.jar
-CVE-2026-75595 exp:2026-09-20
-
 
 # low (Bewertung durch tech@spree, offiziell critical), affected: Bouncy Castle, Stapled OCSP response accepted without binding to the checked certificate
 # Dieses ignore muss erhalten bleiben, bis pkg:maven/org.bouncycastle/bcprov-jdk18on im Keycloak-Image in jeder gescannter Version auf 1.85 hochgezogen ist
@@ -27,3 +16,24 @@ CVE-2026-58062
 # low (Bewertung durch tech@spree, offiziell critical), affected: Bouncy Castle, Name Constraints bypass via trailing dot in rfc822Name and URI
 # Dieses ignore muss erhalten bleiben, bis pkg:maven/org.bouncycastle/bcprov-jdk18on im Keycloak-Image in jeder gescannter Version auf 1.85 hochgezogen ist
 CVE-2026-8763
+
+# critical, affected: io.netty.netty-handler-4.1.135.Final.jar
+CVE-2026-75595 exp:2026-10-20
+
+# high, will_not_fix: pcre2, pcre2-syntax - Out-of-bounds write
+CVE-2026-86145 exp:2026-10-20
+
+# high, affected: pcre2, pcre2-syntax - Memory corruption in pcre2_jit_match
+CVE-2026-89161 exp:2026-10-20
+
+# medium, affected: org.mariadb.jdbc/mariadb-java-client - Cleartext password disclosure via man-in-the-middle during initial handshake
+# Fix: Override auf 3.5.9 in docker-keycloak-harden. Dieses ignore entfernen, sobald mariadb-java-client im Keycloak-Image in jeder gescannten Version auf 3.5.9 hochgezogen ist
+CVE-2026-55856 exp:2026-10-22
+
+# medium, affected: org.mariadb.jdbc/mariadb-java-client - Information Disclosure via Insecure PAM Dialog Authentication
+# Fix: Override auf 3.5.9 in docker-keycloak-harden. Dieses ignore entfernen, sobald mariadb-java-client im Keycloak-Image in jeder gescannten Version auf 3.5.9 hochgezogen ist
+CVE-2026-55857 exp:2026-10-22
+
+# medium, affected: org.mariadb.jdbc/mariadb-java-client - Silent data corruption due to character set mismatch
+# Fix: Override auf 3.5.9 in docker-keycloak-harden. Dieses ignore entfernen, sobald mariadb-java-client im Keycloak-Image in jeder gescannten Version auf 3.5.9 hochgezogen ist
+CVE-2026-55858 exp:2026-10-22

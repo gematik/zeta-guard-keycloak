@@ -26,9 +26,13 @@ package de.gematik.zeta.zetaguard.keycloak.it
 import de.gematik.zeta.zetaguard.keycloak.commons.ADMIN_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.CertificateGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.ClientAssertionTokenGenerator
+import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFactory
 import de.gematik.zeta.zetaguard.keycloak.commons.DN_GEMATIK
 import de.gematik.zeta.zetaguard.keycloak.commons.DN_PRAXIS
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.AttestationType
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ClientRegistrationState
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientResponseRepresentation
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_REALM_CLIENT_JOB_DISABLED
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
@@ -69,7 +73,6 @@ import org.keycloak.models.jpa.entities.ClientEntity
 import org.keycloak.models.jpa.entities.ClientScopeAttributeEntity
 import org.keycloak.models.jpa.entities.ClientScopeEntity
 import org.keycloak.models.jpa.entities.ProtocolMapperEntity
-import org.keycloak.representations.oidc.OIDCClientRepresentation
 import org.keycloak.services.clientregistration.ClientRegistrationTokenUtils.TYPE_REGISTRATION_ACCESS_TOKEN
 
 class ClientRegistrationIT : ZetaGuardFunSpecIT() {
@@ -77,10 +80,12 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
     var nonce = ""
     var smbcToken = ""
     var jws = ""
-    var oidcClientResponse = OIDCClientRepresentation()
+    var oidcClientResponse = ZetaGuardOIDCClientResponseRepresentation()
 
     beforeTest {
-      oidcClientResponse = keycloakWebClient.createClientOIDC(clientAssertionTokenGenerator.keys.jwks).shouldBeRight().reponseObject
+      val request = ClientRegistrationRequestFactory.createClientRegistrationRequest(clientAssertionTokenGenerator.keys, null)
+
+      oidcClientResponse = keycloakWebClient.registerClientOIDC(clientRegistrationRequest = request).shouldBeRight().responseObject
       nonce = createNonce()
       jws = clientAssertionTokenGenerator.generateClientAssertion(oidcClientResponse, nonce)
       // Other/new PKI
@@ -116,7 +121,11 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       accessToken.type shouldBe TYPE_REGISTRATION_ACCESS_TOKEN
       accessToken.issuer shouldContain ZETA_REALM
 
-      checkAttestationState(oidcClientResponse.clientId, ClientAttestationState.PENDING, null)
+      checkAttestationState(oidcClientResponse.clientId, ClientAttestationState.PENDING, null).also {
+        it.attestationType.shouldBeNull()
+      }
+      // A_30086: registered, but not yet usable for resource access — the attestation is still outstanding.
+      oidcClientResponse.status shouldBe ClientRegistrationState.REGISTERED
 
       val accessTokenResponse = testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = jws)
 
@@ -125,7 +134,16 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       accessTokenResponse.refreshToken.shouldNotBeNull()
       accessTokenResponse.refreshToken.checkTokenHeader()
 
-      checkAttestationState(oidcClientResponse.clientId, ClientAttestationState.VALID, now)
+      checkAttestationState(oidcClientResponse.clientId, ClientAttestationState.VALID, now).also {
+        it.attestationType shouldBe AttestationType.SOFTWARE
+      }
+
+      // A_30086: the token exchange attested the client, so a re-read of the registration reports it as active.
+      keycloakWebClient
+          .getClientOIDC(oidcClientResponse.clientId, oidcClientResponse.registrationAccessToken)
+          .shouldBeRight()
+          .responseObject
+          .status shouldBe ClientRegistrationState.ACTIVE
     }
 
     test("Client registration expiration") {
@@ -156,12 +174,12 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
     test("Certificate signature validation fails") {
       val certificate =
           CertificateGenerator(
-                  subjectName = smcb.leafCertificate.subjectX500Principal.toString(),
-                  subjectKeyPair = smcb.subjectKeyPair,
-                  issuerName = smcb.leafCertificate.issuerX500Principal.toString(),
-                  issuerKeyPair = smcb.subjectKeyPair,
-                  isCA = false,
-              )
+              subjectName = smcb.leafCertificate.subjectX500Principal.toString(),
+              subjectKeyPair = smcb.subjectKeyPair,
+              issuerName = smcb.leafCertificate.issuerX500Principal.toString(),
+              issuerKeyPair = smcb.subjectKeyPair,
+              isCA = false,
+          )
               .buildCertificate()
 
       smbcToken =
@@ -184,12 +202,12 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
     test("Unknown certificate issuer") {
       val certificate =
           CertificateGenerator(
-                  subjectName = DN_PRAXIS,
-                  subjectKeyPair = smcb.subjectKeyPair,
-                  issuerName = DN_GEMATIK,
-                  issuerKeyPair = generateKeyPair(),
-                  isCA = false,
-              )
+              subjectName = DN_PRAXIS,
+              subjectKeyPair = smcb.subjectKeyPair,
+              issuerName = DN_GEMATIK,
+              issuerKeyPair = generateKeyPair(),
+              isCA = false,
+          )
               .buildCertificate()
       smbcToken =
           smcb.smcbTokenGenerator.generateSMCBToken(
@@ -333,13 +351,19 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
     }
   }
 
-  private fun checkAttestationState(clientId: String, expectedState: ClientAttestationState, expectedAccessTime: LocalDateTime?) {
+  private fun checkAttestationState(
+      clientId: String,
+      expectedState: ClientAttestationState,
+      expectedAccessTime: LocalDateTime?
+  ): ZetaGuardClientData {
     val clientData = lookupClientData(clientId).shouldNotBeNull()
     clientData.attestationState shouldBe expectedState
 
     if (expectedAccessTime != null) {
       clientData.lastAccess shouldBeAfter expectedAccessTime
     }
+
+    return clientData
   }
 }
 
