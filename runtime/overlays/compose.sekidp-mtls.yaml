@@ -1,18 +1,10 @@
 # Overlay: enables mTLS (self_signed_tls_client_auth) for SekIDP PAR/token requests.
-# TEST ONLY — all .p12/.pem files are throwaway self-signed material, never use them against a real
-# SekIDP:
-#   sekidp-client-testonly.p12       client cert+key Keycloak presents (CN=sekidp-mtls-test-client)
-#   sekidp-server-cert-testonly.pem  trust anchor for the SekIDP's server cert
-#   sekidp-server-tls-testonly.p12   server cert+key for the gsi mock's TLS listener (counterpart to
-#                                    the trust anchor; unused until the mock terminates TLS itself)
-# Regenerate:
-#   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out client.key
-#   openssl req -x509 -key client.key -out client.crt -days 30 -subj "/CN=sekidp-mtls-test-client"
-#   openssl pkcs12 -export -inkey client.key -in client.crt -out sekidp-client-testonly.p12 -name sekidp-client -passout pass:testpass123
-#   openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out server.key
-#   openssl req -x509 -key server.key -out server.crt -days 365 -subj "/CN=host.docker.internal" -addext "subjectAltName=DNS:host.docker.internal,DNS:localhost"
-#   openssl pkcs12 -export -inkey server.key -in server.crt -out sekidp-server-tls-testonly.p12 -name sekidp-server -passout pass:testpass123
-#   cp server.crt sekidp-server-cert-testonly.pem
+# All .p12/.pem files are throwaway self-signed material, never use them against a real SekIDP:
+#   sekidp-client-testonly.p12: client cert+key Keycloak presents (CN=sekidp-mtls-test-client)
+#   sekidp-server-cert-testonly.pem: trust anchor for the SekIDP's server cert
+# These files are gitignored, not committed: in production this keystore is operator-supplied, so
+# no version of it belongs in the repository. Run ../gen-sekidp-mtls-certs.sh once before starting
+# the stack with this overlay.
 #
 # Scenario — SekIDP flow with mTLS:
 #   ZETA_OIDC_FLOW_ENABLED=true docker compose -f compose.yaml -f overlays/compose.sekidp-mtls.yaml up

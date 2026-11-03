@@ -27,9 +27,12 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CLIENT_REGISTRATION_POL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_STARTUP_DELAY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
+import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDateTimePeriod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDuration
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialProvider
+import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.NonceProviderFactory
 import io.quarkus.arc.Arc
 import java.time.Duration
 import java.time.LocalDateTime
@@ -41,6 +44,7 @@ import org.keycloak.models.KeycloakSessionFactory
 import org.keycloak.models.utils.KeycloakModelUtils.runJobInTransaction
 import org.keycloak.provider.ProviderConfigProperty
 import org.keycloak.services.clientregistration.policy.ClientRegistrationPolicyFactory
+import org.keycloak.services.resource.RealmResourceProvider
 import org.keycloak.timer.TimerProvider
 import org.keycloak.timer.TimerProviderFactory
 
@@ -58,18 +62,33 @@ private val CLIENT_REGISTRATION_STARTUP_DELAY = System.getenv(ENV_CLIENT_REGISTR
  * Realm configuration in 10-configure-client-registration-policies.sh
  */
 class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory {
-  internal lateinit var integrityProviderService: IntegrityProviderService
+  private lateinit var integrityProviderService: IntegrityProviderService
 
-  override fun create(session: KeycloakSession, model: ComponentModel) =
-      ZetaGuardClientRegistrationPolicy(ZetaGuardDataService(DefaultEMCreator(session)), integrityProviderService)
+  override fun create(session: KeycloakSession, model: ComponentModel): ZetaGuardClientRegistrationPolicy {
+    val nonceProvider = session.keycloakSessionFactory
+        .getProviderFactory(RealmResourceProvider::class.java, NONCE_PROVIDER_ID) as NonceProviderFactory
+    // Resolved once per policy, so a registration in progress is not affected by a concurrent truststore reload
+    val trustMaterial = session.getProvider(TrustMaterialProvider::class.java).trustMaterial()
+
+    return ZetaGuardClientRegistrationPolicy(
+        session,
+        nonceProvider.nonceFactory,
+        trustMaterial,
+        ZetaGuardDataService(DefaultEMCreator(session)), integrityProviderService
+    )
+  }
 
   override fun getId(): String = CLIENT_REGISTRATION_POLICY_PROVIDER_ID
 
   override fun postInit(factory: KeycloakSessionFactory) {
+    integrityProviderService = Arc.container().instance(IntegrityProviderService::class.java).get()
+
+    startClientExpirationJob(factory)
+  }
+
+  private fun startClientExpirationJob(factory: KeycloakSessionFactory) {
     val timerProviderFactory = factory.getProviderFactory(TimerProvider::class.java) as TimerProviderFactory
     val delayUntil = LocalDateTime.now().plus(Duration.parse(CLIENT_REGISTRATION_STARTUP_DELAY))
-
-    integrityProviderService = Arc.container().instance(IntegrityProviderService::class.java).get()
 
     logger.info("⏳ Checking for expired clients and users every $clientExpirationJobInterval")
 
@@ -78,12 +97,18 @@ class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory
         .schedule(
             {
               if (LocalDateTime.now().isAfter(delayUntil)) {
-                runJobInTransaction(factory) {
-                  val (expiredClients, expiredUsers) = ZetaGuardExpirationService(it).runExpiration()
+                // runJobInTransaction rolls back on an exception, but it must not escape the task: that kills Keycloak's timer thread, and
+                // with it every scheduled task of the node
+                try {
+                  runJobInTransaction(factory) {
+                    val (expiredClients, expiredUsers) = ZetaGuardExpirationService(it).runExpiration()
 
-                  if (expiredClients > 0 || expiredUsers > 0) {
-                    logger.info("🗑️ Expired $expiredClients outdated clients and $expiredUsers outdated users")
+                    if (expiredClients > 0 || expiredUsers > 0) {
+                      logger.info("🗑️ Expired $expiredClients outdated clients and $expiredUsers outdated users")
+                    }
                   }
+                } catch (e: Exception) {
+                  logger.errorf(e, "⚠️ Client expiration failed, retrying in »%s«", clientExpirationJobInterval)
                 }
               }
             },

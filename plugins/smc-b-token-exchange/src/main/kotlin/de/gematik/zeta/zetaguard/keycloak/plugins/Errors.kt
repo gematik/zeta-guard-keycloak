@@ -23,7 +23,9 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins
 
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.message
 import de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange.KeycloakValidationError
 import de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange.ZetaGuardTokenExchangeProvider
@@ -34,7 +36,6 @@ import jakarta.ws.rs.core.Response.Status.BAD_REQUEST
 import jakarta.ws.rs.core.Response.Status.FORBIDDEN
 import jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE
 import java.security.SignatureException
-import org.jboss.logging.Logger
 import org.keycloak.OAuthErrorException.INVALID_CLIENT
 import org.keycloak.OAuthErrorException.INVALID_GRANT
 import org.keycloak.OAuthErrorException.INVALID_TOKEN
@@ -47,8 +48,6 @@ import org.keycloak.models.ClientModel
 import org.keycloak.representations.idm.OAuth2ErrorRepresentation
 import org.keycloak.services.CorsErrorResponseException
 import org.keycloak.services.cors.Cors
-
-internal val logger: Logger = Logger.getLogger(ZetaGuardTokenExchangeProvider::class.java)
 
 internal const val RETRY_AFTER_SECONDS = 30
 
@@ -122,6 +121,8 @@ internal fun invalidGrantType() =
 internal fun invalidCertificate(reason: String) = KeycloakValidationError("invalid_x5c_certificate", reason, FORBIDDEN)
 
 internal fun invalidTpmCertificate(reason: String) = KeycloakValidationError("Invalid TPM certificate chain", reason, FORBIDDEN)
+
+internal fun invalidPostureType(postureType: PostureType) = KeycloakValidationError("Invalid posture type", "Invalid posture type: »$postureType«", FORBIDDEN)
 
 internal fun logInvalidAuthorizationCodes(error: KeycloakValidationError) {
   when (error.error) {

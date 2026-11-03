@@ -25,7 +25,12 @@
 
 package de.gematik.zeta.zetaguard.keycloak.commons
 
+import de.gematik.zeta.zetaguard.keycloak.client_attestation.AndroidKeyDescription
+import de.gematik.zeta.zetaguard.keycloak.client_attestation.toASN1Sequence
+import de.gematik.zeta.zetaguard.keycloak.client_attestation.toAppleASN1Sequence
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
+import de.gematik.zeta.zetaguard.keycloak.commons.server.androidKeyAttestationExtension
+import de.gematik.zeta.zetaguard.keycloak.commons.server.appleNonceExtension
 import de.gematik.zeta.zetaguard.keycloak.commons.server.signingAlgorithm
 import java.math.BigInteger
 import java.security.KeyPair
@@ -75,9 +80,11 @@ class CertificateGenerator(
     private val telematikId: String = TELEMATIK_ID,
     private val createAdmissionExtension: Boolean = true,
     private val sans: List<GeneralName>? = null,
+    private val appleNonce: ByteArray? = null,
+    private val androidKeyDescription: AndroidKeyDescription? = null,
 ) {
-  fun buildCertificate(): X509Certificate {
-    val certBuilder = createCertificateBuilder(subjectName, issuerName, subjectKeyPair.public)
+  fun buildCertificate(serialNumber: BigInteger = createSerialNumber()): X509Certificate {
+    val certBuilder = createCertificateBuilder(subjectName, issuerName, subjectKeyPair.public, serialNumber)
     val extUtils = JcaX509ExtensionUtils()
 
     // Subject Key Identifier (SKI) - Identifies this cert's public key
@@ -118,6 +125,14 @@ class CertificateGenerator(
       if (!sans.isNullOrEmpty()) {
         certBuilder.addExtension(Extension.subjectAlternativeName, false, GeneralNames(sans.toTypedArray()))
       }
+
+      if (appleNonce != null) {
+        certBuilder.addExtension(appleNonceExtension, false, appleNonce.toAppleASN1Sequence())
+      }
+
+      if (androidKeyDescription != null) {
+        certBuilder.addExtension(androidKeyAttestationExtension, false, androidKeyDescription.toASN1Sequence())
+      }
     }
 
     val signer = JcaContentSignerBuilder(issuerKeyPair.signingAlgorithm()).build(issuerKeyPair.private)
@@ -125,11 +140,15 @@ class CertificateGenerator(
     return JcaX509CertificateConverter().getCertificate(certBuilder.build(signer))
   }
 
-  private fun createCertificateBuilder(subjectName: String, issuerName: String, subjectKey: PublicKey): JcaX509v3CertificateBuilder {
+  private fun createCertificateBuilder(
+      subjectName: String,
+      issuerName: String,
+      subjectKey: PublicKey,
+      serial: BigInteger
+  ): JcaX509v3CertificateBuilder {
     val now = System.currentTimeMillis()
     val notBefore = Date(now)
     val notAfter = Date(now + TimeUnit.DAYS.toMillis(365 * 5)) // 5-year validity
-    val serial = BigInteger(64, SecureRandom())
 
     return JcaX509v3CertificateBuilder(X500Principal(issuerName), serial, notBefore, notAfter, X500Principal(subjectName), subjectKey)
   }
@@ -155,3 +174,5 @@ class CertificateGenerator(
     return AdmissionSyntax(admissionAuthority, contentsOfAdmissions)
   }
 }
+
+fun createSerialNumber() = BigInteger(64, SecureRandom())

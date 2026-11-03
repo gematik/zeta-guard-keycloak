@@ -23,44 +23,59 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
+import arrow.core.Either
+import arrow.core.left
+import arrow.core.raise.either
+import arrow.core.raise.ensure
+import arrow.core.right
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
+import de.gematik.zeta.zetaguard.keycloak.commons.server.createVerifierContext
 import java.net.URI
-import java.security.interfaces.ECPublicKey
 import org.keycloak.OAuth2Constants
 import org.keycloak.TokenVerifier
 import org.keycloak.authentication.authenticators.client.AbstractBaseJWTValidator
 import org.keycloak.authentication.authenticators.client.ClientAssertionState
-import org.keycloak.common.VerificationException
-import org.keycloak.crypto.AsymmetricSignatureVerifierContext
-import org.keycloak.crypto.ECDSASignatureVerifierContext
 import org.keycloak.keys.loader.PublicKeyStorageManager
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper
 import org.keycloak.representations.JsonWebToken
+
+typealias ClientAssertionCheckResult = Either<ClientAssertionCheckRejected, ClientAssertionCheckPassed>
 
 /**
  * The individual strategies of the client-assertion policy ([zeta-guard-client-management], A_30101). Each check is
  * one self-contained class; [ClientAssertionValidator.defaultChecks] assembles the full set in the canonical order.
  */
 
-/** The `typ` header MUST be `JWT`, in line with the token endpoint (A_25338-01, ZetaGuardJWTClientAuthenticator). */
-class TypeHeaderCheck : ClientAssertionCheck {
-  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult =
-      if (context.jws.header.type != OAuth2Constants.JWT) {
-        rejected(ProblemCodes.INVALID_SIGNATURE, "Client assertion »typ« header must be »JWT«")
-      } else passed()
+/** Validates the JWS protected header: `typ` must be `JWT`, and `crit`/`cty` must be absent (A_25338-01, A_27802-03). */
+class ProtectedHeaderCheck : ClientAssertionCheck {
+  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult = either {
+    ensure(context.jws.header.type == OAuth2Constants.JWT) {
+      rejected(ProblemCodes.INVALID_SIGNATURE, "Client assertion »typ« header must be »JWT«")
+    }
+    ensure(!context.jws.header.otherClaims.containsKey("crit")) {
+      rejected(ProblemCodes.INVALID_SIGNATURE, "Unsupported crit header parameter")
+    }
+    ensure(context.jws.header.contentType == null) {
+      rejected(ProblemCodes.INVALID_SIGNATURE, "Unsupported cty header parameter")
+    }
+    ClientAssertionCheckPassed
+  }
 }
 
 /** `iss` and `sub` MUST both carry the `client_id` (RFC 7523) — and it must be the client addressed by the caller. */
 class ClientBindingCheck : ClientAssertionCheck {
-  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult {
+  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult = either {
     val clientId = context.token.subject
-    if (clientId.isNullOrBlank() || context.token.issuer != clientId) {
-      return rejected(ProblemCodes.INVALID_SIGNATURE, "»iss« and »sub« must both carry the client_id")
+
+    ensure(!clientId.isNullOrBlank() && context.token.issuer == clientId) {
+      rejected(ProblemCodes.INVALID_SIGNATURE, "»iss« and »sub« must both carry the client_id")
     }
-    if (clientId != context.client.clientId) {
-      return rejected(ProblemCodes.INVALID_SIGNATURE, "Client assertion does not belong to the addressed client")
+
+    ensure(clientId == context.client.clientId) {
+      rejected(ProblemCodes.INVALID_SIGNATURE, "Client assertion does not belong to the addressed client")
     }
-    return passed()
+
+    ClientAssertionCheckPassed
   }
 }
 
@@ -70,26 +85,27 @@ class ClientBindingCheck : ClientAssertionCheck {
  * assertion's algorithm MUST match it.
  */
 class SignatureCheck : ClientAssertionCheck {
-  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult {
+  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult = either {
     val expectedAlg = OIDCAdvancedConfigWrapper.fromClientModel(context.client).tokenEndpointAuthSigningAlg
-    val algorithm = context.jws.header.algorithm?.name ?: return rejected(ProblemCodes.INVALID_SIGNATURE, "Missing signature algorithm")
+    val algorithm = context.jws.header.algorithm?.name ?: raise(rejected(ProblemCodes.INVALID_SIGNATURE, "Missing signature algorithm"))
+
     if (expectedAlg != null && expectedAlg != algorithm) {
-      return rejected(ProblemCodes.INVALID_SIGNATURE, "Signature algorithm does not match the client configuration")
+      raise(rejected(ProblemCodes.INVALID_SIGNATURE, "Signature algorithm does not match the client configuration"))
     }
 
     val keyWrapper =
-        runCatching { PublicKeyStorageManager.getClientPublicKeyWrapper(context.session, context.client, context.jws) }.getOrNull()
-            ?: return rejected(ProblemCodes.INVALID_SIGNATURE, "No matching registered instance key (F2)")
+        Either.catch { PublicKeyStorageManager.getClientPublicKeyWrapper(context.session, context.client, context.jws) }.getOrNull()
+          ?: raise(rejected(ProblemCodes.INVALID_SIGNATURE, "No matching registered instance key (F2)"))
 
     // ECDSA JOSE signatures are raw R||S and need the ECDSA context; plain asymmetric covers RSA (cf. PKIUtil.createVerifierContext)
-    val verifierContext =
-        if (keyWrapper.publicKey is ECPublicKey) ECDSASignatureVerifierContext(keyWrapper) else AsymmetricSignatureVerifierContext(keyWrapper)
-    return try {
-      TokenVerifier.create(context.assertion, JsonWebToken::class.java).verifierContext(verifierContext).verify()
-      passed()
-    } catch (e: VerificationException) {
-      rejected(ProblemCodes.INVALID_SIGNATURE, "Signature verification failed")
-    }
+    val verifierContext = keyWrapper.createVerifierContext()
+
+    Either.catch {
+      TokenVerifier.create(context.assertion, JsonWebToken::class.java)
+          .verifierContext(verifierContext).verify()
+    }.mapLeft { rejected(ProblemCodes.INVALID_SIGNATURE, "Signature verification failed") }
+        .map { ClientAssertionCheckPassed }
+        .bind()
   }
 }
 
@@ -97,8 +113,10 @@ class SignatureCheck : ClientAssertionCheck {
 class AudienceCheck(private val expectedAudience: String) : ClientAssertionCheck {
   override fun check(context: ClientAssertionContext): ClientAssertionCheckResult =
       if (!context.token.hasAudience(expectedAudience)) {
-        rejected(ProblemCodes.WRONG_AUDIENCE, "Client assertion audience does not match this guard")
-      } else passed()
+        rejected(ProblemCodes.WRONG_AUDIENCE, "Client assertion audience does not match this guard").left()
+      } else {
+        ClientAssertionCheckPassed.right()
+      }
 }
 
 /**
@@ -107,18 +125,20 @@ class AudienceCheck(private val expectedAudience: String) : ClientAssertionCheck
  * its lifetime.
  */
 class RequestBindingCheck(private val expectedHttpMethod: String, private val expectedTargetUri: URI) : ClientAssertionCheck {
-  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult {
+  override fun check(context: ClientAssertionContext): ClientAssertionCheckResult = either {
     if (!(context.token.otherClaims["htm"] as? String).equals(expectedHttpMethod, ignoreCase = true)) {
-      return rejected(ProblemCodes.INVALID_BINDING, "»htm« does not match the HTTP method of this request")
+      raise(rejected(ProblemCodes.INVALID_BINDING, "»htm« does not match the HTTP method of this request"))
     }
+
     if (stripQueryAndFragment(context.token.otherClaims["htu"] as? String) != stripQueryAndFragment(expectedTargetUri.toString())) {
-      return rejected(ProblemCodes.INVALID_BINDING, "»htu« does not match the target URI of this request")
+      raise(rejected(ProblemCodes.INVALID_BINDING, "»htu« does not match the target URI of this request"))
     }
-    return passed()
+
+    ClientAssertionCheckPassed
   }
 
   private fun stripQueryAndFragment(uri: String?): String? =
-      uri?.let { runCatching { URI(it).let { u -> URI(u.scheme, u.authority, u.path, null, null).toString() } }.getOrNull() }
+      uri?.let { Either.catch { URI(it).let { u -> URI(u.scheme, u.authority, u.path, null, null).toString() } }.getOrNull() }
 }
 
 /**
@@ -133,7 +153,7 @@ class ActivityCheck(
   override fun check(context: ClientAssertionContext): ClientAssertionCheckResult {
     val state =
         ClientAssertionState(OAuth2Constants.CLIENT_ASSERTION_TYPE_JWT, context.assertion, context.jws, context.token)
-            .apply { setClient(context.client) }
+            .apply { client = context.client }
     var failureDetail = "Client assertion is not active"
     val keycloakChecks =
         object : AbstractBaseJWTValidator(context.session, state) {
@@ -144,7 +164,9 @@ class ActivityCheck(
 
     // reusePermitted=false: enforces exp, iat sanity, the max lifetime AND jti single-use in one go
     return if (!keycloakChecks.validateTokenActive(allowedClockSkewSeconds, maxLifetimeSeconds, false)) {
-      rejected(ProblemCodes.STALE_REQUEST, failureDetail)
-    } else passed()
+      rejected(ProblemCodes.STALE_REQUEST, failureDetail).left()
+    } else {
+      ClientAssertionCheckPassed.right()
+    }
   }
 }

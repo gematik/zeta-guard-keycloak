@@ -34,7 +34,7 @@ class KeystoreMetaServiceTest : ZetaGuardFunSpec() {
   init {
     val storeStream = SMCBTokenHelper::class.java.getResourceAsStream("/smcb-certificates.p12")!!
     val metaStream = SMCBTokenHelper::class.java.getResourceAsStream("/smcb-certificates-meta.json")!!
-    val objectUnderTest = KeystoreMetaService(storeStream, SMCB_KEYSTORE_PASSWORD, metaStream)
+    val objectUnderTest = KeystoreMetaService("SMC-B", storeStream, KEYSTORE_PASSWORD, metaStream)
 
     test("Read certificate meta") {
       // leaf certificates should not have metadata

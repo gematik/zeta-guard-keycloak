@@ -27,7 +27,6 @@ import arrow.core.Either
 import arrow.core.raise.either
 import arrow.core.raise.ensure
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.Platform
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.SoftwarePosture
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.TPMPosture
@@ -43,6 +42,8 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange.ZetaGuardTokenE
 
 private const val ATTESTATION_CHALLENGE_DOES_NOT_MATCH = "Attestation challenge does not match"
 
+val VALID_POSTURE_TYPES = listOf(PostureType.SOFTWARE, PostureType.TPM)
+
 internal fun checkSoftwarePosture(context: ZetaGuardTokenExchangeContext, posture: SoftwarePosture): Either<KeycloakValidationError, Unit> = either {
   val postureKey = posture.publicKey.toPublicKey().mapLeft { invalidClientAttestation(it) }.bind()
   val clientKey = context.clientJWK.toPublicKey()
@@ -51,6 +52,7 @@ internal fun checkSoftwarePosture(context: ZetaGuardTokenExchangeContext, postur
 
   ensure(clientKey == postureKey) { invalidClientAttestation("Public keys from posture and client do not match") }
   ensure(expectedAttestationChallenge.contentEquals(attestationChallenge)) { invalidClientAttestation(ATTESTATION_CHALLENGE_DOES_NOT_MATCH) }
+  ensure(posture.nonce == null || context.token.nonce == posture.nonce) { invalidClientAttestation("Nonce from posture and token do not match") }
 }
 
 internal fun checkTPMPosture(
@@ -74,16 +76,6 @@ internal fun checkTPMPosture(
 
   tpmQuoteBytes.validateQuoteSignature(quoteSignature, tpmPublicKey).mapLeft { invalidTPMQuote(it) }.bind()
   validateCertificateChain(keystoreService, certificateChain).mapLeft { invalidTpmCertificate(it) }.bind()
-}
-
-internal fun checkPostureTypeMatchesPlatform(clientStatementData: ClientStatementData): Either<KeycloakValidationError, Unit> = either {
-  if (clientStatementData.postureType in listOf(PostureType.SOFTWARE, PostureType.TPM)) {
-    val platform = clientStatementData.posture.platformProductId?.productPlatform ?: Platform.LINUX // default to LINUX if not provided
-
-    ensure(platform in listOf(Platform.WINDOWS, Platform.LINUX)) {
-      invalidClientClaim("Invalid combination of »${clientStatementData.postureType}« and »${platform}«")
-    }
-  }
 }
 
 internal fun checkPostureType(clientStatementData: ClientStatementData, context: ZetaGuardTokenExchangeContext, tpmKeystoreService: KeystoreService) =

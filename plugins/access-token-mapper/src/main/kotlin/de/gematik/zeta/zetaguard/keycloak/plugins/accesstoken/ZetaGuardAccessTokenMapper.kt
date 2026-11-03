@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.accesstoken
 
+import arrow.core.Either
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
 import de.gematik.zeta.zetaguard.keycloak.commons.expirationDate
@@ -31,6 +32,8 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ACCESSTOKEN_MAPPERPROVI
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_DATA
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_RAW
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ACR
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_BIRTHDATE
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_DISPLAY_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KVNR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ORGANIZATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_PROFESSION_OID
@@ -170,13 +173,17 @@ class ZetaGuardAccessTokenMapper :
 
     val kvnr = userSession.getNote(ATTRIBUTE_MOBILEUSER_KVNR) ?: error("Mobile user KVNR not found")
     token.subject(kvnr)
-    token.otherClaims[CLAIM_COMMON_NAME] = kvnr
+    // A_26973-03: commonName is the insured person's display name; birthdate only when consented at the SekIDP.
+    token.otherClaims[CLAIM_COMMON_NAME] = userSession.getNote(ATTRIBUTE_MOBILEUSER_DISPLAY_NAME) ?: error("Mobile user display name not found")
+    userSession.getNote(ATTRIBUTE_MOBILEUSER_BIRTHDATE)?.let { token.birthdate = it }
     userSession.getNote(ATTRIBUTE_MOBILEUSER_ACR)?.let { token.acr = it }
     token.otherClaims[CLAIM_CLIENT_ID] = client.clientId
     session.clientIP.let { token.otherClaims[CLAIM_IP_ADDRESS] = it }
     userSession.getNote(ATTRIBUTE_MOBILEUSER_PROFESSION_OID)?.let { token.otherClaims[CLAIM_PROFESSION_OID] = it }
     userSession.getNote(ATTRIBUTE_MOBILEUSER_ORGANIZATION)?.let { token.otherClaims[CLAIM_ORGANIZATION_NAME] = it }
+
     client.clientStatement()?.let { token.setClientStatementClaims(it) }
+
     userSession.opaSessionContext()?.let { token.expirationDate(ttl(it.accessTokenTTL, it.refreshTokenTTL)) }
   }
 
@@ -188,16 +195,17 @@ class ZetaGuardAccessTokenMapper :
 
   private fun UserSessionModel.opaSessionContext(): OpaSessionContext? {
     val raw = getNote(ATTRIBUTE_MOBILE_OPA_CONTEXT) ?: return null
-    return runCatching { raw.toObject<OpaSessionContext>() }
-        .onFailure { logger.warnf(it, "Failed to read OPA session context") }
+
+    return Either.catch { raw.toObject<OpaSessionContext>() }
+        .onLeft { logger.warnf(it, "Failed to read OPA session context") }
         .getOrNull()
   }
 
   private fun ClientModel.clientStatement(): ClientStatementData? {
     val raw = getAttribute(ATTRIBUTE_CLIENT_STATEMENT_RAW) ?: return null
 
-    return runCatching { raw.toObject<ClientStatementData>() }
-        .onFailure { logger.warnf(it, "Failed to read client statement of client »%s«", clientId) }
+    return Either.catch { raw.toObject<ClientStatementData>() }
+        .onLeft { logger.warnf(it, "Failed to read client statement of client »%s«", clientId) }
         .getOrNull()
   }
 }

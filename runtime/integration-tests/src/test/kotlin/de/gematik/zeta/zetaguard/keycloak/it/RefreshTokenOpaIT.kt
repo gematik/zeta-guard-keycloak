@@ -26,6 +26,7 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
+import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
@@ -37,6 +38,7 @@ import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import org.apache.http.HttpHeaders.CONTENT_TYPE
 import org.apache.http.entity.ContentType.APPLICATION_JSON
+import org.keycloak.OAuthErrorException
 import org.keycloak.events.Errors
 
 /**
@@ -62,7 +64,7 @@ class RefreshTokenOpaIT : ZetaGuardFunSpecIT() {
   init {
     test("refresh succeeds when OPA allows") {
       val accessTokenResponse1 = exchange()
-      val refreshed = refresh(accessTokenResponse1.refreshToken).shouldBeRight().reponseObject
+      val refreshed = refresh(accessTokenResponse1.refreshToken).shouldBeRight().responseObject
       refreshed.refreshToken.shouldNotBeNull().checkTokenHeader()
     }
 
@@ -74,6 +76,19 @@ class RefreshTokenOpaIT : ZetaGuardFunSpecIT() {
           it.error shouldBe Errors.ACCESS_DENIED
           it.errorDescription shouldBe "policy_denied"
         }
+      }
+    }
+
+    // A_29848: admin revokes token, so its refresh token must no longer work.
+    test("refresh is rejected when the session has been terminated") {
+      val accessTokenResponse1 = exchange()
+      val sessionId = accessTokenResponse1.token.toAccessToken().sessionId.shouldNotBeNull()
+
+      keycloakWebClient.adminRevokeSession(sessionId).shouldBeRight()
+
+      refresh(accessTokenResponse1.refreshToken).shouldBeLeft().also {
+        it.statusCode shouldBe 400
+        it.error shouldBe OAuthErrorException.INVALID_GRANT
       }
     }
 

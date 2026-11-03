@@ -50,9 +50,7 @@ class NonceFactory(private val timeProvider: TimeProvider, private val nonceTime
     return nonce
   }
 
-  fun retrieveNonce(nonceValue: String): Nonce? {
-    return nonces.asMap().remove(nonceValue)
-  }
+  fun retrieveNonce(nonceValue: String): Nonce? = nonces.asMap().remove(nonceValue)
 }
 
 data class Nonce(val nonceValue: String, val expiresAt: LocalDateTime)

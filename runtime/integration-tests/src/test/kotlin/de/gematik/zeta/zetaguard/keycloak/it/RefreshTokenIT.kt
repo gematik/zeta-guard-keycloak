@@ -41,7 +41,6 @@ import de.gematik.zeta.zetaguard.keycloak.commons.toRefreshToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
-import io.kotest.matchers.date.shouldBeAfter
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.time.Duration
@@ -96,12 +95,13 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
           )
       val jwt2 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce2)
       val dPoPToken2 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken2)
-      val accessTokenResponse2 = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().reponseObject
+      val accessTokenResponse2 = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().responseObject
 
       accessTokenResponse2.refreshToken.shouldNotBeNull().checkTokenHeader()
 
       val refreshToken2 = accessTokenResponse2.refreshToken.toRefreshToken()
-      refreshToken2.expirationDate() shouldBeAfter refreshToken1.expirationDate()
+      // Rotation keeps the session end of the first refresh token (A_25662)
+      refreshToken2.exp shouldBe refreshToken1.exp
       refreshToken2.subject shouldBe smcb.telematikId
       refreshToken2.otherClaims[CLAIM_PROFESSION_OID] shouldBe
           refreshToken1.otherClaims[CLAIM_PROFESSION_OID] shouldBe
@@ -138,7 +138,7 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
           )
       val jwt2 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce2)
       val dPoPToken2 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken2)
-      val accessTokenResponse = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().reponseObject
+      val accessTokenResponse = keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2).shouldBeRight().responseObject
 
       accessTokenResponse.refreshToken.shouldNotBeNull().checkTokenHeader()
 

@@ -24,7 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
-import de.gematik.zeta.zetaguard.keycloak.plugins.logger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import io.opentelemetry.context.Context.taskWrapping
 import jakarta.ws.rs.core.Response
 import java.util.concurrent.Executor
@@ -44,7 +44,8 @@ object OpaGateEnforcer {
   sealed interface Outcome {
     data object Skip : Outcome
 
-    data class Allow(val accessTokenTtl: Int? = null, val refreshTokenTtl: Int? = null) : Outcome
+    /** @property payload the input sent to OPA, to be stored as session data (A_26586-01) */
+    data class Allow(val accessTokenTtl: Int? = null, val refreshTokenTtl: Int? = null, val payload: String? = null) : Outcome
 
     data class Deny(val error: KeycloakError) : Outcome
 
@@ -63,7 +64,7 @@ object OpaGateEnforcer {
     logger.debugf("🛡 OPA TokenPolicy decision endpoint -> %s%s", opaConfig.opaBaseUrl, opaConfig.decisionPath)
 
     val decision = OpaDecisionClient.evaluate(httpClient, opaConfig, payloadJson)
-    val outcome = mapDecisionToOutcome(decision)
+    val outcome = mapDecisionToOutcome(decision, payloadJson)
 
     if (opaConfig.simulationBaseUrl.isNotBlank()) submitSimulation(httpClient, opaConfig, payloadJson)
 
@@ -107,7 +108,7 @@ object OpaGateEnforcer {
 
   private fun buildPayloadJson(input: OpaGateInput): String = OpaPayloadBuilder.build(OpaPayloadBuilder.payloadParamsFromInput(input))
 
-  private fun mapDecisionToOutcome(decision: Decision): Outcome =
+  private fun mapDecisionToOutcome(decision: Decision, payloadJson: String): Outcome =
       when (decision) {
         is Decision.Allow -> {
           logger.infof(
@@ -115,7 +116,7 @@ object OpaGateEnforcer {
               decision.accessTokenTtl,
               decision.refreshTokenTtl,
           )
-          Outcome.Allow(decision.accessTokenTtl, decision.refreshTokenTtl)
+          Outcome.Allow(decision.accessTokenTtl, decision.refreshTokenTtl, payloadJson)
         }
 
         is Decision.Deny -> {

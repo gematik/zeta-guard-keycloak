@@ -26,54 +26,80 @@
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
 import org.jboss.logging.Logger
+import org.keycloak.OAuth2Constants.AUTHORIZATION_CODE
 import org.keycloak.OAuth2Constants.REFRESH_TOKEN
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
 
+/**
+ * Non-persistent attributes
+ */
 const val ATTRIBUTE_SMCB_CONTEXT = "zetaguard.smcbContext"
 const val ATTRIBUTE_MOBILE_OPA_CONTEXT = "zetaguard.mobile.opaContext"
-const val ATTRIBUTE_CLIENT_ASSESSMENT_DATA = "zetaguard.clientData"
-const val ATTRIBUTE_CLIENT_STATEMENT_DATA = "zetaguard.clientStatement"
 
-const val ATTRIBUTE_CLIENT_STATEMENT_RAW = "zetaguard.client_statement_raw"
+// Epoch seconds at which the session ends: exp of the first refresh token after full authentication (A_25662)
+const val ATTRIBUTE_SESSION_END = "zetaguard.session.end"
+const val ATTRIBUTE_CLIENT_REGISTRATION_DATA = "zetaguard.client.registration_data"
+const val ATTRIBUTE_CLIENT_STATEMENT_DATA = "zetaguard.client.client_statement"
+const val ATTRIBUTE_CLIENT_STATEMENT_RAW = "zetaguard.client.client_statement_raw"
+
+const val ATTRIBUTE_USER_CREATED_AT = "zetaguard.user.created_at"
+const val ATTRIBUTE_USER_LAST_ACCESS = "zetaguard.user.last_access"
+
+// New address of a pending identity-wide email change; takes effect once the OTP sent to it is confirmed.
+const val ATTRIBUTE_USER_PENDING_EMAIL = "zetaguard.user.pending_email"
 
 // Attribute keys for the mobile user (KVNR context).
 const val ATTRIBUTE_MOBILEUSER_KVNR = "zetaguard.mobileuser.kvnr"
-const val ATTRIBUTE_MOBILEUSER_CREATED_AT = "zetaguard.mobileuser.created_at"
-const val ATTRIBUTE_MOBILEUSER_LAST_ACCESS = "zetaguard.mobileuser.last_access"
 const val ATTRIBUTE_MOBILEUSER_ACR = "zetaguard.mobileuser.acr"
 const val ATTRIBUTE_MOBILEUSER_AMR = "zetaguard.mobileuser.amr"
 const val ATTRIBUTE_MOBILEUSER_PROFESSION_OID = "zetaguard.mobileuser.profession_oid"
 const val ATTRIBUTE_MOBILEUSER_ORGANIZATION = "zetaguard.mobileuser.organization"
+const val ATTRIBUTE_MOBILEUSER_DISPLAY_NAME = "zetaguard.mobileuser.display_name"
+const val ATTRIBUTE_MOBILEUSER_BIRTHDATE = "zetaguard.mobileuser.birthdate"
 
 // No email stored yet -> reduced token carries BOTH. Email already stored -> reduced token carries only email-verify.
 const val SCOPE_EMAIL_BINDING = "zeta:email-binding"
 const val SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION = "zeta:email-verify"
+
+// Mobile clients only: list/delete the clients of the identity and change its email via the PEP-protected endpoints.
+const val SCOPE_CLIENT_MANAGEMENT = "zeta:client-management"
 const val EMAIL_BINDING_TOKEN_TTL_SECONDS = 300
+
 // Token-response members of the reduced token telling the client the next step.
 const val RESPONSE_MEMBER_BINDING_MODE = "binding_mode"
 const val RESPONSE_MEMBER_EMAIL_HINT = "email_hint"
+
 // binding_mode values: collect a new email (identity new) vs verify an OTP sent to the stored address.
 const val BINDING_MODE_COLLECT_EMAIL = "collect_email"
 const val BINDING_MODE_VERIFY_OTP = "verify_otp"
+
 // Realm resource provider id — owns the /realms/{realm}/zeta/... namespace for ZETA identity endpoints.
 const val ZETA_RESOURCE_ID = "zeta"
 const val BIND_EMAIL_PATH = "identity/bind-email"
 const val BIND_EMAIL_RESEND_PATH = "identity/bind-email/resend"
 const val BIND_EMAIL_VERIFY_PATH = "identity/bind-email/verify"
 const val CHALLENGE_TYPE_EMAIL_OTP = "email_otp"
-// Identity-scoped email change (A_29911/A_29912), authorized by client assertion with the instance key F2 (A_30101).
+
+// Identity-scoped email change (A_29911/A_29912); the caller is taken from the client data forwarded by the PEP.
 const val IDENTITY_EMAIL_PATH = "identity/email"
+
+// Confirmation of a pending email change; same OTP mechanics as bind-email, but only for the change case.
+const val IDENTITY_EMAIL_VERIFY_PATH = "identity/email/verify"
+const val IDENTITY_EMAIL_RESEND_PATH = "identity/email/resend"
+
 // Pull endpoint releasing the consent-gated email to a Resource Server.
 const val USERINFO_EMAIL_PATH = "userinfo/email"
 const val EMAIL_STATUS_VERIFIED = "verified"
+const val EMAIL_STATUS_PENDING = "pending"
+
+const val CLIENTS_PATH = "clients"
+const val CLIENT_PATH = "clients/{id}"
 
 const val ATTRIBUTE_SMCBUSER_TELEMATIK_ID = "zetaguard.smcbuser.telematik_id"
 const val ATTRIBUTE_SMCBUSER_PROFESSION_OID = "zetaguard.smcbuser.profession_oid"
 const val ATTRIBUTE_SMCBUSER_NAME = "zetaguard.smcbuser.name"
 const val ATTRIBUTE_SMCBUSER_ORGANISATION = "zetaguard.smcbuser.organisation"
 const val ATTRIBUTE_LAST_CLIENT_IP = "zeta-guard.client.client_ip"
-const val ATTRIBUTE_SMCBUSER_CREATED_AT = "zetaguard.smcbuser.created_at"
-const val ATTRIBUTE_SMCBUSER_LAST_ACCESS = "zetaguard.smcbuser.last_access"
 
 const val CLAIM_CLIENT_STATEMENT = "client_statement"
 const val CLAIM_CLIENT_KEY = "client_key"
@@ -94,8 +120,9 @@ const val ZETA_CLIENT = "zeta-client"
 const val ATTRIBUTE_REALM_CLIENT_JOB_DISABLED = "zeta-guard.realm.client_job.disabled"
 
 // https://www.keycloak.org/securing-apps/client-registration
-const val KEYCLOAK_CLIENT_REGISTRATION_PATH = "/realms/{realm-name}/clients-registrations/default"
 const val OIDC_CLIENT_REGISTRATION_PATH = "/realms/{realm-name}/clients-registrations/openid-connect"
+
+const val OIDC_CERTIFICATES_PATH = "/realms/{realm-name}/protocol/openid-connect/certs"
 
 // https://www.keycloak.org/docs-api/latest/rest-api/index.html#_client_initial_access
 const val INITIAL_ACCESS_TOKEN_PATH = "/admin/realms/{realm-name}/clients-initial-access"
@@ -111,6 +138,7 @@ const val SMCB_IDENTITY_PROVIDER_ID = "zeta-smc-b-oidc"
 
 const val SEKIDP_IDENTITY_PROVIDER_ID = "zeta-sekidp-oidc"
 const val ZETA_MOBILE_BROWSER_FLOW = "zeta-mobile"
+const val OPENID_FEDERATION_ALIAS = "openid-federation"
 
 const val ENV_SMCB_KEYSTORE_LOCATION = "SMCB_KEYSTORE_LOCATION"
 const val ENV_SMCB_KEYSTORE_META_LOCATION = "SMCB_KEYSTORE_META_LOCATION"
@@ -119,17 +147,30 @@ const val ENV_SMCB_KEYSTORE_PASSWORD = "SMCB_KEYSTORE_PASSWORD"
 const val ENV_TPM_KEYSTORE_LOCATION = "TPM_KEYSTORE_LOCATION"
 const val ENV_TPM_KEYSTORE_PASSWORD = "TPM_KEYSTORE_PASSWORD"
 
+const val ENV_APPLE_KEYSTORE_LOCATION = "APPLE_KEYSTORE_LOCATION"
+const val ENV_APPLE_KEYSTORE_PASSWORD = "APPLE_KEYSTORE_PASSWORD"
+
+const val ENV_GOOGLE_KEYSTORE_LOCATION = "GOOGLE_KEYSTORE_LOCATION"
+const val ENV_GOOGLE_CERTIFICATE_STATUS_LOCATION = "GOOGLE_CERTIFICATE_STATUS_LOCATION"
+const val ENV_GOOGLE_KEYSTORE_PASSWORD = "GOOGLE_KEYSTORE_PASSWORD"
+
 const val ENV_OCSP_KEYSTORE_LOCATION = "OCSP_KEYSTORE_LOCATION"
 const val ENV_OCSP_KEYSTORE_META_LOCATION = "OCSP_KEYSTORE_META_LOCATION"
 const val ENV_OCSP_KEYSTORE_PASSWORD = "OCSP_KEYSTORE_PASSWORD"
+
+const val ENV_FEDERATION_MASTER_LOCATION = "FEDERATION_MASTER_LOCATION"
 
 // Periodic reload of the truststores above, so a provisioning run takes effect without restarting Keycloak.
 const val ENV_TRUSTSTORE_RELOAD_ENABLED = "TRUSTSTORE_RELOAD_ENABLED"
 const val ENV_TRUSTSTORE_RELOAD_INTERVAL = "TRUSTSTORE_RELOAD_INTERVAL"
 const val TRUSTSTORE_RELOAD_TASK_ID = "zeta-guard-truststore-reload"
+const val TRUST_MATERIAL_SPI_NAME = "zeta-guard-trust-material"
+const val TRUST_MATERIAL_PROVIDER_ID = "zeta-guard-trust-material"
 
 const val ADMIN_EVENTS_PROVIDER_ID = "zeta-guard-admin-events"
 const val ENV_GENESIS_HASH = "GENESIS_HASH"
+
+const val ENV_APPLE_APP_ATTEST_AAGUID = "APPLE_APP_ATTEST_AAGUID"
 
 const val REVOCATION_PROVIDER_ID = "zeta-guard-revocation"
 const val REVOCATION_EVENTLISTENER_PROVIDER_ID = "zeta-guard-revocation-events"
@@ -159,14 +200,21 @@ const val ENV_OIDC_FLOW_ENABLED = "ZETA_OIDC_FLOW_ENABLED"
 const val ACCESSTOKEN_MAPPERPROVIDER_ID = "zeta-guard-accesstoken-mapper"
 
 //  https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_27799
-val VALID_GRANT_TYPES = listOf(REFRESH_TOKEN, TOKEN_EXCHANGE_GRANT_TYPE)
+val SMC_B_VALID_GRANT_TYPES = listOf(REFRESH_TOKEN, TOKEN_EXCHANGE_GRANT_TYPE)
+val SEKIDP_VALID_GRANT_TYPES = listOf(REFRESH_TOKEN, TOKEN_EXCHANGE_GRANT_TYPE, AUTHORIZATION_CODE)
+
+const val APPLE_APP_ATTESTATION_ROOT_CA = "Apple App Attestation Root CA"
+const val APPLE_ORGANISATION = "Apple Inc."
 
 /**
  * Gets the message of a [Throwable].
  *
  * @return The message of the [Throwable] or "<unknown eror>" if the message is null.
  */
-fun Throwable.message() = message ?: "<unknown eror>"
+fun Throwable.message() = message.toErrorMessage() +
+    if (cause != null) "↪" + (cause?.message.toErrorMessage()) else ""
+
+private fun String?.toErrorMessage() = this ?: "<unknown error>"
 
 val logger: Logger = Logger.getLogger("zeta-guard")
 

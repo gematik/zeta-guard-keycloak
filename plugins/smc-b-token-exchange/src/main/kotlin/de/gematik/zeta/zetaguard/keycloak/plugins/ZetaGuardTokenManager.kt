@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JacksonInject
 import com.fasterxml.jackson.annotation.JsonCreator
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObjectWithCreator
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SESSION_END
 import org.keycloak.TokenCategory
 import org.keycloak.events.EventBuilder
 import org.keycloak.models.AuthenticatedClientSessionModel
@@ -66,16 +67,39 @@ class ZetaGuardTokenManager : TokenManager() {
 
     override fun generateRefreshToken(): AccessTokenResponseBuilder {
       super.generateRefreshToken()
+      val realmSessionEnd = refreshToken.exp
       refreshToken(createZetaGuardRefreshToken(refreshToken))
       transformRefreshToken()
+      capExpiration(realmSessionEnd)
+
+      // First refresh token after full authentication: its exp ends the session (A_25662)
+      refreshToken.exp?.let {
+        if (userSession.getNote(ATTRIBUTE_SESSION_END) == null) {
+          userSession.setNote(ATTRIBUTE_SESSION_END, it.toString())
+        }
+      }
       return this
     }
 
     override fun generateRefreshToken(oldRefreshToken: RefreshToken, clientSession: AuthenticatedClientSessionModel): AccessTokenResponseBuilder {
       super.generateRefreshToken(oldRefreshToken, clientSession)
+      val realmSessionEnd = refreshToken.exp
       refreshToken(createZetaGuardRefreshToken(refreshToken))
       transformRefreshToken()
+      capExpiration(realmSessionEnd, userSession.getNote(ATTRIBUTE_SESSION_END)?.toLongOrNull())
       return this
+    }
+
+    /**
+     * Keep the refresh token from outliving its session.
+     *
+     * The PDP TTL set by the mappers replaces the exp Keycloak derived from the realm's session idle/max limits. Without this
+     * cap the token (and refresh_expires_in) promised more than the session delivers, and a refresh past the session end
+     * failed with "Session not active". Rotation must not extend the session beyond the first refresh token's exp either
+     * (A_25662).
+     */
+    private fun capExpiration(vararg sessionEnds: Long?) {
+      listOfNotNull(refreshToken.exp, *sessionEnds).minOrNull()?.let { refreshToken.exp(it) }
     }
 
     /**

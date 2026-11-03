@@ -24,7 +24,6 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange
 
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
-import de.gematik.zeta.zetaguard.keycloak.client_attestation.calculateAttestationChallenge
 import de.gematik.zeta.zetaguard.keycloak.commons.IDTokenInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.opa.toOpaDeviceInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.resolveClientIP
@@ -34,6 +33,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.toThumbprint
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
 import de.gematik.zeta.zetaguard.keycloak.commons.toIDTokenInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.toJsonWebToken
+import de.gematik.zeta.zetaguard.keycloak.client_attestation.calculateAttestationChallenge
 import java.security.PublicKey
 import java.security.cert.X509Certificate
 import java.time.Duration
@@ -71,6 +71,9 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
   var opaAudiences: List<String>? = null
   var opaScopes: List<String>? = null
 
+  // Input sent to OPA, stored as session data (A_26586-01)
+  var opaInput: String? = null
+
   lateinit var authenticationMethodsReferences: List<String>
   lateinit var authenticationContextClassReference: String
   lateinit var clientId: String
@@ -93,7 +96,12 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
 
     calculateAttestationChallenge(jwkThumbPrint, nonceBytes)
   }
-  private val tokenInfo: IDTokenInfo = subjectToken.toIDTokenInfo()
+  private lateinit var tokenInfo: IDTokenInfo
+
+  fun parseSubjectToken(): IDTokenInfo {
+    tokenInfo = subjectToken.toIDTokenInfo()
+    return tokenInfo
+  }
 
   val clientIP: String // A_28828
     get() = resolveClientIP(context.clientConnection?.remoteAddr) { httpHeader(it) } ?: error("IP address could not be determined")
@@ -138,5 +146,6 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
             postureType = postureType,
             previousIpAddress = previousIpAddress,
             deviceInfo = clientStatementData.posture.toOpaDeviceInfo(),
+            attestationTimestamp = clientStatementData.attestationTimestamp,
         )
 }

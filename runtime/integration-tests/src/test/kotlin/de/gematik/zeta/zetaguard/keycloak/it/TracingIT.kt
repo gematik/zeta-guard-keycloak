@@ -24,11 +24,16 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
 import de.gematik.zeta.zetaguard.keycloak.commons.ADMIN_CLIENT
+import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFactory
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJsonNode
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toURI
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
+import de.gematik.zeta.zetaguard.keycloak.it.Docker.log
+import de.gematik.zeta.zetaguard.keycloak.it.Docker.tempoHost
+import de.gematik.zeta.zetaguard.keycloak.it.Docker.tempoPort
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.nondeterministic.eventuallyConfig
@@ -41,9 +46,6 @@ import io.kotest.matchers.string.shouldNotBeEmpty
 import java.time.Instant
 import kotlin.reflect.KClass
 import kotlin.time.Duration.Companion.seconds
-import org.apache.http.client.methods.RequestBuilder
-import org.apache.http.impl.client.HttpClients
-import org.apache.http.util.EntityUtils
 
 class TracingEnabledCondition : Condition {
   override fun evaluate(kclass: KClass<out Spec>): Boolean = Docker.tracingEnabled
@@ -51,35 +53,23 @@ class TracingEnabledCondition : Condition {
 
 @EnabledIf(TracingEnabledCondition::class)
 class TracingIT : ZetaGuardFunSpecIT() {
-
-  private val objectMapper = ObjectMapper()
-  private val httpClient = HttpClients.createDefault()
-
-  private fun tempoBaseUrl(): String = "http://${Docker.tempoHost}:${Docker.tempoPort}"
+  private fun tempoBaseUrl(): String = "http://${tempoHost}:${tempoPort}"
 
   private fun searchTraceQL(query: String, limit: Int = 20, start: Instant? = null): JsonNode {
     val startParam = start?.let { "&start=${it.epochSecond}&end=${Instant.now().plusSeconds(60).epochSecond}" } ?: ""
-    val url = "${tempoBaseUrl()}/api/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}&limit=$limit$startParam"
+    val url = "${tempoBaseUrl()}/api/search?q=${java.net.URLEncoder.encode(query, "UTF-8")}&limit=$limit$startParam".toURI().shouldBeRight()
+    val json = keycloakWebClient.getString(url).shouldBeRight().responseObject
 
-    val request = RequestBuilder.get(url).build()
-    val response = httpClient.execute(request)
-    val body = EntityUtils.toString(response.entity)
-
-    Docker.log.info("Tempo search [{}] url=[{}] -> HTTP {} | {}", query, url, response.statusLine.statusCode, body.take(500))
-    response.statusLine.statusCode shouldBe 200
-    return objectMapper.readTree(body)
+    log.info("Tempo search [{}] url=[{}] -> HTTP {}", query, url, json.take(500))
+    return json.toJsonNode()
   }
 
   private fun getTrace(traceId: String): JsonNode {
-    val url = "${tempoBaseUrl()}/api/traces/$traceId"
+    val url = "${tempoBaseUrl()}/api/traces/$traceId".toURI().shouldBeRight()
+    val json = keycloakWebClient.getString(url).shouldBeRight().responseObject
 
-    val request = RequestBuilder.get(url).build()
-    val response = httpClient.execute(request)
-    val body = EntityUtils.toString(response.entity)
-
-    Docker.log.info("Tempo get trace [{}] -> HTTP {}", traceId, response.statusLine.statusCode)
-    response.statusLine.statusCode shouldBe 200
-    return objectMapper.readTree(body)
+    log.info("Tempo get trace [{}] -> HTTP {}", traceId, json.take(500))
+    return json.toJsonNode()
   }
 
   private suspend fun awaitTraceId(query: String, start: Instant): String {
@@ -131,15 +121,13 @@ class TracingIT : ZetaGuardFunSpecIT() {
 
     test("Client registration produces traces with required attributes") {
       val start = Instant.now()
-      val clientResponse = keycloakWebClient.createClientOIDC(clientAssertionTokenGenerator.keys.jwks).shouldBeRight().reponseObject
+      val request = ClientRegistrationRequestFactory.createClientRegistrationRequest(clientAssertionTokenGenerator.keys, null)
+      val clientResponse = keycloakWebClient.registerClientOIDC(clientRegistrationRequest = request).shouldBeRight().responseObject
 
       try {
         val traceId = awaitTraceId("""{ span.http.route = "$registrationRoute" }""", start)
         val attributes = collectTraceAttributes(getTrace(traceId))
-
         val missing = requiredAttributes.filterNot { it in attributes }
-        Docker.log.info("Client registration trace attributes: {}", attributes)
-        Docker.log.info("Missing attributes: {}", missing)
 
         missing shouldBe emptyList()
         attributes["http.request.method_original"] shouldBe "POST"
@@ -161,10 +149,7 @@ class TracingIT : ZetaGuardFunSpecIT() {
 
       val traceId = awaitTraceId("""{ span.http.route = "$tokenRoute" && span.app.installation.id != "" && status != error }""", start)
       val attributes = collectTraceAttributes(getTrace(traceId))
-
       val missing = requiredAttributes.filterNot { it in attributes }
-      Docker.log.info("Token exchange trace attributes: {}", attributes)
-      Docker.log.info("Missing attributes: {}", missing)
 
       missing shouldBe emptyList()
       attributes["http.request.method_original"] shouldBe "POST"

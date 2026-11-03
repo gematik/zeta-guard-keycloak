@@ -43,4 +43,5 @@ data class OpaGateInput(
     val userProfessionOid: String?,
     val userCommonName: String? = null, // insured persons only (SekIDP); left null for SMC-B
     val deviceInfo: OpaDeviceInfo? = null,
+    val attestationTimestamp: Long? = null,
 )

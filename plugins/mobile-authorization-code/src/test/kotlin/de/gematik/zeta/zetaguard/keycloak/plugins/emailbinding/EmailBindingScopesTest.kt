@@ -104,7 +104,7 @@ class EmailBindingScopesTest : FunSpec() {
             shouldThrow<IllegalStateException> {
               source.withTokenScopesReducedTo(session, setOf(SCOPE_EMAIL_BINDING))
             }
-        ex.message shouldBe "Client scope '$SCOPE_EMAIL_BINDING' not found."
+        ex.message shouldBe "Client scope »$SCOPE_EMAIL_BINDING« not found."
       } finally {
         unmockkStatic(KeycloakModelUtils::class)
       }

@@ -7,8 +7,8 @@
   "refreshTokenMaxReuse": 0,
   "accessTokenLifespan": 300,
   "accessTokenLifespanForImplicitFlow": 900,
-  "ssoSessionIdleTimeout": 1800,
-  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeout": 86400,
+  "ssoSessionMaxLifespan": 86400,
   "ssoSessionIdleTimeoutRememberMe": 0,
   "ssoSessionMaxLifespanRememberMe": 0,
   "offlineSessionIdleTimeout": 2592000,
@@ -1769,7 +1769,7 @@
     "realmReusableOtpCode": "false",
     "cibaExpiresIn": "120",
     "oauth2DeviceCodeLifespan": "600",
-    "parRequestUriLifespan": "60",
+    "parRequestUriLifespan": "5",
     "clientSessionMaxLifespan": "0",
     "adminEventsExpiration": "7200"
   },
@@ -1779,9 +1779,38 @@
   "verifiableCredentialsEnabled": false,
   "adminPermissionsEnabled": false,
   "clientProfiles": {
-    "profiles": []
+    "profiles": [
+      {
+        "name": "zeta-outer-par-validation",
+        "description": "Outer PAR must carry all SekIDP flow parameters.",
+        "executors": [
+          {
+            "executor": "zeta-outer-par",
+            "configuration": {}
+          }
+        ]
+      }
+    ]
   },
   "clientPolicies": {
-    "policies": []
+    "policies": [
+      {
+        "name": "zeta-outer-par-validation",
+        "description": "Applies to clients with mandatory PAR (set for SekIDP clients at registration).",
+        "enabled": true,
+        "conditions": [
+          {
+            "condition": "client-attributes",
+            "configuration": {
+              "is_negative_logic": false,
+              "attributes": "[{\"key\":\"require.pushed.authorization.requests\",\"value\":\"true\"}]"
+            }
+          }
+        ],
+        "profiles": [
+          "zeta-outer-par-validation"
+        ]
+      }
+    ]
   }
 }

@@ -24,7 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import com.fasterxml.jackson.databind.JsonNode
-import de.gematik.zeta.zetaguard.keycloak.plugins.logger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import java.nio.charset.StandardCharsets
 import org.apache.http.HttpHeaders
 import org.apache.http.HttpStatus.SC_OK

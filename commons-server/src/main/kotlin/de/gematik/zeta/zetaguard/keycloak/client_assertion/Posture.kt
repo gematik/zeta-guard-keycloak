@@ -36,9 +36,15 @@ const val PROPERTY_ARCHITECTURE = "arch"
 const val PROPERTY_PLATFORM_PRODUCT_ID = "platform_product_id"
 
 abstract class Posture(
-    @field:JsonPropertyDescription("The product identifier") @field:JsonProperty(PROPERTY_PLATFORM_PRODUCT_ID) val platformProductId: ProductId?,
-    @field:JsonPropertyDescription("The gematik product identifier") @field:JsonProperty(PROPERTY_PRODUCT_ID) val productId: String,
-    @field:JsonPropertyDescription("The product version") @field:JsonProperty(PROPERTY_PRODUCT_VERSION) val productVersion: String,
+    @field:JsonPropertyDescription("The product identifier")
+    @field:JsonProperty(PROPERTY_PLATFORM_PRODUCT_ID)
+    val platformProductId: ProductId?,
+    @field:JsonPropertyDescription("The gematik product identifier")
+    @field:JsonProperty(PROPERTY_PRODUCT_ID)
+    val productId: String,
+    @field:JsonPropertyDescription("The product version")
+    @field:JsonProperty(PROPERTY_PRODUCT_VERSION)
+    val productVersion: String,
 ) {
   override fun equals(other: Any?): Boolean {
     if (this === other) return true

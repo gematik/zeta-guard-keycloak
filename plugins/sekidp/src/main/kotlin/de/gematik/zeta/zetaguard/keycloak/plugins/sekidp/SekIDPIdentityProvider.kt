@@ -23,61 +23,59 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
+import arrow.core.Either
+import arrow.core.flatMap
+import arrow.core.getOrElse
+import arrow.core.raise.either
+import arrow.core.raise.ensure
+import de.gematik.zeta.zetaguard.keycloak.AbstractZetaGuardIdentityProvider
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ACR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_AMR
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_CREATED_AT
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_BIRTHDATE
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_DISPLAY_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KVNR
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_LAST_ACCESS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ORGANIZATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_PROFESSION_OID
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_MAX_CLIENTS
-import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
-import de.gematik.zeta.zetaguard.keycloak.commons.server.toISO8601
+import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
+import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
-import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardExpirationService
-import com.fasterxml.jackson.databind.JsonNode
+import de.gematik.zeta.zetaguard.keycloak.plugins.toWritableUser
+import jakarta.ws.rs.GET
+import jakarta.ws.rs.QueryParam
+import jakarta.ws.rs.core.Response
 import jakarta.ws.rs.core.UriBuilder
-import java.nio.charset.StandardCharsets
-import java.util.concurrent.ConcurrentHashMap
+import java.time.LocalDate
+import org.apache.http.HttpStatus
 import org.keycloak.OAuth2Constants
-import org.keycloak.broker.oidc.OIDCIdentityProvider
+import org.keycloak.OAuth2Constants.ACR_VALUES
+import org.keycloak.OAuth2Constants.CODE
+import org.keycloak.OAuth2Constants.CODE_CHALLENGE
+import org.keycloak.OAuth2Constants.CODE_CHALLENGE_METHOD
+import org.keycloak.OAuth2Constants.PKCE_METHOD_S256
 import org.keycloak.broker.oidc.OIDCIdentityProviderConfig
 import org.keycloak.broker.provider.AuthenticationRequest
 import org.keycloak.broker.provider.BrokeredIdentityContext
 import org.keycloak.broker.provider.IdentityBrokerException
 import org.keycloak.broker.provider.UserAuthenticationIdentityProvider
-import org.keycloak.common.util.Base64Url
 import org.keycloak.common.util.SecretGenerator
-import org.keycloak.common.util.Time
-import org.keycloak.crypto.Algorithm
-import org.keycloak.crypto.ECDSAAlgorithm
-import org.keycloak.crypto.KeyType
 import org.keycloak.events.EventBuilder
-import org.keycloak.http.simple.SimpleHttp
 import org.keycloak.http.simple.SimpleHttpRequest
-import org.keycloak.jose.jwk.JWK
-import org.keycloak.jose.jwk.JWKParser
 import org.keycloak.jose.jws.JWSInput
+import org.keycloak.models.FederatedIdentityModel
 import org.keycloak.models.IdentityProviderModel
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.RealmModel
 import org.keycloak.models.UserModel
-import org.keycloak.models.cache.CachedUserModel
 import org.keycloak.protocol.oidc.OIDCLoginProtocol
+import org.keycloak.protocol.oidc.OIDCLoginProtocol.NONCE_PARAM
 import org.keycloak.protocol.oidc.endpoints.AuthorizationEndpoint
 import org.keycloak.protocol.oidc.utils.PkceUtils
-import org.keycloak.protocol.oidc.utils.RedirectUtils
-import org.keycloak.sessions.AuthenticationSessionModel
 import org.keycloak.representations.AccessTokenResponse
 import org.keycloak.representations.IDToken
 import org.keycloak.representations.JsonWebToken
-import org.keycloak.services.clientregistration.ClientRegistrationException
+import org.keycloak.sessions.AuthenticationSessionModel
 import org.keycloak.util.JsonSerialization
-import java.security.Signature
-
-private val maxClients = (System.getenv(ENV_MAX_CLIENTS) ?: "256").toInt()
 
 /** ID-token claim carrying the KVNR (urn:telematik:versicherter scope). */
 private const val CLAIM_TELEMATIK_KVNR = "urn:telematik:claims:id"
@@ -86,15 +84,22 @@ private const val CLAIM_TELEMATIK_KVNR = "urn:telematik:claims:id"
 private const val CLAIM_TELEMATIK_PROFESSION = "urn:telematik:claims:profession"
 private const val CLAIM_TELEMATIK_ORGANIZATION = "urn:telematik:claims:organization"
 
+/** ID-token claim carrying the insured person's full display name, mapped onto commonName (A_26973-03). */
+private const val CLAIM_TELEMATIK_DISPLAY_NAME = "urn:telematik:claims:display_name"
+
+/** Consent-dependent ID-token claim (scope urn:telematik:geburtsdatum), YYYY-MM-DD per OpenID Connect Core 5.1 (A_26973-03). */
+private const val CLAIM_BIRTHDATE = "birthdate"
+private val BIRTHDATE_FORMAT = Regex("""\d{4}-\d{2}-\d{2}""")
+
 private const val SEKIDP_CONFIG_ACR_VALUES = "acrValues"
-private const val SEKIDP_DEFAULT_ACR = "gematik-ehealth-loa-high"
+const val SEKIDP_DEFAULT_ACR = "gematik-ehealth-loa-high"
 
 private const val NOTE_BROKER_CODE_CHALLENGE = "BROKER_CODE_CHALLENGE"
 private const val NOTE_BROKER_CODE_CHALLENGE_METHOD = "BROKER_CODE_CHALLENGE_METHOD"
 
 // Must match Keycloak's private OIDCIdentityProvider.BROKER_NONCE_PARAM: the base class reads this client note
-// in preprocessFederatedIdentity to verify the ID token's nonce echo. Since we override createAuthorizationUrl,
-// we store it ourselves.
+// in preprocessFederatedIdentity to verify the ID token's nonce echo (A_29672). Since we override
+// createAuthorizationUrl, we store it ourselves.
 private const val NOTE_BROKER_NONCE = "BROKER_NONCE"
 
 private const val SEKIDP_PARAM_IDP_ISS = "idp_iss"
@@ -107,8 +112,30 @@ private const val SEKIDP_PARAM_OIDC_REDIRECT_URI = "oidc_redirect_uri"
 /** The redirect_uri used for the inner flow; RFC 6749 requires the same value at the token request. */
 private const val NOTE_OIDC_REDIRECT_URI = "SEKIDP_OIDC_REDIRECT_URI"
 
+/** A parameter the client added to the authorization request; blank counts as absent. */
+private fun AuthenticationSessionModel.requestParam(name: String): String? =
+    getClientNote(AuthorizationEndpoint.LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + name)?.trim()?.takeIf { it.isNotBlank() }
+
+/** The sectoral IDP the client named via `idp_iss`, normalised; null when this request carries none. */
+private val AuthenticationSessionModel.sekIdpIssuer: String?
+  get() = requestParam(SEKIDP_PARAM_IDP_ISS)?.trimEnd('/')?.takeIf { it.isNotBlank() }
+
 /** Key of the trusted issuer inside OIDCIdentityProviderConfig. */
 private const val SEKIDP_CONFIG_ISSUER = "issuer"
+
+/**
+ * A_26973-02: the user data of the ID token that is kept at the user, as user attributes. Their values are encrypted by the
+ * integrity provider (`UserAttributeEntity.value` in spree-configuration.yml). acr and amr describe a single authentication,
+ * not the user, and stay user session notes only.
+ */
+private val PERSISTED_USER_DATA =
+    listOf(
+        ATTRIBUTE_MOBILEUSER_KVNR,
+        ATTRIBUTE_MOBILEUSER_DISPLAY_NAME,
+        ATTRIBUTE_MOBILEUSER_BIRTHDATE,
+        ATTRIBUTE_MOBILEUSER_PROFESSION_OID,
+        ATTRIBUTE_MOBILEUSER_ORGANIZATION,
+    )
 
 /**
  * [sekIdpHttpClient] presents Keycloak's client certificate on PAR and token requests when mTLS is enabled
@@ -117,394 +144,223 @@ class SekIDPIdentityProvider(
     session: KeycloakSession,
     config: OIDCIdentityProviderConfig,
     private val sekIdpHttpClient: SekIdpHttpClient,
-) : OIDCIdentityProvider(session, config) {
+    private val integrityProviderService: IntegrityProviderService,
+    private val fedmasterUrl: String,
+) : AbstractZetaGuardIdentityProvider(session, config) {
 
-  /** A set of signing keys (by `kid`) trusted for something, cached until [validUntil]. */
-  private data class CachedKeys(val keysByKid: Map<String, JWK>, val validUntil: Int)
+  private val federation = Federation(session, fedmasterUrl)
 
-  /** A decoded entity statement body, cached until [validUntil]. */
-  private data class CachedStatement(val body: JsonNode, val validUntil: Int)
+  /** `state_as -> AUTH_SESSION_ID` cookie value. */
+  private val cookieValueByStateAs = AuthSessionCookieValueByStateAs(session)
 
-  /** SekIDP endpoints taken from the IDP's entity statement, verified against [trustedIdpKeys]. */
-  private data class SekIDPEndpoints(
-      val pushedAuthorizationRequestEndpoint: String,
-      val authorizationEndpoint: String,
-      val tokenEndpoint: String,
-      val signedJwksUri: String,
-      val validUntil: Int,
-  )
-
-  private fun resolveOidcRedirectUri(authSession: AuthenticationSessionModel): String {
-    val oidcRedirectUri =
-        authSession.getClientNote(AuthorizationEndpoint.LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + SEKIDP_PARAM_OIDC_REDIRECT_URI)
-            ?.trim()
-            ?.takeIf { it.isNotBlank() }
-            ?: throw IdentityBrokerException(
-                "Missing $SEKIDP_PARAM_OIDC_REDIRECT_URI in the authorization request — the client has to name its /oidc callback")
-
-    val client = authSession.client
-    return RedirectUtils.verifyRedirectUri(session, oidcRedirectUri, client) ?: throw IdentityBrokerException(
-        "$SEKIDP_PARAM_OIDC_REDIRECT_URI »$oidcRedirectUri« is not a registered redirect_uri of client »${client.clientId}«"
-    )
-  }
-
-  private fun idpIssuerFromSession(authSession: AuthenticationSessionModel): String {
-    val requested =
-        authSession
-            .getClientNote(AuthorizationEndpoint.LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + SEKIDP_PARAM_IDP_ISS)
-            ?.trim()
-            ?.trimEnd('/')
-            ?.takeIf { it.isNotBlank() }
-            ?: throw IdentityBrokerException("Missing $SEKIDP_PARAM_IDP_ISS in the authorization request — the client has to name the sectoral IDP")
-    return requested
-  }
-
-  private fun fedmasterUrl(): String =
-      providerConfig.config[SEKIDP_CONFIG_FEDMASTER_URL]?.trimEnd('/')
-          ?: throw IdentityBrokerException("$SEKIDP_CONFIG_FEDMASTER_URL is not configured on the identity provider")
-
-  /** Turns a JWKS JSON node (`{"keys": [...]}`) into a lookup map by `kid`, skipping keys without one. */
-  private fun parseJwks(jwks: JsonNode): Map<String, JWK> =
-      jwks.path("keys").mapNotNull { keyNode ->
-        val jwk = JsonSerialization.mapper.treeToValue(keyNode, JWK::class.java)
-        jwk.keyId?.let { it to jwk }
-      }.toMap()
-
-  private fun verifyAndDecode(jws: String, trustedKeys: Map<String, JWK>, what: String): JsonNode {
-    val input =
-        runCatching { JWSInput(jws) }.getOrElse { throw IdentityBrokerException("$what is not a JWS", it) }
-    val kid = input.header.keyId ?: throw IdentityBrokerException("$what has no »kid« in its JWS header")
-    val jwk = trustedKeys[kid] ?: throw IdentityBrokerException("$what is signed with unknown kid »$kid«")
-    val algorithm = input.header.rawAlgorithm
-    if (algorithm != Algorithm.ES256) {
-      throw IdentityBrokerException("$what is signed with »$algorithm« — only ES256 is supported (algorithm profile per gemSpec_Krypt)")
-    }
-    val curve = jwk.otherClaims["crv"] as? String
-    if (jwk.keyType != KeyType.EC || curve != "P-256") {
-      throw IdentityBrokerException("$what: key »$kid« is not an EC/P-256 key (kty=${jwk.keyType}, crv=$curve)")
-    }
-    val publicKey = JWKParser.create(jwk).toPublicKey()
-    val signatureBytes = ECDSAAlgorithm.concatenatedRSToASN1DER(input.signature, ECDSAAlgorithm.getSignatureLength(Algorithm.ES256))
-    val signature = Signature.getInstance("SHA256withECDSA")
-    signature.initVerify(publicKey)
-    signature.update(input.encodedSignatureInput.toByteArray(StandardCharsets.UTF_8))
-    if (!signature.verify(signatureBytes)) {
-      throw IdentityBrokerException("$what has an invalid signature")
-    }
-    return JsonSerialization.mapper.readTree(input.content)
-  }
-
-  private fun fedmasterStatement(fedmasterUrl: String): JsonNode {
-    fedmasterStatementCache?.takeIf { it.validUntil > Time.currentTime() }?.let {
-      return it.body
-    }
-
-    synchronized(fedmasterStatementLock) {
-      fedmasterStatementCache?.takeIf { it.validUntil > Time.currentTime() }?.let {
-        return it.body
-      }
-
-      val statement = SimpleHttp.create(session).doGet("$fedmasterUrl/.well-known/openid-federation").asString()
-      val parts = statement.split(".")
-      if (parts.size != 3) {
-        throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« is not a JWS")
-      }
-      val body = JsonSerialization.mapper.readTree(Base64Url.decode(parts[1]))
-      val expiresAt = body.path("exp").asLong(0)
-      fedmasterStatementCache =
-          CachedStatement(body, minOf(expiresAt, (Time.currentTime() + ENDPOINT_CACHE_MAX_SECONDS).toLong()).toInt())
-      return body
-    }
-  }
-
-  private fun fedmasterSigningKeys(fedmasterUrl: String): Map<String, JWK> {
-    val keysByKid = parseJwks(fedmasterStatement(fedmasterUrl).path("jwks"))
-    if (keysByKid.isEmpty()) {
-      throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« carries no jwks")
-    }
-    return keysByKid
-  }
-
- // The Federation Master publishes its fetch endpoint as an absolute URL and it is used exactly as published.
-  private fun fedmasterFetchEndpoint(fedmasterUrl: String): String =
-      fedmasterStatement(fedmasterUrl)
-          .path("metadata")
-          .path("federation_entity")
-          .path("federation_fetch_endpoint")
-          .takeIf { it.isTextual }
-          ?.asText()
-          ?: throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« has no metadata.federation_entity.federation_fetch_endpoint")
-
-  private fun trustedIdpKeys(fedmasterUrl: String, issuer: String): Map<String, JWK> {
-    trustedIdpKeyCache[issuer]?.takeIf { it.validUntil > Time.currentTime() }?.let {
-      return it.keysByKid
-    }
-
-    synchronized(trustedIdpKeyLock) {
-      trustedIdpKeyCache[issuer]?.takeIf { it.validUntil > Time.currentTime() }?.let {
-        return it.keysByKid
-      }
-
-      val fedmasterIssuer =
-          fedmasterStatement(fedmasterUrl).path("iss").takeIf { it.isTextual }?.asText()
-              ?: throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« has no iss")
-      val statement =
-          SimpleHttp.create(session)
-              .doGet(fedmasterFetchEndpoint(fedmasterUrl))
-              .param("iss", fedmasterIssuer)
-              .param("sub", issuer)
-              .asString()
-      val body = verifyAndDecode(statement, fedmasterSigningKeys(fedmasterUrl), "Federation Master's statement about »$issuer«")
-      val keysByKid = parseJwks(body.path("jwks"))
-      if (keysByKid.isEmpty()) {
-        throw IdentityBrokerException("Federation Master's statement about »$issuer« carries no jwks")
-      }
-      val expiresAt = body.path("exp").asLong(0)
-      trustedIdpKeyCache[issuer] =
-          CachedKeys(keysByKid, minOf(expiresAt, (Time.currentTime() + ENDPOINT_CACHE_MAX_SECONDS).toLong()).toInt())
-      logger.infof("Federation Master vouches for »%s« with key(s): %s", issuer, keysByKid.keys)
-      return keysByKid
-    }
-  }
-
-  private fun discoverEndpoints(issuer: String): SekIDPEndpoints {
-    endpointCache[issuer]?.takeIf { it.validUntil > Time.currentTime() }?.let {
-      return it
-    }
-
-    synchronized(endpointLock) {
-      endpointCache[issuer]?.takeIf { it.validUntil > Time.currentTime() }?.let {
-        return it
-      }
-
-      val statement = SimpleHttp.create(session).doGet("$issuer/.well-known/openid-federation").asString()
-      val trustedKeys = trustedIdpKeys(fedmasterUrl(), issuer)
-      val body = verifyAndDecode(statement, trustedKeys, "SekIDP entity statement of »$issuer«")
-      val openidProvider = body.path("metadata").path("openid_provider")
-      fun endpoint(name: String): String =
-          openidProvider.path(name).takeIf { it.isTextual }?.asText()
-              ?: throw IdentityBrokerException("SekIDP entity statement of »$issuer« has no metadata.openid_provider.$name")
-
-      val expiresAt = body.path("exp").asLong(0)
-      val endpoints =
-          SekIDPEndpoints(
-              pushedAuthorizationRequestEndpoint = endpoint("pushed_authorization_request_endpoint"),
-              authorizationEndpoint = endpoint("authorization_endpoint"),
-              tokenEndpoint = endpoint("token_endpoint"),
-              signedJwksUri = endpoint("signed_jwks_uri"),
-              validUntil = minOf(expiresAt, (Time.currentTime() + ENDPOINT_CACHE_MAX_SECONDS).toLong()).toInt(),
+  /** [OuterParExecutor] already checked it against the client's registered redirect_uris. */
+  private fun resolveOidcRedirectUri(authSession: AuthenticationSessionModel): Either<IdentityBrokerException, String> = either {
+    authSession.requestParam(SEKIDP_PARAM_OIDC_REDIRECT_URI)
+      ?: raise(
+          IdentityBrokerException(
+              "Missing $SEKIDP_PARAM_OIDC_REDIRECT_URI in the authorization request — the client has to name its /oidc callback"
           )
-      endpointCache[issuer] = endpoints
-      logger.infof("SekIDP endpoint discovery for »%s«: PAR=%s (trust chain verified)", issuer, endpoints.pushedAuthorizationRequestEndpoint)
-      return endpoints
-    }
-  }
-
-  /**
-   * The keys the SekIDP signs its ID tokens with.
-   *
-   * A_22861: an ID-token signing key is resolved from the SekIDP's entity statement and the keys
-   * behind its `signed_jwks_uri`.
-   *
-   * The Federation Master vouches for the IDP's *federation entity* key; that key signs both the entity
-   * statement and the JWK set published at `signed_jwks_uri`, and only the latter carries the keys used
-   * for the OIDC protocol itself.
-   */
-  private fun idTokenSigningKeys(issuer: String): Map<String, JWK> {
-    idTokenSigningKeyCache[issuer]?.takeIf { it.validUntil > Time.currentTime() }?.let {
-      return it.keysByKid
-    }
-
-    synchronized(idTokenSigningKeyLock) {
-      idTokenSigningKeyCache[issuer]?.takeIf { it.validUntil > Time.currentTime() }?.let {
-        return it.keysByKid
-      }
-
-      val what = "SekIDP signed JWK set of »$issuer«"
-      val signedJwks = SimpleHttp.create(session).doGet(discoverEndpoints(issuer).signedJwksUri).asString()
-      val body = verifyAndDecode(signedJwks, trustedIdpKeys(fedmasterUrl(), issuer), what)
-
-      // The entity statement names the URL; the document itself has to say whose keys these are.
-      val declaredIssuer = body.path("iss").takeIf { it.isTextual }?.asText()?.trimEnd('/')
-      if (declaredIssuer != issuer) {
-        throw IdentityBrokerException("$what is issued for »$declaredIssuer«, not »$issuer«")
-      }
-
-      val keysByKid = parseJwks(body)
-      if (keysByKid.isEmpty()) {
-        throw IdentityBrokerException("$what carries no keys")
-      }
-      idTokenSigningKeyCache[issuer] = CachedKeys(keysByKid, Time.currentTime() + ENDPOINT_CACHE_MAX_SECONDS)
-      logger.infof("SekIDP »%s« signs ID tokens with key(s): %s", issuer, keysByKid.keys)
-      return keysByKid
-    }
+      )
   }
 
   /**
    * Verifies the SekIDP's ID token against the protocol keys resolved through the federation trust chain.
    */
-  override fun verify(jws: JWSInput): Boolean {
-    val authSession = session.context?.authenticationSession
-    val issuer = authSession?.let { runCatching { idpIssuerFromSession(it) }.getOrNull() }
-    if (issuer == null) {
-      logger.errorf("Cannot verify the SekIDP token: no %s on the authentication session", SEKIDP_PARAM_IDP_ISS)
-      return false
-    }
-    return runCatching { verifyAndDecode(jws.wireString, idTokenSigningKeys(issuer), "SekIDP token of »$issuer«") }
-        .onFailure { logger.errorf("SekIDP token signature rejected: %s", it.message) }
-        .isSuccess
-  }
+  public override fun verify(jws: JWSInput): Boolean = either<IdentityBrokerException, Unit> {
+    val sekIdpIssuer =
+        session.context?.authenticationSession?.sekIdpIssuer ?: raise(SekIdpIdentityError.MissingIdpIss.toIdentityBrokerException())
+    val sekIdp = federation.sekIdp(sekIdpIssuer).mapLeft { it.toIdentityBrokerException() }.bind()
+    sekIdp.verifyIdToken(jws.wireString).mapLeft { it.toIdentityBrokerException() }.bind()
+  }.fold(
+      ifLeft = {
+        logger.errorf("SekIDP token rejected: %s", it.message)
+        false
+      },
+      ifRight = { true }
+  )
 
-  override fun createAuthorizationUrl(request: AuthenticationRequest): UriBuilder {
-    val issuer = idpIssuerFromSession(request.authenticationSession)
-    val endpoints = discoverEndpoints(issuer)
+  /** A_29660: pushes the inner authorization request to the SekIDP and returns the URL carrying its `request_uri`. */
+  public override fun createAuthorizationUrl(request: AuthenticationRequest): UriBuilder = either {
+    val sekIdpIssuer =
+        request.authenticationSession.sekIdpIssuer
+          ?: raise(IdentityBrokerException("Missing $SEKIDP_PARAM_IDP_ISS in the authorization request — the client has to name the sectoral IDP"))
+    val sekIdp = federation.sekIdp(sekIdpIssuer).mapLeft { it.toIdentityBrokerException() }.bind()
+    val endpoints = sekIdp.resolveEndpoints().mapLeft { it.toIdentityBrokerException() }.bind()
+    val oidcRedirectUri = resolveOidcRedirectUri(request.authenticationSession).bind()
 
-    val oidcRedirectUri = resolveOidcRedirectUri(request.authenticationSession)
     request.authenticationSession.setClientNote(NOTE_OIDC_REDIRECT_URI, oidcRedirectUri)
 
     val codeVerifier = PkceUtils.generateCodeVerifier()
-    val codeChallenge = PkceUtils.encodeCodeChallenge(codeVerifier, OAuth2Constants.PKCE_METHOD_S256)
-    request.authenticationSession.setClientNote(NOTE_BROKER_CODE_CHALLENGE, codeVerifier)
-    request.authenticationSession.setClientNote(NOTE_BROKER_CODE_CHALLENGE_METHOD, OAuth2Constants.PKCE_METHOD_S256)
+    val codeChallenge = PkceUtils.encodeCodeChallenge(codeVerifier, PKCE_METHOD_S256)
 
-    val nonce = Base64Url.encode(SecretGenerator.getInstance().randomBytes(32))
+    request.authenticationSession.setClientNote(NOTE_BROKER_CODE_CHALLENGE, codeVerifier)
+    request.authenticationSession.setClientNote(NOTE_BROKER_CODE_CHALLENGE_METHOD, PKCE_METHOD_S256)
+
+    val nonce = SecretGenerator.getInstance().randomBytes(32).toBase64()
     // Store the nonce so the base class verifies the ID token's nonce
     request.authenticationSession.setClientNote(NOTE_BROKER_NONCE, nonce)
 
+    val stateAs = request.state.encoded
     val requestUri =
-        sekIdpHttpClient
-            .doPost(session, endpoints.pushedAuthorizationRequestEndpoint)
-            .param(OAUTH2_PARAMETER_CLIENT_ID, providerConfig.clientId)
-            .param(OAUTH2_PARAMETER_STATE, request.state.encoded)
-            .param(OAUTH2_PARAMETER_REDIRECT_URI, oidcRedirectUri)
-            .param(OAuth2Constants.CODE_CHALLENGE, codeChallenge)
-            .param(OAuth2Constants.CODE_CHALLENGE_METHOD, OAuth2Constants.PKCE_METHOD_S256)
-            .param(OAUTH2_PARAMETER_RESPONSE_TYPE, OAuth2Constants.CODE)
-            .param(OIDCLoginProtocol.NONCE_PARAM, nonce)
-            .param(OAUTH2_PARAMETER_SCOPE, providerConfig.defaultScope)
-            .param(OAuth2Constants.ACR_VALUES, providerConfig.config[SEKIDP_CONFIG_ACR_VALUES] ?: SEKIDP_DEFAULT_ACR)
-            .asResponse()
-            .use { response ->
-              val parBody = response.asString()
-              if (response.status != 201) {
-                logger.errorf("SekIDP PAR at %s failed: HTTP %d %s", endpoints.pushedAuthorizationRequestEndpoint, response.status, parBody)
-                throw IdentityBrokerException("SekIDP PAR failed with HTTP ${response.status}")
-              }
-              JsonSerialization.mapper.readTree(parBody).path("request_uri").takeIf { it.isTextual }?.asText()
-                  ?: throw IdentityBrokerException("SekIDP PAR response contains no request_uri")
-            }
+        pushAuthorizationRequest(
+            endpoints = endpoints,
+            state = stateAs,
+            oidcRedirectUri = oidcRedirectUri,
+            codeChallenge = codeChallenge,
+            nonce = nonce,
+        ).mapLeft { it.toIdentityBrokerException() }.bind()
 
-    logger.infof("SekIDP PAR accepted, request_uri=%s", requestUri)
-    return UriBuilder.fromUri(endpoints.authorizationEndpoint)
+    // A_29671: the ZETA Client brings state_as, not a cookie, to the Redirection Endpoint.
+    cookieValueByStateAs.store(stateAs, request.authenticationSession)
+
+    UriBuilder.fromUri(endpoints.authorizationEndpoint)
         .queryParam(OIDCLoginProtocol.REQUEST_URI_PARAM, requestUri)
         .queryParam(OAUTH2_PARAMETER_CLIENT_ID, providerConfig.clientId)
+  }.fold(
+      ifLeft = { throw it },
+      ifRight = { it }
+  )
+
+  /** A_29660: posts the inner authorization request and returns the `request_uri` the SekIDP hands back for it. */
+  private fun pushAuthorizationRequest(
+      endpoints: SekIDPEndpoints,
+      state: String,
+      oidcRedirectUri: String,
+      codeChallenge: String,
+      nonce: String,
+  ): Either<SekIdpAuthorizationRequestError, String> = either {
+    sekIdpHttpClient
+        .doPost(session, endpoints.pushedAuthorizationRequestEndpoint)
+        .param(OAUTH2_PARAMETER_CLIENT_ID, providerConfig.clientId)
+        .param(OAUTH2_PARAMETER_STATE, state)
+        .param(OAUTH2_PARAMETER_REDIRECT_URI, oidcRedirectUri)
+        .param(CODE_CHALLENGE, codeChallenge)
+        .param(CODE_CHALLENGE_METHOD, PKCE_METHOD_S256)
+        .param(OAUTH2_PARAMETER_RESPONSE_TYPE, CODE)
+        .param(NONCE_PARAM, nonce)
+        .param(OAUTH2_PARAMETER_SCOPE, providerConfig.defaultScope)
+        .param(ACR_VALUES, providerConfig.config[SEKIDP_CONFIG_ACR_VALUES] ?: SEKIDP_DEFAULT_ACR)
+        .asResponse()
+        .use { response ->
+          val body = response.asString()
+
+          ensure(response.status == HttpStatus.SC_CREATED) {
+            logger.errorf("SekIDP PAR at %s failed: HTTP %d %s", endpoints.pushedAuthorizationRequestEndpoint, response.status, body)
+            SekIdpAuthorizationRequestError.Rejected(response.status, body)
+          }
+
+          JsonSerialization.mapper.readTree(body).path("request_uri").takeIf { it.isTextual }?.asText()
+            ?: raise(SekIdpAuthorizationRequestError.MissingRequestUri(body))
+        }
+        .also { logger.infof("SekIDP PAR accepted, request_uri=%s", it) }
   }
 
   /**
    * Maps the telematik claims of the decrypted ID token: the KVNR (urn:telematik:claims:id) drives
-   * the local username.
+   * the local username, urn:telematik:claims:display_name becomes commonName (A_26973-03). The consent-dependent
+   * birthdate is optional — its absence is no error.
    */
   override fun extractIdentity(
-      tokenResponse: AccessTokenResponse?,
-      accessToken: String?,
+      tokenResponse: AccessTokenResponse,
+      accessToken: String,
       idToken: JsonWebToken,
-  ): BrokeredIdentityContext {
+  ): BrokeredIdentityContext = either {
     val identity = super.extractIdentity(tokenResponse, accessToken, idToken)
-    val kvnr =
-        idToken.otherClaims[CLAIM_TELEMATIK_KVNR] as? String
-            ?: throw IdentityBrokerException("SekIDP ID token contains no $CLAIM_TELEMATIK_KVNR claim — was scope urn:telematik:versicherter requested?")
-    val acr =
-        (idToken.otherClaims[IDToken.ACR] as? String)?.takeIf { it.isNotBlank() }
-            ?: throw IdentityBrokerException("SekIDP ID token contains no »${IDToken.ACR}« claim — the attested authentication level is unknown")
+    val kvnr = idToken.otherClaims[CLAIM_TELEMATIK_KVNR] as? String ?: raise(SekIdpIdentityError.MissingKvnr.toIdentityBrokerException())
+    val acr = (idToken.otherClaims[IDToken.ACR] as? String)?.takeIf { it.isNotBlank() }
+      ?: raise(SekIdpIdentityError.MissingAcr.toIdentityBrokerException())
+    val displayName = (idToken.otherClaims[CLAIM_TELEMATIK_DISPLAY_NAME] as? String)?.takeIf { it.isNotBlank() }
+      ?: raise(SekIdpIdentityError.MissingDisplayName.toIdentityBrokerException())
     val username = kvnr.toSpicyHash()
+
     identity.username = username
     identity.modelUsername = username
     identity.contextData[ATTRIBUTE_MOBILEUSER_KVNR] = kvnr
     identity.contextData[ATTRIBUTE_MOBILEUSER_ACR] = acr
+    identity.contextData[ATTRIBUTE_MOBILEUSER_DISPLAY_NAME] = displayName
+
     idToken.readAmr().takeIf { it.isNotEmpty() }?.let { identity.contextData[ATTRIBUTE_MOBILEUSER_AMR] = it.joinToString(" ") }
+
     (idToken.otherClaims[CLAIM_TELEMATIK_PROFESSION] as? String)?.takeIf { it.isNotBlank() }?.let {
       identity.contextData[ATTRIBUTE_MOBILEUSER_PROFESSION_OID] = it
     }
     (idToken.otherClaims[CLAIM_TELEMATIK_ORGANIZATION] as? String)?.takeIf { it.isNotBlank() }?.let {
       identity.contextData[ATTRIBUTE_MOBILEUSER_ORGANIZATION] = it
     }
-    return identity
+    idToken.readBirthdate()?.let { identity.contextData[ATTRIBUTE_MOBILEUSER_BIRTHDATE] = it }
+
+    identity
+  }.fold(
+      ifLeft = { throw it },
+      ifRight = { it }
+  )
+
+  /**
+   * The birthdate claim if it is a valid YYYY-MM-DD date. Anything else is dropped rather than rejected: the claim is
+   * optional, and passing a malformed value on would only break the PEP's ZETA-User-Info downstream.
+   *
+   * Both checks are needed: the regex rejects the signed or longer years `LocalDate.parse` accepts (`+10000-01-01`,
+   * `-0001-01-01`), `LocalDate.parse` rejects dates that do not exist (`1987-02-30`).
+   */
+  private fun JsonWebToken.readBirthdate(): String? {
+    val raw = otherClaims[CLAIM_BIRTHDATE] ?: return null
+    val birthdate = (raw as? String)?.takeIf { BIRTHDATE_FORMAT.matches(it) && Either.catch { LocalDate.parse(it) }.isRight() }
+    if (birthdate == null) logger.warnf("Ignoring SekIDP birthdate claim that is no YYYY-MM-DD date: »%s«", raw)
+    return birthdate
   }
 
   override fun authenticationFinished(authSession: AuthenticationSessionModel, context: BrokeredIdentityContext) {
     super.authenticationFinished(authSession, context)
+
     listOf(
-            ATTRIBUTE_MOBILEUSER_KVNR,
-            ATTRIBUTE_MOBILEUSER_ACR,
-            ATTRIBUTE_MOBILEUSER_AMR,
-            ATTRIBUTE_MOBILEUSER_PROFESSION_OID,
-            ATTRIBUTE_MOBILEUSER_ORGANIZATION,
-        )
-        .forEach { note -> (context.contextData[note] as? String)?.let { authSession.setUserSessionNote(note, it) } }
-  }
-
-  override fun importNewUser(session: KeycloakSession, realm: RealmModel, userModel: UserModel, context: BrokeredIdentityContext) {
-    val dataService = ZetaGuardDataService(DefaultEMCreator(session))
-
-    dataService.createUserData(userModel.username)
-    userModel.setSingleAttribute(ATTRIBUTE_MOBILEUSER_CREATED_AT, currentTime().toISO8601())
-
-    updateBrokeredUser(session, realm, userModel, context)
-  }
-
-  override fun updateBrokeredUser(session: KeycloakSession, realm: RealmModel, user: UserModel, context: BrokeredIdentityContext) {
-    val dataService = ZetaGuardDataService(DefaultEMCreator(session))
-
-    val userModel = if (user is CachedUserModel) user.delegateForUpdate else user
-    val clientId = session.context.client.clientId
-    val userData =
-        dataService.findUserData(userModel.username) ?: throw ClientRegistrationException("Could not find user data for »${userModel.username}«")
-    val clientData = dataService.findClientData(clientId) ?: throw ClientRegistrationException("Could not find client data for »${clientId}«")
-    val clientIds = userData.clients.map { it.id }.toMutableSet()
-    val clientExpirationService = ZetaGuardExpirationService(session)
-    val now = currentTime()
-
-    if (clientIds.add(clientId)) { // A_25748-02
-      if (clientIds.size > maxClients && !clientExpirationService.removeOldestClient(userModel.username)) {
-        throw ClientRegistrationException("Too many clients for user »${userModel.username}«")
-      }
-
-      userData.clients.add(clientData)
-      clientData.userData = userData
-
-      (context.contextData[ATTRIBUTE_MOBILEUSER_KVNR] as? String)?.let { userModel.setSingleAttribute(ATTRIBUTE_MOBILEUSER_KVNR, it) }
-    }
-
-    userModel.setSingleAttribute(ATTRIBUTE_MOBILEUSER_LAST_ACCESS, now.toISO8601())
-    userData.lastAccess = now
-    clientData.lastAccess = now
+        ATTRIBUTE_MOBILEUSER_KVNR,
+        ATTRIBUTE_MOBILEUSER_ACR,
+        ATTRIBUTE_MOBILEUSER_AMR,
+        ATTRIBUTE_MOBILEUSER_PROFESSION_OID,
+        ATTRIBUTE_MOBILEUSER_ORGANIZATION,
+        ATTRIBUTE_MOBILEUSER_DISPLAY_NAME,
+        ATTRIBUTE_MOBILEUSER_BIRTHDATE,
+    ).forEach { note -> (context.contextData[note] as? String)?.let { authSession.setUserSessionNote(note, it) } }
   }
 
   /**
-   * Binds this request to the sectoral IDP that was actually chosen via `idp_iss`.
+   * A_26973-02: stores the user data of the ID token at the user on every login, not only when a client is bound to the user
+   * for the first time — a changed display name or a withdrawn birthdate consent has to reach the database as well.
+   */
+  override fun updateBrokeredUser(session: KeycloakSession, realm: RealmModel, user: UserModel, context: BrokeredIdentityContext) {
+    super.updateBrokeredUser(session, realm, user, context)
+
+    user.toWritableUser().storeUserData(context)
+  }
+
+  /** Nothing extra for a newly bound client: [updateBrokeredUser] stores the user data on every login. */
+  override fun updateUserModel(context: BrokeredIdentityContext, userModel: UserModel) = Unit
+
+  /** The login stores the user data of the ID token (A_26973-02), which must not end up in the database unencrypted. */
+  fun checkIntegrityProvider(): Either<KeycloakError, Unit> = either {
+    ensure(!integrityProviderService.isIntegrityProviderEnabled() || integrityProviderService.isIntegrityProviderRunning()) {
+      SekIdpRedirectionError.integrityProviderNotRunning()
+    }
+  }
+
+  /**
+   * Binds this request to the sectoral IDP the client named in its `idp_iss` client note.
    *
-   * The base class reads `tokenUrl` and the trusted `issuer` straight from the provider config, which is
-   * static — with a client-selected IDP both must follow the resolved issuer instead. Always goes through
-   * [discoverEndpoints] (trust-chain verified) — no static fallback anymore, so the token endpoint is
-   * never used un-verified even for what used to be the one "default" issuer. Reads the SAME raw client
-   * note [idpIssuerFromSession] does (Keycloak sets the authentication session on the context before the
-   * inner token exchange, so it's still there) — with the same normalisation, so this can't ever disagree
-   * with what [discoverEndpoints] used as its cache key. We hand back a per-request COPY: mutating the
-   * shared provider model would leak one login's IDP into the next.
+   * Two settings must follow that choice rather than the stored config: `issuer`, which `validateToken` checks the ID
+   * token's `iss` against (A_29672), and `tokenUrl`, where [SekIDPEndpoint.generateTokenRequest] posts the code. Following the raw
+   * note is safe because [Federation] only hands out IDPs the Federation Master vouches for. Returns a copy —
+   * mutating the shared model would leak one login's IDP into the next.
+   *
+   * Falls back to the stored config outside a login (logout, admin), where no authentication session carries `idp_iss`.
    */
   override fun getConfig(): OIDCIdentityProviderConfig {
     val base = super.config
-    val resolved =
-        session.context?.authenticationSession
-            ?.getClientNote(AuthorizationEndpoint.LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + SEKIDP_PARAM_IDP_ISS)
-            ?.trim()
-            ?.trimEnd('/')
-            ?.takeIf { it.isNotBlank() }
-            ?: return base
+    val sekIdpIssuer = session.context?.authenticationSession?.sekIdpIssuer ?: return base
 
     return OIDCIdentityProviderConfig(IdentityProviderModel(base)).apply {
-      config[SEKIDP_CONFIG_ISSUER] = resolved
-      tokenUrl = discoverEndpoints(resolved).tokenEndpoint
+      config[SEKIDP_CONFIG_ISSUER] = sekIdpIssuer
+      tokenUrl =
+          federation.sekIdp(sekIdpIssuer).flatMap { it.resolveEndpoints() }.getOrElse { throw it.toIdentityBrokerException() }.tokenEndpoint
     }
   }
 
@@ -512,33 +368,124 @@ class SekIDPIdentityProvider(
   private val providerConfig: OIDCIdentityProviderConfig
     get() = super.config
 
-  /** Token endpoint of the IDP resolved for THIS request (see [getConfig]). */
-  private fun effectiveTokenUrl(): String = getConfig().tokenUrl
-
+  /**
+   * Hands JAX-RS the resource serving `/realms/{realm}/broker/{alias}/endpoint`.
+   *
+   * The untyped return is the interface's: JAX-RS inspects the object for its own annotations. Sole reason for the
+   * override is [SekIDPEndpoint], which guards the Redirection Endpoint with the `state_as` mapping and replaces
+   * `generateTokenRequest`.
+   */
   override fun callback(
       realm: RealmModel,
       callback: UserAuthenticationIdentityProvider.AuthenticationCallback,
       event: EventBuilder,
-  ): Any = SekIDPEndpoint(callback, realm, event, this, session)
+  ): Any = SekIDPEndpoint(callback, realm, event, this)
 
+  fun checkKnownStateAs(state: String): Either<KeycloakError, Unit> = either {
+    ensure(cookieValueByStateAs.lookup(state) != null) {
+      logger.warnf("Redirection Endpoint called with a state_as the mapping does not know: %s", state)
+      SekIdpRedirectionError.unknownStateAs()
+    }
+  }
+
+  /**
+   * Creates user and Federated Identity for a First Login before core looks the user up.
+   *
+   * Keycloak would otherwise redirect a user without Federated Identity through the cookie-bound `first-broker-login`
+   * requests.
+   */
+  fun provisionFirstLogin(realm: RealmModel, context: BrokeredIdentityContext): Either<KeycloakError, Unit> = either {
+    val users = session.users()
+    val link = FederatedIdentityModel(context.idpConfig.alias, context.id, context.username, null)
+    if (users.getUserByFederatedIdentity(realm, link) != null) return@either
+
+    val username = context.modelUsername
+    ensure(users.getUserByUsername(realm, username) == null) {
+      logger.warnf("First Login for a user that exists without Federated Identity: %s", username)
+      SekIdpRedirectionError.identityAlreadyRegistered()
+    }
+
+    val user = users.addUser(realm, username).apply { isEnabled = true }
+    users.addFederatedIdentity(realm, user, link)
+    session.context.client = context.authenticationSession.client
+    importNewUser(session, realm, user, context)
+  }
+
+  class SekIDPAuthenticationCallback(
+      private val delegate: UserAuthenticationIdentityProvider.AuthenticationCallback,
+      private val cookieValueByStateAs: AuthSessionCookieValueByStateAs,
+      private val checkIntegrityProvider: () -> Either<KeycloakError, Unit>,
+      private val provisionFirstLogin: (BrokeredIdentityContext) -> Either<KeycloakError, Unit>,
+  ) : UserAuthenticationIdentityProvider.AuthenticationCallback by delegate {
+
+    /** The `state_as` of the request in flight. */
+    private var stateAs: String? = null
+
+    /**
+     * Keycloak's first step in `authResponse`, before the token request and [authenticated]: it decodes `state`, reads the
+     * `AUTH_SESSION_ID` cookie (served by [ZetaCookieProvider]) and resolves the Authentication Session.
+     */
+    override fun getAndVerifyAuthenticationSession(encodedCode: String): AuthenticationSessionModel {
+      stateAs = encodedCode
+      return delegate.getAndVerifyAuthenticationSession(encodedCode)
+    }
+
+    override fun authenticated(context: BrokeredIdentityContext): Response =
+        either {
+          checkIntegrityProvider().bind()
+          provisionFirstLogin(context).bind()
+          val stateAs = stateAs ?: return@either
+          ensure(cookieValueByStateAs.remove(stateAs)) {
+            logger.warnf("Redirection Endpoint: state_as was already used: %s", stateAs)
+            SekIdpRedirectionError.unknownStateAs()
+          }
+        }.fold(
+            ifLeft = { it.toResponse() },
+            ifRight = { delegate.authenticated(context) },
+        )
+  }
+
+  /** The Redirection Endpoint as the ZETA Client calls it. */
   private class SekIDPEndpoint(
       callback: UserAuthenticationIdentityProvider.AuthenticationCallback,
       realm: RealmModel,
       event: EventBuilder,
       private val sekProvider: SekIDPIdentityProvider,
-      private val kcSession: KeycloakSession,
-  ) : Endpoint(callback, realm, event, sekProvider) {
+  ) :
+    Endpoint(
+        SekIDPAuthenticationCallback(callback, sekProvider.cookieValueByStateAs, sekProvider::checkIntegrityProvider) {
+          sekProvider.provisionFirstLogin(realm, it)
+        },
+        realm,
+        event,
+        sekProvider,
+    ) {
+
+    @GET
+    override fun authResponse(
+        @QueryParam(OAUTH2_PARAMETER_STATE) state: String?,
+        @QueryParam(OAUTH2_PARAMETER_CODE) authorizationCode: String?,
+        @QueryParam(OAuth2Constants.ERROR) error: String?,
+        @QueryParam(OAuth2Constants.ERROR_DESCRIPTION) errorDescription: String?,
+    ): Response {
+      if (state != null) {
+        sekProvider.checkKnownStateAs(state).getOrElse { return it.toResponse() }
+        ZetaCookieProvider.attachStateAsToSession(sekProvider.session, state)
+      }
+      return super.authResponse(state, authorizationCode, error, errorDescription)
+    }
 
     override fun generateTokenRequest(authorizationCode: String): SimpleHttpRequest {
-      val authSession = kcSession.context?.authenticationSession
+      val authSession = sekProvider.session.context?.authenticationSession
       val redirectUri =
           authSession?.getClientNote(NOTE_OIDC_REDIRECT_URI)?.takeIf { it.isNotBlank() }
-              ?: throw IdentityBrokerException(
-                  "No $SEKIDP_PARAM_OIDC_REDIRECT_URI on the authentication session — cannot build the token request")
+            ?: throw IdentityBrokerException(
+                "No $SEKIDP_PARAM_OIDC_REDIRECT_URI on the authentication session — cannot build the token request"
+            )
 
       val tokenRequest =
           sekProvider.sekIdpHttpClient
-              .doPost(kcSession, sekProvider.effectiveTokenUrl())
+              .doPost(sekProvider.session, sekProvider.config.tokenUrl)
               .param(OAUTH2_PARAMETER_CODE, authorizationCode)
               .param(OAUTH2_PARAMETER_REDIRECT_URI, redirectUri)
               .param(OAUTH2_PARAMETER_GRANT_TYPE, OAUTH2_GRANT_TYPE_AUTHORIZATION_CODE)
@@ -546,30 +493,27 @@ class SekIDPIdentityProvider(
       authSession.getClientNote(NOTE_BROKER_CODE_CHALLENGE)?.let {
         tokenRequest.param(OAuth2Constants.CODE_VERIFIER, it)
       }
+
       logger.debugf("Token request repeats redirect_uri=%s", redirectUri)
+
       return sekProvider.authenticateTokenRequest(tokenRequest)
     }
   }
+}
 
-  companion object {
-    /** Cap for the discovery cache so a long-lived entity statement cannot pin stale endpoints. */
-    private const val ENDPOINT_CACHE_MAX_SECONDS = 300
+/**
+ * Mirrors [PERSISTED_USER_DATA] from the context data onto the user (A_26973-02): a claim the ID token carries is set, one it
+ * lacks — e.g. the birthdate after a withdrawn consent — is removed. Unchanged values are left alone to spare the database a write.
+ */
+internal fun UserModel.storeUserData(context: BrokeredIdentityContext) {
+  PERSISTED_USER_DATA.forEach { name ->
+    val value = context.contextData[name] as? String
+    val stored = getFirstAttribute(name)
 
-    /** There is exactly one Federation Master — a single cached value, not a map keyed by URL. */
-    @Volatile private var fedmasterStatementCache: CachedStatement? = null
-    private val fedmasterStatementLock = Any()
-
-    /** Per sectoral IDP (`issuer`) — several of these ARE expected once more SekIDPs are configured. */
-    private val endpointCache = ConcurrentHashMap<String, SekIDPEndpoints>()
-    private val endpointLock = Any()
-
-    /** The key(s) the Federation Master vouches for one sectoral IDP, keyed by issuer. */
-    private val trustedIdpKeyCache = ConcurrentHashMap<String, CachedKeys>()
-    private val trustedIdpKeyLock = Any()
-
-    /** The ID-token signing key(s) from one sectoral IDP's `signed_jwks_uri`, keyed by issuer. */
-    private val idTokenSigningKeyCache = ConcurrentHashMap<String, CachedKeys>()
-    private val idTokenSigningKeyLock = Any()
+    when {
+      value == null -> if (stored != null) removeAttribute(name)
+      value != stored -> setSingleAttribute(name, value)
+    }
   }
 }
 

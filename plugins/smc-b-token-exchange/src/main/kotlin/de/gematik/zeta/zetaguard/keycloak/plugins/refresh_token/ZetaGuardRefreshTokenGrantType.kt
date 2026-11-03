@@ -36,10 +36,12 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.clientIP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.httpClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.isSuccessStatus
+import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.rememberLastClientIp
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
+import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.ZetaGuardTokenManager
-import de.gematik.zeta.zetaguard.keycloak.plugins.logger
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.mapToCorsException
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateEnforcer
@@ -87,6 +89,9 @@ class ZetaGuardRefreshTokenGrantType(private val opaConfig: OPAConfig = OPAConfi
       is OpaGateEnforcer.Outcome.Allow -> {
         applyOpaTtls(userSession, replay, outcome.accessTokenTtl, outcome.refreshTokenTtl)
         val response = super.process(context)
+        if (response.isSuccessStatus()) {
+          outcome.payload?.let(::storeSessionData)
+        }
         if (replay is RefreshOpaReplay.Mobile && response.isSuccessStatus()) {
           rememberLastClientIp(session, client)
         }
@@ -95,6 +100,17 @@ class ZetaGuardRefreshTokenGrantType(private val opaConfig: OPAConfig = OPAConfi
 
       is OpaGateEnforcer.Outcome.Deny -> throw mapToCorsException(outcome.error, cors, event)
       is OpaGateEnforcer.Outcome.Error -> throw mapToCorsException(outcome.error, cors, event)
+    }
+  }
+
+  // A_26586-01: store the policy engine input as session data of the client
+  private fun storeSessionData(opaInput: String) {
+    val clientData = ZetaGuardDataService(DefaultEMCreator(session)).findClientData(client.clientId)
+
+    if (clientData == null) {
+      logger.warnf("No client data found for »%s«, session data not stored", client.clientId)
+    } else {
+      clientData.storeSessionData(opaInput)
     }
   }
 
@@ -171,6 +187,7 @@ internal fun buildRefreshOpaInput(
             previousIpAddress = data.previousIpAddress,
             userIdentifier = data.telematikID,
             deviceInfo = data.deviceInfo,
+            attestationTimestamp = data.attestationTimestamp,
         )
       }
 
@@ -198,6 +215,7 @@ internal fun buildRefreshOpaInput(
             userIdentifier = data.userIdentifier,
             userCommonName = data.userCommonName,
             deviceInfo = data.deviceInfo,
+            attestationTimestamp = data.attestationTimestamp,
         )
       }
     }

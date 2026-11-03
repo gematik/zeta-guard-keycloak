@@ -25,7 +25,6 @@ package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.LinuxProductId
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.Platform
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType.SOFTWARE
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType.TPM
@@ -50,23 +49,22 @@ fun clientStatementData(
     certificateChain: List<X509Certificate> = listOf(leafCertificate, intermediateCertificate),
     postureType: PostureType = SOFTWARE,
     productId: ProductId = platformProductId,
-    timeStampSeconds: Long = timeStampSeconds(),
 ): ClientStatementData {
   val nonceBytes = nonceString.fromBase64()
   val attestationChallenge = calculateAttestationChallenge(pkidata.jwkThumbPrint, nonceBytes)
   val posture =
       when (postureType) {
-        SOFTWARE -> generateSoftwarePosture(productId, pkidata, attestationChallenge)
+        SOFTWARE -> generateSoftwarePosture(productId, pkidata, attestationChallenge, nonceString)
         TPM -> generateTpmPosture(attestationChallenge.fromBase64(), subjectKeyPair, certificateChain)
 
         else -> error("Unknown posture type: $postureType")
       }
 
-  return ClientStatementData(clientId, Platform.LINUX, postureType, posture, timeStampSeconds)
+  return ClientStatementData(clientId, Platform.LINUX, postureType, posture, timeStampSeconds())
 }
 
-private fun generateSoftwarePosture(productId: ProductId, pkidata: PKIData, attestationChallenge: String): SoftwarePosture =
-    SoftwarePosture(productId, PRODUCT_ID, PRODUCT_VERSION, "Linux", "6.12.54-linuxkit", "aarch64", pkidata.publicKeyPEM, attestationChallenge)
+private fun generateSoftwarePosture(productId: ProductId, pkidata: PKIData, attestationChallenge: String, nonce: String): SoftwarePosture =
+    SoftwarePosture(productId, PRODUCT_ID, PRODUCT_VERSION, "Linux", "6.12.54-linuxkit", "aarch64", pkidata.publicKeyPEM, attestationChallenge, nonce)
 
 private fun timeStampSeconds(): Long = System.currentTimeMillis() / 1000
 

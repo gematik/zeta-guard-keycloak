@@ -23,10 +23,12 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.revocation
 
+import de.gematik.zeta.zetaguard.keycloak.commons.events.DETAIL_ZETA_EVENT
+import de.gematik.zeta.zetaguard.keycloak.commons.events.ZetaEvent
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldHaveSize
-import io.kotest.matchers.longs.shouldBeBetween
+import io.kotest.matchers.comparables.shouldBeBetween
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -50,111 +52,117 @@ private const val BLOCK_TTL_SECONDS = 60 * 60L
  * which the listener derives on its own — the merge rules have their own test.
  */
 class RevocationEventListenerTest :
-    StringSpec({
-      lateinit var blocked: MutableList<Block>
+  StringSpec({
+    lateinit var blocked: MutableList<Block>
 
-      val store =
-          object : BlockStore {
-            override fun put(block: Block) {
-              blocked += block
-            }
-
-            override fun snapshot(): List<Block> = blocked.toList()
-
-            override fun subscribe(onBlock: (Block) -> Unit) = AutoCloseable {}
-
-            override fun probe() {}
+    val store =
+        object : BlockStore {
+          override fun put(block: Block) {
+            blocked += block
           }
 
-      val realm = mockk<RealmModel> { every { accessTokenLifespan } returns 300 }
-      val session = mockk<KeycloakSession> { every { context } returns mockk<KeycloakContext> { every { this@mockk.realm } returns realm } }
-      val listener = RevocationEventListener(session)
+          override fun snapshot(): List<Block> = blocked.toList()
 
-      beforeSpec {
-        mockkObject(BlockStore)
-        every { BlockStore.of(any()) } returns store
-      }
+          override fun subscribe(onBlock: (Block) -> Unit) = AutoCloseable {}
 
-      afterSpec { unmockkObject(BlockStore) }
+          override fun probe() {}
+        }
 
-      beforeTest { blocked = mutableListOf() }
+    val realm = mockk<RealmModel> { every { accessTokenLifespan } returns 300 }
+    val session = mockk<KeycloakSession> { every { context } returns mockk<KeycloakContext> inner@{ every { this@inner.realm } returns realm } }
+    val listener = RevocationEventListener(session)
 
-      fun event(type: EventType, sid: String? = SID, details: Map<String, String>? = null) =
-          Event().apply {
-            this.type = type
-            this.sessionId = sid
-            details?.let { this.details = it }
-          }
+    beforeSpec {
+      mockkObject(BlockStore)
+      every { BlockStore.of(any()) } returns store
+    }
 
-      fun adminEvent(
-          operation: OperationType = OperationType.DELETE,
-          resource: ResourceType = ResourceType.USER_SESSION,
-          path: String? = "sessions/$SID",
-      ) =
-          AdminEvent().apply {
-            operationType = operation
-            resourceType = resource
-            resourcePath = path
-          }
+    afterSpec { unmockkObject(BlockStore) }
 
-      "blocks a logout for the flat block ttl, not the realm access token lifespan" {
-        val now = System.currentTimeMillis() / 1000
+    beforeTest { blocked = mutableListOf() }
 
-        listener.onEvent(event(EventType.LOGOUT))
+    fun event(type: EventType, sid: String? = SID, details: Map<String, String>? = null) =
+        Event().apply {
+          this.type = type
+          this.sessionId = sid
+          details?.let { this.details = it }
+        }
 
-        blocked shouldHaveSize 1
-        blocked[0].what shouldBe SID
-        // Neither the session nor the token's OPA-granted TTL is knowable here, so the bound is flat — notably NOT the realm's 300s.
-        blocked[0].until.shouldBeBetween(now + BLOCK_TTL_SECONDS, now + BLOCK_TTL_SECONDS + 5)
-        blocked[0].`when`.shouldBeBetween(now, now + 5)
-      }
+    fun adminEvent(
+        operation: OperationType = OperationType.DELETE,
+        resource: ResourceType = ResourceType.USER_SESSION,
+        path: String? = "sessions/$SID",
+    ) =
+        AdminEvent().apply {
+          operationType = operation
+          resourceType = resource
+          resourcePath = path
+        }
 
-      "blocks a revoked grant" {
-        listener.onEvent(event(EventType.REVOKE_GRANT))
+    "blocks a logout for the flat block ttl, not the realm access token lifespan" {
+      val now = System.currentTimeMillis() / 1000
 
-        blocked.map { it.what } shouldBe listOf(SID)
-      }
+      listener.onEvent(event(EventType.LOGOUT))
 
-      "blocks a session deleted through the admin API" {
-        listener.onEvent(event(EventType.USER_SESSION_DELETED))
+      blocked shouldHaveSize 1
+      blocked[0].what shouldBe SID
+      // Neither the session nor the token's OPA-granted TTL is knowable here, so the bound is flat — notably NOT the realm's 300s.
+      blocked[0].until.shouldBeBetween(now + BLOCK_TTL_SECONDS, now + BLOCK_TTL_SECONDS + 5)
+      blocked[0].`when`.shouldBeBetween(now, now + 5)
+    }
 
-        blocked.map { it.what } shouldBe listOf(SID)
-      }
+    "blocks a revoked grant" {
+      listener.onEvent(event(EventType.REVOKE_GRANT))
 
-      "does not block a session that merely expired" {
-        listener.onEvent(event(EventType.USER_SESSION_DELETED, details = mapOf(Details.REASON to Details.USER_SESSION_EXPIRED_REASON)))
+      blocked.map { it.what } shouldBe listOf(SID)
+    }
 
-        // Nobody withdrew trust ahead of schedule, so there is nothing to tell the enforcement points about.
-        blocked.shouldBeEmpty()
-      }
+    "blocks a session deleted through the admin API" {
+      listener.onEvent(event(EventType.USER_SESSION_DELETED))
 
-      "ignores events that do not end a session" {
-        listener.onEvent(event(EventType.LOGIN))
-        listener.onEvent(event(EventType.REFRESH_TOKEN))
-        listener.onEvent(event(EventType.CODE_TO_TOKEN))
+      blocked.map { it.what } shouldBe listOf(SID)
+    }
 
-        blocked.shouldBeEmpty()
-      }
+    "does not block a session that merely expired" {
+      listener.onEvent(event(EventType.USER_SESSION_DELETED, details = mapOf(Details.REASON to Details.USER_SESSION_EXPIRED_REASON)))
 
-      "ignores a session-ending event without a sid" {
-        listener.onEvent(event(EventType.LOGOUT, sid = null))
-        listener.onEvent(event(EventType.LOGOUT, sid = ""))
+      // Nobody withdrew trust ahead of schedule, so there is nothing to tell the enforcement points about.
+      blocked.shouldBeEmpty()
+    }
 
-        blocked.shouldBeEmpty()
-      }
+    "ignores events that do not end a session" {
+      listener.onEvent(event(EventType.LOGIN))
+      listener.onEvent(event(EventType.REFRESH_TOKEN))
+      listener.onEvent(event(EventType.CODE_TO_TOKEN))
 
-      "blocks the sid an admin deleted" {
-        listener.onEvent(adminEvent(), false)
+      blocked.shouldBeEmpty()
+    }
 
-        blocked.map { it.what } shouldBe listOf(SID)
-      }
+    "ignores a ZETA event, even of a session-ending type and with a sid" {
+      listener.onEvent(event(EventType.REVOKE_GRANT, details = mapOf(DETAIL_ZETA_EVENT to ZetaEvent.CLIENT_REMOVED.message)))
 
-      "ignores admin events about anything else" {
-        listener.onEvent(adminEvent(operation = OperationType.CREATE), false)
-        listener.onEvent(adminEvent(resource = ResourceType.CLIENT), false)
-        listener.onEvent(adminEvent(path = "realms/zeta-guard"), false)
-        listener.onEvent(adminEvent(path = null), false)
+      blocked.shouldBeEmpty()
+    }
 
-        blocked.shouldBeEmpty()
-      }
-    })
+    "ignores a session-ending event without a sid" {
+      listener.onEvent(event(EventType.LOGOUT, sid = null))
+      listener.onEvent(event(EventType.LOGOUT, sid = ""))
+
+      blocked.shouldBeEmpty()
+    }
+
+    "blocks the sid an admin deleted" {
+      listener.onEvent(adminEvent(), false)
+
+      blocked.map { it.what } shouldBe listOf(SID)
+    }
+
+    "ignores admin events about anything else" {
+      listener.onEvent(adminEvent(operation = OperationType.CREATE), false)
+      listener.onEvent(adminEvent(resource = ResourceType.CLIENT), false)
+      listener.onEvent(adminEvent(path = "realms/zeta-guard"), false)
+      listener.onEvent(adminEvent(path = null), false)
+
+      blocked.shouldBeEmpty()
+    }
+  })

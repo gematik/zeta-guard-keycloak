@@ -57,8 +57,17 @@ services:
       SMCB_KEYSTORE_META_LOCATION: /opt/keycloak/conf/smcb-certificates-meta.json
       SMCB_USER_MAX_CLIENTS: 20
       ZETA_OIDC_FLOW_ENABLED: ${ZETA_OIDC_FLOW_ENABLED:-false}
+      ENTITY_STATEMENT_CLIENT_NAME: "zeta-guard"
+      ENTITY_STATEMENT_ORGANIZATION_NAME: "zeta-guard"
+      ENTITY_STATEMENT_CONTACT_EMAIL: "zeta-guard-it@example.com"
       TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm-certificates.p12
       TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+      APPLE_KEYSTORE_LOCATION: /opt/keycloak/conf/apple-certificates-server.p12
+      APPLE_KEYSTORE_PASSWORD: "04edb0b1a1eacf727ff6f"
+      GOOGLE_KEYSTORE_LOCATION: /opt/keycloak/conf/google-certificates-server.p12
+      GOOGLE_KEYSTORE_PASSWORD: "f92009e853b6b045"
+      GOOGLE_CERTIFICATE_STATUS_LOCATION: /opt/keycloak/conf/google-certificate-status.json
+      FEDERATION_MASTER_LOCATION: /opt/keycloak/conf/federation-master.json
       # OCSP_KEYSTORE_LOCATION: /opt/keycloak/conf/ocsp-signers.p12
       # OCSP_KEYSTORE_PASSWORD: "oGxkNU73WYIGpNTfWgeU"
       # OCSP_KEYSTORE_META_LOCATION: /opt/keycloak/conf/ocsp-signers-meta.json
@@ -69,6 +78,13 @@ services:
       # Exercise the truststore reload loop on every IT run: it hashes the truststores every few seconds and must keep
       # finding them unchanged. A broken schedule, read or comparison therefore shows up in the whole suite.
       TRUSTSTORE_RELOAD_INTERVAL: "PT5S"
+      # Resource servers calling userinfo/email authenticate via mTLS. The IT has no TLS, so the client certificate
+      # arrives in the header an ingress would set; the CA is generated per run by ResourceServerPki.
+      KC_SPI_X509CERT_LOOKUP__PROVIDER: nginx
+      KC_SPI_X509CERT_LOOKUP__NGINX__SSL_CLIENT_CERT: ssl-client-cert
+      # false: nginx does not verify the certificate (no ssl-client-verify header), the endpoint checks the chain itself
+      KC_SPI_X509CERT_LOOKUP__NGINX__TRUST_PROXY_VERIFICATION: "false"
+      KC_SPI_REALM_RESTAPI_EXTENSION__ZETA__RESOURCE_SERVER_TRUSTSTORE_FILE: /opt/keycloak/conf/resource-server-truststore.pem
       HSM_PROXY_ENDPOINT: "hsm-sim:50051"
       HSM_PROXY_KEY_ID: "zeta-guard-keycloak-tls-es256-v1.p256"
       HSM_PROXY_TOKEN_KEY_ID: "zeta-guard-keycloak-token-es256-v1.p256"
@@ -83,19 +99,24 @@ services:
       SPREE_SHUTDOWN_ON_ERROR: true
       SPREE_ENCRYPTED_REALM: "zeta-guard"
       SPREE_BOOTSTRAP_INTERVAL: "PT30S"
-    env_file:
-      - ../conf/spree-keychain.env
+      SPREE_KEYCHAIN_FILE: /opt/keycloak/conf/vaudb/spree-keychain-1.env
     ports:
       - "127.0.0.1:18080:8080" # api port
       - "19000:9000" # mgmt
     networks:
       - zeta-guard
     volumes:
+      - ../conf/vaudb:/opt/keycloak/conf/vaudb
       - ../smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
       - ../smcb-certificates-meta.json:/opt/keycloak/conf/smcb-certificates-meta.json
       - ../tpm-certificates.p12:/opt/keycloak/conf/tpm-certificates.p12
+      - ../apple-certificates-server.p12:/opt/keycloak/conf/apple-certificates-server.p12
+      - ../google-certificates-server.p12:/opt/keycloak/conf/google-certificates-server.p12
+      - ../google-certificate-status.json:/opt/keycloak/conf/google-certificate-status.json
+      - ../federation-master.json:/opt/keycloak/conf/federation-master.json
       - ../ocsp-signers.p12:/opt/keycloak/conf/ocsp-signers.p12
       - ../ocsp-signers-meta.json:/opt/keycloak/conf/ocsp-signers-meta.json
+      - ./target/resource-server-truststore-testonly.pem:/opt/keycloak/conf/resource-server-truststore.pem
       - ./target/classes/libs/jacoco-agent.jar:/opt/keycloak/bin/jacoco-agent.jar
       - ./target:/opt/keycloak/data
     # Give KC more time to write logs and jacoco exec file
@@ -122,7 +143,7 @@ services:
       KEYCLOAK_USER: zeta
       KEYCLOAK_PASSWORD: sigma
       KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"
-      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 120s
+      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 180s
       IMPORT_FILES: "/config/*"
       # See https://github.com/adorsys/keycloak-config-cli?tab=readme-ov-file#variable-substitution
       IMPORT_VARSUBSTITUTION_ENABLED: true
@@ -149,11 +170,50 @@ services:
       - ./scripts-it:/opt/keycloak/scripts
       - ./scripts-repository:/opt/keycloak/scripts-repository
 
+  # Catches the email-binding OTP mails (SMTP 1025); the IT reads them over the HTTP API (8025).
+  mailpit:
+    image: axllent/mailpit:v1.27.10
+    networks:
+      - zeta-guard
+    ports:
+      - "18025:8025"
+
   hsm-sim:
     image: ${HSM_SIM_IMAGE:-zeta/zeta-guard/ngx_pep/hsm_sim}:${HSM_SIM_TAG:-main}
     command: ["--listen", "0.0.0.0:50051", "--keys-dir", "/etc/hsm_sim/keys"]
     networks:
       - zeta-guard
+
+  gsi-fedmaster:
+    image: ${GSI_FEDMASTER_IMAGE:-zeta/devops/gem-sekidp/gsi-fedmaster}:${GSI_TAG:-8.5.1}
+    environment:
+      SERVER_PORT: 8083
+      MANAGEMENT_PORT: 8183
+      FEDMASTER_SERVER_URL: "http://gsi-fedmaster:8083"
+      ISSUER_IDP_01: "http://gsi-server:8085"
+    networks:
+      - zeta-guard
+    ports:
+      - "8083:8083"
+
+  gsi-server:
+    image: ${GSI_SERVER_IMAGE:-zeta/devops/gem-sekidp/gsi-server}:${GSI_TAG:-8.5.1}
+    environment:
+      SERVER_PORT: 8085
+      MANAGEMENT_PORT: 8185
+      GSI_SERVER_URL: "http://gsi-server:8085"
+      GSI_SERVER_URL_MTLS: "http://gsi-server:8085"
+      FEDMASTER_SERVER_URL: "http://gsi-fedmaster:8083"
+      # local: the IDP validates Keycloak's PAR against the mounted entity statement instead of asking
+      # gsi-fedmaster about Keycloak.
+      GSI_FEDMASTER_MODE: "${GSI_FEDMASTER_MODE:-local}"
+      GSI_FEDMASTER_LOCAL_ENTITY_STATEMENT_FILE: "/fedmaster-config/entity-statement-about-rp.jwt"
+    networks:
+      - zeta-guard
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./sekidp/entity-statement-about-rp.jwt:/fedmaster-config/entity-statement-about-rp.jwt:ro
 
   opa:
     image: openpolicyagent/opa:1.11.0-static

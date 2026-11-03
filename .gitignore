@@ -24,6 +24,8 @@ http-requests/http-client.env.json
 *.local
 .env
 
+.claude
+
 .jenkins
 .githubignore
 /docs/internal/

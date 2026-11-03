@@ -43,7 +43,7 @@ object SecurityProviderUtil {
     Security.addProvider(HsmProxyProvider())
   }
 
-  private fun setupBouncyCastleProvider() {
+  fun setupBouncyCastleProvider() {
     val indexOfBC1 = Security.getProviders().indexOfFirst { it.name == PROVIDER_NAME }
 
     when (indexOfBC1) {

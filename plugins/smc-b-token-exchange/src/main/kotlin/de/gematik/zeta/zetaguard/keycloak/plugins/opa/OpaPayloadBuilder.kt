@@ -47,6 +47,7 @@ object OpaPayloadBuilder {
       val userProfessionOid: String? = null,
       val userCommonName: String? = null,
       val deviceInfo: OpaDeviceInfo? = null,
+      val attestationTimestamp: Long? = null,
   )
 
   private fun PayloadParams.toUserInfo() =
@@ -72,6 +73,7 @@ object OpaPayloadBuilder {
   private fun PayloadParams.toClientRegistrationData() =
       OpaInput.ZetaClientRegistration(
           attestationResult = toAttestationResult(),
+          attestationTimestamp = attestationTimestamp,
           clientId = clientId,
           deviceInfo = toDeviceInfo(),
           platform = clientPlatform,
@@ -121,5 +123,6 @@ object OpaPayloadBuilder {
           userProfessionOid = input.userProfessionOid,
           userCommonName = input.userCommonName,
           deviceInfo = input.deviceInfo,
+          attestationTimestamp = input.attestationTimestamp,
       )
 }

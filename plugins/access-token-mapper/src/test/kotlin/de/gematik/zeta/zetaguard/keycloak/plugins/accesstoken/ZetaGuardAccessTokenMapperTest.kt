@@ -25,12 +25,14 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.accesstoken
 
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.LinuxProductId
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.Platform
+import de.gematik.zeta.zetaguard.keycloak.commons.Platform
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.SoftwarePosture
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
 import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaSessionContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_DATA
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_BIRTHDATE
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_DISPLAY_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KVNR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILE_OPA_CONTEXT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCB_CONTEXT
@@ -46,6 +48,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.maps.shouldNotContainKey
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -107,6 +110,7 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
       val userSession = mockk<UserSessionModel>(relaxed = true)
       every { userSession.getNote(any()) } returns null
       every { userSession.getNote(ATTRIBUTE_MOBILEUSER_KVNR) } returns "X110123456"
+      every { userSession.getNote(ATTRIBUTE_MOBILEUSER_DISPLAY_NAME) } returns "Dr. Max Mustermann"
 
       invokeSetClaim(token, userSession)
 
@@ -126,6 +130,34 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
 
       val ex = shouldThrow<IllegalStateException> { invokeSetClaim(AccessToken(), userSession) }
       ex.message shouldBe "Mobile user KVNR not found"
+    }
+
+    test("setClaim maps display name and birthdate of the insured person (A_26973-03)") {
+      val userSession = mobileOpaSession()
+      every { userSession.getNote(ATTRIBUTE_MOBILEUSER_BIRTHDATE) } returns "1987-06-05"
+
+      val token = AccessToken()
+      invokeSetClaim(token, userSession)
+
+      token.subject shouldBe "X110123456"
+      token.otherClaims[CLAIM_COMMON_NAME] shouldBe "Dr. Max Mustermann"
+      token.birthdate shouldBe "1987-06-05"
+    }
+
+    test("setClaim omits birthdate when the insured person did not consent to it") {
+      val token = AccessToken()
+      invokeSetClaim(token, mobileOpaSession())
+
+      token.birthdate shouldBe null
+      token.otherClaims shouldNotContainKey "birthdate"
+    }
+
+    test("setClaim fails closed when the mobile session carries no display name") {
+      val userSession = mobileOpaSession()
+      every { userSession.getNote(ATTRIBUTE_MOBILEUSER_DISPLAY_NAME) } returns null
+
+      val ex = shouldThrow<IllegalStateException> { invokeSetClaim(AccessToken(), userSession) }
+      ex.message shouldBe "Mobile user display name not found"
     }
 
     test("setClaim fails closed when SMC-B context is present without a client statement") {
@@ -161,6 +193,7 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
     val userSession = mockk<UserSessionModel>(relaxed = true)
     every { userSession.getNote(any()) } returns null
     every { userSession.getNote(ATTRIBUTE_MOBILEUSER_KVNR) } returns "X110123456"
+    every { userSession.getNote(ATTRIBUTE_MOBILEUSER_DISPLAY_NAME) } returns "Dr. Max Mustermann"
     every { userSession.getNote(ATTRIBUTE_MOBILE_OPA_CONTEXT) } returns
         OpaSessionContext(accessTokenTTL = Duration.ofSeconds(111), refreshTokenTTL = Duration.ofSeconds(600), authenticationContextClassReference = "abc").toJSON()
     return userSession

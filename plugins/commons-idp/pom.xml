@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>de.gematik.zeta.zeta-guard</groupId>
+        <artifactId>keycloak-zeta</artifactId>
+        <version>2.0.1</version>
+        <relativePath>../../pom.xml</relativePath>
+    </parent>
+
+    <modelVersion>4.0.0</modelVersion>
+    <artifactId>commons-idp</artifactId>
+    <name>𝝵-Guard :: Common code for Identity providers</name>
+    <description>Common code for Identity providers</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-model-infinispan</artifactId>
+            <version>${keycloak.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-services</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.keycloak</groupId>
+            <artifactId>keycloak-server-spi-private</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-debug-jdk18on</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcutil-debug-jdk18on</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcpkix-debug-jdk18on</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.gematik.zeta.zeta-guard</groupId>
+            <artifactId>commons-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.gematik.zeta.zeta-guard</groupId>
+            <artifactId>nonce-management</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>de.gematik.zeta.zeta-guard</groupId>
+            <artifactId>client-registration</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.arrow-kt</groupId>
+            <artifactId>arrow-core-jvm</artifactId>
+        </dependency>
+    </dependencies>
+</project>

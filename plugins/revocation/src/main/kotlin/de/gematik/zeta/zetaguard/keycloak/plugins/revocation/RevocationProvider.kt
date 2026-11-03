@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.revocation
 
+import arrow.core.Either
 import jakarta.ws.rs.BadRequestException
 import jakarta.ws.rs.Consumes
 import jakarta.ws.rs.GET
@@ -36,14 +37,14 @@ import jakarta.ws.rs.sse.OutboundSseEvent
 import jakarta.ws.rs.sse.Sse
 import jakarta.ws.rs.sse.SseEventSink
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import org.jboss.logging.Logger
+import org.keycloak.common.util.SecretGenerator
 import org.keycloak.models.KeycloakSession
 import org.keycloak.representations.AccessToken
-import org.keycloak.services.managers.AuthenticationManager
 import org.keycloak.services.resource.RealmResourceProvider
+import org.keycloak.timer.TimerProvider
+import org.keycloak.timer.TimerProviderFactory
 
 private val log = Logger.getLogger(RevocationProvider::class.java)
 
@@ -58,7 +59,9 @@ private const val HEARTBEAT_SECONDS = 20L
  * - GET: subscribe to the block list as server-sent events; the connect delivers a snapshot, so a reconnect is also the reconciliation mechanism and
  *   no separate catch-up is needed.
  */
-class RevocationProvider(private val session: KeycloakSession, private val scheduler: ScheduledExecutorService) : RealmResourceProvider {
+class RevocationProvider(private val session: KeycloakSession) : RealmResourceProvider {
+  private val timerProviderFactory = session.keycloakSessionFactory.getProviderFactory(TimerProvider::class.java) as TimerProviderFactory
+  private val timerProvider = timerProviderFactory.create(session)
 
   override fun getResource(): Any = this
 
@@ -106,14 +109,13 @@ class RevocationProvider(private val session: KeycloakSession, private val sched
     closers.add { subscription.close() }
 
     // Blocks are rare, so the stream is mostly idle; comments keep the connection (and any proxy in between) from being reaped.
-    val heartbeat =
-        scheduler.scheduleAtFixedRate(
-            { emit(sink, sse.newEventBuilder().comment("ping").build(), cleanup) },
-            HEARTBEAT_SECONDS,
-            HEARTBEAT_SECONDS,
-            TimeUnit.SECONDS,
-        )
-    closers.add { heartbeat.cancel(false) }
+    val taskName = "zeta-guard-revocation-keepalive-" + SecretGenerator.getInstance().generateSecureUUID()
+    timerProvider.schedule(
+        { emit(sink, sse.newEventBuilder().comment("ping").build(), cleanup) },
+        HEARTBEAT_SECONDS * 1000, taskName
+    )
+
+    closers.add { timerProvider.cancelTask(taskName) }
     closers.add { sink.close() }
 
     store.snapshot().forEach { block -> emit(sink, sse.newEvent(block.toJson()), cleanup) }
@@ -124,23 +126,13 @@ class RevocationProvider(private val session: KeycloakSession, private val sched
       cleanup()
       return
     }
-    runCatching { sink.send(event) }
-        .onSuccess { pending -> pending.whenComplete { _, error -> if (error != null) cleanup() } }
-        .onFailure { cleanup() }
+    Either.catch { sink.send(event) }
+        .onRight { pending -> pending.whenComplete { _, error -> if (error != null) cleanup() } }
+        .onLeft { cleanup() }
   }
 
   private fun revokeSession(sid: String) {
-    val realm = session.context.realm
-    val userSession = session.sessions().getUserSession(realm, sid) ?: return
-    AuthenticationManager.backchannelLogout(
-        session,
-        realm,
-        userSession,
-        session.context.uri,
-        session.context.connection,
-        session.context.requestHeaders,
-        true,
-    )
+    endSession(session, session.context.realm, sid)
   }
 }
 
@@ -172,7 +164,7 @@ internal class Closers {
   private fun drain() {
     while (true) {
       val action = actions.poll() ?: return
-      runCatching(action)
+      Either.catch(action)
     }
   }
 }

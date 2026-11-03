@@ -88,9 +88,19 @@ services:
       SMCB_KEYSTORE_META_LOCATION: /opt/keycloak/conf/smcb-certificates-meta.json
       TPM_KEYSTORE_LOCATION: /opt/keycloak/conf/tpm-certificates.p12
       TPM_KEYSTORE_PASSWORD: "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+      APPLE_KEYSTORE_LOCATION: /opt/keycloak/conf/apple-certificates-server.p12
+      APPLE_KEYSTORE_PASSWORD: "04edb0b1a1eacf727ff6f"
+      GOOGLE_KEYSTORE_LOCATION: /opt/keycloak/conf/google-certificates-server.p12
+      GOOGLE_KEYSTORE_PASSWORD: "f92009e853b6b045"
+      GOOGLE_CERTIFICATE_STATUS_LOCATION: /opt/keycloak/conf/google-certificate-status.json
+      FEDERATION_MASTER_LOCATION: /opt/keycloak/conf/federation-master.json
       # OCSP_KEYSTORE_LOCATION: /opt/keycloak/conf/ocsp-signers.p12
       # OCSP_KEYSTORE_PASSWORD: "oGxkNU73WYIGpNTfWgeU"
       # OCSP_KEYSTORE_META_LOCATION: /opt/keycloak/conf/ocsp-signers-meta.json
+      SPREE_FUTURE_KEYCHAIN_FILE: /opt/keycloak/conf/vaudb/spree-keychain-2.env
+      SPREE_KEYCHAIN_FILE: /opt/keycloak/conf/vaudb/spree-keychain-1.env
+      # SPREE_PREVIOUS_KEYCHAIN_FILE: /opt/keycloak/conf/vaudb/spree-keychain-0.env
+      SPREE_AUTOMATIC_CRYPTO_UPDATE: "true"
       SPREE_INTEGRITY_PROVIDER_ENABLED: ${SPREE_INTEGRITY_PROVIDER_ENABLED:-false}
       SPREE_ENABLE_INTEGRITY_CHECK: ${SPREE_ENABLE_INTEGRITY_CHECK:-false}
       SPREE_ENABLE_INTEGRITY_TABLE_CHECK: ${SPREE_ENABLE_INTEGRITY_TABLE_CHECK:-false}
@@ -108,17 +118,23 @@ services:
       # Caveat: the truststores above are single-file bind mounts, which pin the inode — replacing a file on the host
       # by rename stays invisible inside the container. Overwrite the file in place to try a reload out.
       TRUSTSTORE_RELOAD_INTERVAL: "PT10S"
-    env_file:
-      - conf/spree-keychain.env
+      ENTITY_STATEMENT_CLIENT_NAME: "zeta-guard"
+      ENTITY_STATEMENT_ORGANIZATION_NAME: "zeta-guard"
+      ENTITY_STATEMENT_CONTACT_EMAIL: "zeta-guard@example.com"
     ports:
       - "127.0.0.1:18787:8787" # debug port
       - "127.0.0.1:18080:8080" # api port
     networks:
       - zeta-guard
     volumes:
+      - ./conf/vaudb:/opt/keycloak/conf/vaudb
       - ./smcb-certificates.p12:/opt/keycloak/conf/smcb-certificates.p12
       - ./smcb-certificates-meta.json:/opt/keycloak/conf/smcb-certificates-meta.json
       - ./tpm-certificates.p12:/opt/keycloak/conf/tpm-certificates.p12
+      - ./apple-certificates-server.p12:/opt/keycloak/conf/apple-certificates-server.p12
+      - ./google-certificates-server.p12:/opt/keycloak/conf/google-certificates-server.p12
+      - ./google-certificate-status.json:/opt/keycloak/conf/google-certificate-status.json
+      - ./federation-master.json:/opt/keycloak/conf/federation-master.json
       - ./ocsp-signers.p12:/opt/keycloak/conf/ocsp-signers.p12
       - ./ocsp-signers-meta.json:/opt/keycloak/conf/ocsp-signers-meta.json
       - ../target:/opt/keycloak/data
@@ -146,13 +162,13 @@ services:
       KEYCLOAK_USER: zeta
       KEYCLOAK_PASSWORD: sigma
       KEYCLOAK_AVAILABILITYCHECK_ENABLED: "true"
-      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 60s
+      KEYCLOAK_AVAILABILITYCHECK_TIMEOUT: 90s
       IMPORT_FILES: "/config/*"
       # See https://github.com/adorsys/keycloak-config-cli?tab=readme-ov-file#variable-substitution
       IMPORT_VARSUBSTITUTION_ENABLED: true
       # See entrypoint.sh
       DEBUG_CLI_SCRIPTS: true
-      INITIAL_DELAY: 40
+      INITIAL_DELAY: 60
       KC_EVENT_LISTENER: zeta-guard-admin-events
       ADMIN_EVENT_LOGGING_ENABLED: true
       ADMIN_EVENT_LOGGING_DETAILS_ENABLED: true
@@ -189,6 +205,14 @@ services:
       - "18282:8282"   # OPA diagnostics
     networks:
       - zeta-guard
+
+  # Catches the email-binding OTP mails (SMTP 1025); the IT reads them over the HTTP API (8025).
+  mailpit:
+    image: axllent/mailpit:v1.27.10
+    networks:
+      - zeta-guard
+    ports:
+      - "18025:8025"
 
   opa-simulation:
     image: openpolicyagent/opa:1.14.0-static

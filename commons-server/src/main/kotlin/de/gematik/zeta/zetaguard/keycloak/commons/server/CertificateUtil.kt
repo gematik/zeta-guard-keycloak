@@ -44,6 +44,9 @@ import java.security.cert.TrustAnchor
 import java.security.cert.X509Certificate
 import org.bouncycastle.asn1.ASN1Encodable
 import org.bouncycastle.asn1.ASN1ObjectIdentifier
+import org.bouncycastle.asn1.ASN1OctetString
+import org.bouncycastle.asn1.ASN1Sequence
+import org.bouncycastle.asn1.ASN1TaggedObject
 import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 import org.bouncycastle.asn1.isismtt.x509.Admissions
 import org.bouncycastle.asn1.isismtt.x509.ProfessionInfo
@@ -60,6 +63,11 @@ import org.keycloak.common.util.PemUtils
 
 // https://oidref.com/1.3.36.8.3.3
 val admission = ASN1ObjectIdentifier("1.3.36.8.3.3")
+
+val appleNonceExtension = ASN1ObjectIdentifier("1.2.840.113635.100.8.2")
+
+// https://source.android.com/docs/security/features/keystore/attestation#attestation-extension
+val androidKeyAttestationExtension = ASN1ObjectIdentifier("1.3.6.1.4.1.11129.2.1.17")
 
 /**
  * Returns true if the certificate appears to be a self-signed root certificate.
@@ -102,6 +110,14 @@ fun X509Certificate.isIntermediate(): Boolean {
  * The underlying certificate's encoded form (ASN.1 DER) is base64-encoded and returned.
  */
 fun X509Certificate.toDER() = encoded.toBase64()
+
+fun X509Certificate.extractAppleNonce(): ByteArray? {
+  val sequence = extractExtension<ASN1Sequence>(appleNonceExtension)
+  val wrapper = sequence?.getObjectAt(0) as ASN1TaggedObject?
+  val octet = wrapper?.explicitBaseObject as ASN1OctetString?
+
+  return octet?.octets
+}
 
 /**
  * Encode a generic Key (for example a PrivateKey or PublicKey) to a base64 DER string.
@@ -211,14 +227,14 @@ fun validateCertificateChain(rootCertificate: X509Certificate, certificateChain:
       ensure(certificateChain.isNotEmpty()) { "Certificate chain is empty" }
 
       Either.catch {
-            val certFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
-            val certPath = certFactory.generateCertPath(certificateChain)
-            val trustAnchor = TrustAnchor(rootCertificate, null)
-            val params = PKIXParameters(setOf(trustAnchor)).apply { isRevocationEnabled = false } // check revocation as a later step
-            val validator = CertPathValidator.getInstance("PKIX", PROVIDER_NAME)
+        val certFactory = CertificateFactory.getInstance("X.509", PROVIDER_NAME)
+        val certPath = certFactory.generateCertPath(certificateChain)
+        val trustAnchor = TrustAnchor(rootCertificate, null)
+        val params = PKIXParameters(setOf(trustAnchor)).apply { isRevocationEnabled = false } // check revocation as a later step
+        val validator = CertPathValidator.getInstance("PKIX", PROVIDER_NAME)
 
-            validator.validate(certPath, params) as PKIXCertPathValidatorResult
-          }
+        validator.validate(certPath, params) as PKIXCertPathValidatorResult
+      }
           .mapLeft {
             logger.error("Certificate validation failed for ${certificateChain.toList()}", it)
             it.message ?: "Certificate validation failed"
@@ -236,9 +252,9 @@ inline fun <reified T : ASN1Encodable> X509Certificate.extractExtension(oid: ASN
       val certHolder = JcaX509CertificateHolder(this)
       val encodable = certHolder.getExtension(oid)?.parsedValue
 
-      T::class.members.find { it.name == "getInstance" }?.call(encodable) as T?
+      T::class.members.find { it.name == "getInstance" && it.parameters.size == 1 }?.call(encodable) as T?
     } catch (e: Exception) {
-      logger.warn("⚠️ Error parsing extension $oid: ${e.message}")
+      logger.error("⚠️ Error parsing extension $oid: ${e.message}")
       null
     }
 
@@ -254,9 +270,18 @@ fun ProfessionInfo.firstProfession(): ASN1ObjectIdentifier? = if (professionOIDs
 /** Convenience: extract the Common Name (CN) component from the certificate's subject DN. */
 fun X509Certificate.subjectCommonName() = getSubjectComponent(BCStyle.CN)
 
+/** Convenience: extract the Common Name (CN) component from the certificate's issuer DN. */
+fun X509Certificate.issuerCommonName() = getIssuerComponent(BCStyle.CN)
+
 /** Convenience: extract the Organization (O) component from the certificate's subject DN. */
 fun X509Certificate.subjectOrganisationName() = getSubjectComponent(BCStyle.O)
 
 /** Internal helper to extract a single subject component value from this certificate's subject DN using the provided ASN.1 identifier. */
 private fun X509Certificate.getSubjectComponent(identifier: ASN1ObjectIdentifier) =
-    X500Name(subjectX500Principal.name).getRDNs(identifier).map { IETFUtils.valueToString(it.first.value) }.firstOrNull() ?: "Unbekannt"
+    X500Name(subjectX500Principal.name).getIdentifier(identifier)
+
+private fun X500Name.getIdentifier(identifier: ASN1ObjectIdentifier) =
+    getRDNs(identifier).map { IETFUtils.valueToString(it.first.value) }.firstOrNull() ?: "Unbekannt"
+
+private fun X509Certificate.getIssuerComponent(identifier: ASN1ObjectIdentifier) =
+    X500Name(issuerX500Principal.name).getIdentifier(identifier)

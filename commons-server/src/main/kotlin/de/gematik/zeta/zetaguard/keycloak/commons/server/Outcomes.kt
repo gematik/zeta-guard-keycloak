@@ -39,10 +39,12 @@ interface Success
 
 object SimpleSuccess : Success
 
-data class KeycloakSuccessResponse<T>(val reponseObject: T) : Success
+data class KeycloakSuccessResponse<T>(val responseObject: T) : Success
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 open class KeycloakError(error: String, errorDescription: String, var statusCode: Int) : OAuth2ErrorRepresentation(error, errorDescription) {
+  val status : Status get() = Status.fromStatusCode(statusCode)
+
   @Suppress("unused") constructor() : this("", "", 0)
 
   constructor(error: String, errorDescription: String, status: Status) : this(error, errorDescription, status.statusCode)

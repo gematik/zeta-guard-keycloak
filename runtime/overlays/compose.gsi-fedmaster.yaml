@@ -1,0 +1,34 @@
+name: "zeta-guard"
+
+services:
+
+  gsi-fedmaster:
+    image: ${GSI_FEDMASTER_IMAGE:-zeta/devops/gem-sekidp/gsi-fedmaster}:${GSI_TAG:-8.5.1}
+    environment:
+      SERVER_PORT: 8083
+      MANAGEMENT_PORT: 8183
+      FEDMASTER_SERVER_URL: "http://gsi-fedmaster:8083"
+      ISSUER_IDP_01: "http://gsi-server:8085"
+    networks:
+      - zeta-guard
+    ports:
+      - "8083:8083"
+
+  gsi-server:
+    image: ${GSI_SERVER_IMAGE:-zeta/devops/gem-sekidp/gsi-server}:${GSI_TAG:-8.5.1}
+    environment:
+      SERVER_PORT: 8085
+      MANAGEMENT_PORT: 8185
+      GSI_SERVER_URL: "http://gsi-server:8085"
+      GSI_SERVER_URL_MTLS: "http://gsi-server:8085"
+      FEDMASTER_SERVER_URL: "http://gsi-fedmaster:8083"
+      # local: the IDP validates Keycloak's PAR against the mounted entity statement instead of asking
+      # gsi-fedmaster about Keycloak.
+      GSI_FEDMASTER_MODE: "${GSI_FEDMASTER_MODE:-local}"
+      GSI_FEDMASTER_LOCAL_ENTITY_STATEMENT_FILE: "/fedmaster-config/entity-statement-about-rp.jwt"
+    networks:
+      - zeta-guard
+    ports:
+      - "8085:8085"
+    volumes:
+      - ./sekidp/entity-statement-about-rp.jwt:/fedmaster-config/entity-statement-about-rp.jwt:ro

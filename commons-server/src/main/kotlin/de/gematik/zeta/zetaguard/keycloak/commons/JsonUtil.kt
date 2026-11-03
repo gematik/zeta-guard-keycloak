@@ -24,8 +24,10 @@
 package de.gematik.zeta.zetaguard.keycloak.commons
 
 import com.fasterxml.jackson.databind.InjectableValues
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.MapperFeature
 import com.fasterxml.jackson.databind.SerializationFeature
+import java.io.InputStream
 import org.keycloak.util.JsonSerialization
 
 object JsonUtil {
@@ -42,6 +44,12 @@ object JsonUtil {
 
   inline fun <reified T> String.toObject(): T = JsonSerialization.readValue(this, T::class.java)
 
+  inline fun <reified T> Map<String, Any>.toObject(): T = JsonSerialization.mapper.convertValue(this, T::class.java)
+
+  inline fun <reified T> InputStream.toObject(): T = JsonSerialization.readValue(this, T::class.java)
+
+  fun String.toJsonNode(): JsonNode = JsonSerialization.mapper.readTree(this)
+
   /**
    * Requires a constructor annotated with @JsonCreator and @JacksonInject annotated parameters
    *
@@ -52,9 +60,9 @@ object JsonUtil {
         JsonSerialization.mapper.copy().apply {
           val injectables = InjectableValues.Std()
 
-          for (entry in map.entries) {
-            injectables.addValue(entry.value.javaClass, entry.value)
-            injectables.addValue(entry.key, entry.value)
+          for ((key, value) in map) {
+            injectables.addValue(value.javaClass, value)
+            injectables.addValue(key, value)
           }
 
           setInjectableValues(injectables)
@@ -62,6 +70,4 @@ object JsonUtil {
 
     return mapper.readValue(this, T::class.java)
   }
-
-  inline fun <reified T> Map<String, Any>.toObject(): T = JsonSerialization.mapper.convertValue(this, T::class.java)
 }

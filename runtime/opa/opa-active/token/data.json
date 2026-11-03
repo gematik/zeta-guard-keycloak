@@ -7,6 +7,7 @@
     "test_scope_write",
     "erezept",
     "vsdservice",
-    "openid"
+    "openid",
+    "zeta:client-management"
   ]
 }

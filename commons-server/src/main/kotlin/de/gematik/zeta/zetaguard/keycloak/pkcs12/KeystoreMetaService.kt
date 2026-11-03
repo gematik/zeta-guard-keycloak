@@ -29,12 +29,12 @@ import java.security.cert.X509Certificate
 import java.util.Date
 import org.keycloak.util.JsonSerialization
 
-class KeystoreMetaService(storeStream: InputStream, password: String, metaStream: InputStream) : KeystoreService(storeStream, password) {
+class KeystoreMetaService(name: String, storeStream: InputStream, password: String, metaStream: InputStream) :
+  KeystoreService(name, storeStream, password) {
   private val meta: Map<String, KeystoreMeta> by lazy {
     metaStream.let { stream ->
-      JsonSerialization.mapper.readerForListOf(KeystoreMeta::class.java).readValue<List<KeystoreMeta>>(stream).associateBy {
-        it.friendlyName.uppercase()
-      }
+      JsonSerialization.mapper.readerForListOf(KeystoreMeta::class.java)
+          .readValue<List<KeystoreMeta>>(stream).associateBy { it.friendlyName.uppercase() }
     }
   }
 

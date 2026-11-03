@@ -47,6 +47,7 @@ data class OpaSessionContext
     "userProfessionOid",
     "userCommonName",
     "deviceInfo",
+    "attestationTimestamp",
 )
 constructor(
     val accessTokenTTL: Duration,
@@ -65,6 +66,7 @@ constructor(
     val userProfessionOid: String? = null,
     val userCommonName: String? = null,
     val deviceInfo: OpaDeviceInfo? = null,
+    val attestationTimestamp: Long? = null,
 )
 
 fun opaTtlDurations(accessTtl: Int?, refreshTtl: Int?): Pair<Duration, Duration>? {

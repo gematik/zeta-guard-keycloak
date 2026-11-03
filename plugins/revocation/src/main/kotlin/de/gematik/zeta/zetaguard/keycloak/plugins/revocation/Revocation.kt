@@ -99,6 +99,7 @@ interface BlockStore {
      */
     fun of(session: KeycloakSession): BlockStore {
       val connection = session.getProvider(InfinispanConnectionProvider::class.java)
+
       return if (InfinispanUtils.isRemoteInfinispan()) {
         RemoteBlockStore(connection.getRemoteCache(REVOCATION_CACHE))
       } else {
@@ -118,25 +119,27 @@ fun defineEmbeddedCache(session: KeycloakSession) {
   val connection = session.getProvider(InfinispanConnectionProvider::class.java)
   // The manager is not on the SPI, but any Keycloak cache can hand it over.
   val manager = connection.getCache<Any, Any>(InfinispanConnectionProvider.WORK_CACHE_NAME).cacheManager
-  if (manager.getCacheConfiguration(REVOCATION_CACHE) != null) return
 
-  val builder = ConfigurationBuilder()
-  // Entries expire by themselves (see lifespanSeconds), and they are neither evicted nor bounded: dropping a block would silently un-revoke a
-  // session.
-  if (manager.cacheManagerConfiguration.isClustered) {
-    // Replicated and synchronous: once a report is answered, the block is on every node, including the ones holding subscriptions.
-    builder.clustering().cacheMode(CacheMode.REPL_SYNC)
-  } else {
-    builder.clustering().cacheMode(CacheMode.LOCAL)
+  if (manager.getCacheConfiguration(REVOCATION_CACHE) == null) {
+    val builder = ConfigurationBuilder()
+    // Entries expire by themselves (see lifespanSeconds), and they are neither evicted nor bounded: dropping a block would silently un-revoke a
+    // session.
+    if (manager.cacheManagerConfiguration.isClustered) {
+      // Replicated and synchronous: once a report is answered, the block is on every node, including the ones holding subscriptions.
+      builder.clustering().cacheMode(CacheMode.REPL_SYNC)
+    } else {
+      builder.clustering().cacheMode(CacheMode.LOCAL)
+    }
+
+    manager.defineConfiguration(REVOCATION_CACHE, builder.build())
   }
-  manager.defineConfiguration(REVOCATION_CACHE, builder.build())
 }
 
 /** A sid that cannot occur, so the probe never reports a real block as present. */
 private const val PROBE_KEY = ""
 
 /** Enough attempts to outlast contention on one sid, which only two writers ever have. */
-private const val MERGE_ATTEMPTS = 3
+const val ATTEMPTS = 3
 
 private fun lifespanSeconds(block: Block): Long = (block.until - System.currentTimeMillis() / 1000).coerceAtLeast(1)
 
@@ -148,8 +151,9 @@ private fun lifespanSeconds(block: Block): Long = (block.until - System.currentT
  * yet. Both topologies share this because `BasicCache` is the common ancestor of embedded and Hot Rod caches.
  */
 private fun BasicCache<String, String>.putMerged(block: Block) {
-  repeat(MERGE_ATTEMPTS) {
+  repeat(ATTEMPTS) {
     val existingJson = get(block.what)
+
     if (existingJson == null) {
       if (putIfAbsent(block.what, block.toJson(), lifespanSeconds(block), TimeUnit.SECONDS) == null) return
       return@repeat // lost the race against another writer; retry as an extension
@@ -159,7 +163,8 @@ private fun BasicCache<String, String>.putMerged(block: Block) {
     val merged = block.copy(`when` = minOf(existing.`when`, block.`when`))
     if (replace(block.what, existingJson, merged.toJson(), lifespanSeconds(merged), TimeUnit.SECONDS)) return
   }
-  log.warnf("gave up extending the block for session %s after %d attempts", block.what, MERGE_ATTEMPTS)
+
+  log.warnf("gave up extending the block for session %s after %d attempts", block.what, ATTEMPTS)
 }
 
 internal class EmbeddedBlockStore(private val cache: Cache<String, String>) : BlockStore {
@@ -179,7 +184,7 @@ internal class EmbeddedBlockStore(private val cache: Cache<String, String>) : Bl
 
   /** A block that extends an existing one arrives as a modification, so both events matter. */
   @Listener(clustered = true)
-  inner class EmbeddedListener(private val onBlock: (Block) -> Unit) {
+  class EmbeddedListener(private val onBlock: (Block) -> Unit) {
     @CacheEntryCreated
     fun created(event: CacheEntryCreatedEvent<String, String>) {
       if (!event.isPre) event.value?.let { onBlock(Block.fromJson(it)) }

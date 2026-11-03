@@ -23,6 +23,10 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
+import de.gematik.zeta.zetaguard.keycloak.commons.secondsToLocalDateTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
@@ -34,7 +38,7 @@ class UserDataStorageTest : AbstractUserDataTest() {
   init {
 
     test("basic persistence") {
-      val clientData2 = dataService.createClientData("client2")
+      val clientData2 = dataService.createClientData("client2", ClientAuthMethod.SMC_B)
       val userData2 = dataService.createUserData("user2")
       clientData2.userData = userData2
 
@@ -52,6 +56,17 @@ class UserDataStorageTest : AbstractUserDataTest() {
 
       entityManager.remove(userData)
       dataService.findClientData(clientData2.id).shouldBeNull()
+    }
+
+    test("the owner of a client is found without loading the client") {
+      val clientData = dataService.createClientData("client2", ClientAuthMethod.SEK_IDP)
+      clientData.userData = dataService.createUserData("user2")
+      dataService.createClientData("unbound", ClientAuthMethod.SEK_IDP)
+
+      newTransaction()
+      dataService.findClientOwner("client2") shouldBe "user2"
+      dataService.findClientOwner("unbound").shouldBeNull()
+      dataService.findClientOwner("unknown").shouldBeNull()
     }
 
     test("SEK_IDP client starts with EMAIL_CONFIRMATION_REQUIRED registration status") {
@@ -80,9 +95,42 @@ class UserDataStorageTest : AbstractUserDataTest() {
       dataService.findClientData(created.id).shouldNotBeNull().registrationStatus shouldBe ClientRegistrationStatus.CONFIRMED
     }
 
+    test("client data from client statement and session data persist across transactions") {
+      val created = dataService.createClientData("mobile-client", ClientAuthMethod.SEK_IDP)
+      // Realistic size: the policy engine input is a few KB, well beyond a default VARCHAR(255)
+      val scopes = (1..200).map { "scope-$it" }
+      val opaInput = mapOf("input" to mapOf("version" to "1.0", "authorization_request" to mapOf("scopes" to scopes))).toJSON()
+
+      created.updateFrom(MOCK_MOBILE_CLIENT_STATEMENT.toObject<ClientStatementData>())
+      created.storeSessionData(opaInput)
+
+      newTransaction()
+      val clientData = dataService.findClientData(created.id).shouldNotBeNull()
+      clientData.platform shouldBe "apple"
+      clientData.productId shouldBe "demo_client"
+      clientData.productVersion shouldBe "0.1.0"
+      clientData.os shouldBe "iOS"
+      clientData.osVersion shouldBe "17.5.1"
+      clientData.deviceModel shouldBe "iPhone15,3"
+      clientData.attestationTimestamp shouldBe 1753272000L.secondsToLocalDateTime()
+      clientData.sessionData shouldBe opaInput
+      clientData.sessionUpdatedAt.shouldNotBeNull()
+    }
+
+    test("client data without statement and session data") {
+      val created = dataService.createClientData("client1", ClientAuthMethod.SMC_B)
+
+      newTransaction()
+      val clientData = dataService.findClientData(created.id).shouldNotBeNull()
+      clientData.platform.shouldBeNull()
+      clientData.attestationTimestamp.shouldBeNull()
+      clientData.sessionData.shouldBeNull()
+      clientData.sessionUpdatedAt.shouldBeNull()
+    }
+
     test("Client data deletion") {
-      val clientData1 = dataService.createClientData("client1")
-      val clientData2 = dataService.createClientData("client2")
+      val clientData1 = dataService.createClientData("client1", ClientAuthMethod.SMC_B)
+      val clientData2 = dataService.createClientData("client2", ClientAuthMethod.SEK_IDP)
       val userData2 = dataService.createUserData("user2")
       clientData2.userData = userData2
       clientData1.userData = userData2
@@ -97,8 +145,8 @@ class UserDataStorageTest : AbstractUserDataTest() {
     }
 
     test("User data deletion cascades") {
-      val clientData1 = dataService.createClientData("client1")
-      val clientData2 = dataService.createClientData("client2")
+      val clientData1 = dataService.createClientData("client1", ClientAuthMethod.SMC_B)
+      val clientData2 = dataService.createClientData("client2", ClientAuthMethod.SMC_B)
       val userData2 = dataService.createUserData("user2")
       clientData2.userData = userData2
       clientData1.userData = userData2

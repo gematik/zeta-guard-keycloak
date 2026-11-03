@@ -89,6 +89,15 @@ class ZetaGuardRefreshTokenGrantTypeTest : FunSpec() {
       input.userCommonName shouldBe "X110123456"
       input.ipAddress shouldBe "10.0.0.1"
       input.previousIpAddress shouldBe "10.0.0.2"
+      input.attestationTimestamp shouldBe 1_753_272_000L
+    }
+
+    test("SMC-B refresh replays the stored attestation timestamp into the OPA input") {
+      val refreshToken = RefreshToken(AccessToken()).apply { scope = "openid" }
+      val input = buildRefreshOpaInput(refreshToken, RefreshOpaReplay.Smcb(smcbData()), "10.0.0.1", null)
+
+      input.clientRegistrationTimestamp shouldBe 1L
+      input.attestationTimestamp shouldBe 1_753_272_001L
     }
 
     test("mobile refresh falls back to the refresh-token scope when the snapshot has none") {
@@ -98,6 +107,7 @@ class ZetaGuardRefreshTokenGrantTypeTest : FunSpec() {
 
       input.scopes shouldBe listOf("openid", "profile")
       input.previousIpAddress shouldBe "Unknown"
+      input.attestationTimestamp shouldBe null
     }
   }
 
@@ -118,6 +128,7 @@ class ZetaGuardRefreshTokenGrantTypeTest : FunSpec() {
           userIdentifier = "X110123456",
           userProfessionOid = "1.2.276.0.76.4.49",
           userCommonName = "X110123456",
+          attestationTimestamp = 1_753_272_000,
       )
 
   private fun smcbData() =
@@ -138,5 +149,6 @@ class ZetaGuardRefreshTokenGrantTypeTest : FunSpec() {
           refreshTokenTTL = Duration.ofSeconds(300),
           audiences = listOf("https://smcb.example"),
           scopes = listOf("openid"),
+          attestationTimestamp = 1_753_272_001,
       )
 }

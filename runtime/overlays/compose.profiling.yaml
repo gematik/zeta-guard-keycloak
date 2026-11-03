@@ -1,0 +1,19 @@
+# Overlay: adds hsm-sim and wires HSM_PROXY_* env vars into keycloak.
+#
+# Scenario 2 — no-TLS, with HSM warm-up:
+#   docker compose -f compose.yaml -f overlays/compose.hsm.yaml up
+#
+# Required by overlays/compose.tls-hsm.yaml (scenario 3).
+
+name: "zeta-guard"
+
+services:
+  keycloak:
+    image: zeta/zeta-guard/keycloak-zeta:profiling
+    environment:
+      JAVA_OPTS_APPEND: >
+        -agentpath:/opt/keycloak/async-profiler/lib/libasyncProfiler.so=start,interval=5ms,jfr,event=cpu,file=/opt/keycloak/data/zeta-guard.jfr
+        -ea
+      KC_DEBUG: false
+    # Give profiler some time to write its data
+    stop_grace_period: 30s

@@ -51,6 +51,7 @@ class ZetaGuardTokenExchangeDataTest : FunSpec() {
             audiences = listOf("https://fachdienst.example"),
             scopes = listOf("openid"),
             deviceInfo = OpaDeviceInfo(os = "Linux", osVersion = "6.12", deviceModel = null),
+            attestationTimestamp = 1_753_272_000,
         )
 
     test("round-trips a session note including device info") { data.toJSON().toObject<ZetaGuardTokenExchangeData>() shouldBe data }
@@ -59,6 +60,12 @@ class ZetaGuardTokenExchangeDataTest : FunSpec() {
       val json = data.copy(deviceInfo = null).toJSON()
 
       json.toObject<ZetaGuardTokenExchangeData>().deviceInfo shouldBe null
+    }
+
+    test("reads notes written before attestationTimestamp existed") {
+      val json = data.copy(attestationTimestamp = null).toJSON()
+
+      json.toObject<ZetaGuardTokenExchangeData>().attestationTimestamp shouldBe null
     }
 
     test("ignores unknown fields from newer note versions") {

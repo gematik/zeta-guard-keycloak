@@ -28,8 +28,9 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityProviderUtil.se
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETAGUARD_TOKEN_EXCHANGE_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
-import de.gematik.zeta.zetaguard.keycloak.plugins.logger
 import de.gematik.zeta.zetaguard.keycloak.commons.OcspConfig
+import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialProvider
 import de.gematik.zeta.zetaguard.keycloak.plugins.ocsp.OcspConfigResolver
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaConfigResolver
@@ -48,27 +49,22 @@ import org.keycloak.protocol.oidc.TokenExchangeProviderFactory
  * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/gemSpec_ZETA_V1.1.0/#5.5.2.5
  */
 open class ZetaGuardTokenExchangeProviderFactory : TokenExchangeProviderFactory {
-  /**
-   * All truststores as one immutable snapshot, swapped as a single reference by [scheduleTrustMaterialReload].
-   *
-   * `@Volatile` is what makes that swap safe without locking. [create] hands the provider a getter rather than the
-   * snapshot itself; the provider resolves it once, so a running token exchange keeps the material it started with
-   * while the next one picks up whatever has been published since.
-   */
-  @Volatile internal lateinit var trustMaterial: TrustMaterial
-
   internal var opaConfig: OPAConfig = OPAConfig()
   internal var ocspConfig: OcspConfig = OcspConfig()
   internal lateinit var integrityProviderService: IntegrityProviderService
 
-  override fun create(session: KeycloakSession) =
-      ZetaGuardTokenExchangeProvider(
-          integrityProviderService,
-          ZetaGuardDataService(DefaultEMCreator(session)),
-          { trustMaterial },
-          opaConfig,
-          ocspConfig,
-      )
+  override fun create(session: KeycloakSession): ZetaGuardTokenExchangeProvider {
+    // Resolved once per request, so a token exchange in progress is not affected by a concurrent truststore reload
+    val trustMaterial = session.getProvider(TrustMaterialProvider::class.java).trustMaterial()
+
+    return ZetaGuardTokenExchangeProvider(
+        integrityProviderService,
+        ZetaGuardDataService(DefaultEMCreator(session)),
+        trustMaterial,
+        opaConfig,
+        ocspConfig,
+    )
+  }
 
   override fun init(config: Config.Scope) {
     // Load OPA config from Keycloak SPI scope for this provider
@@ -88,18 +84,7 @@ open class ZetaGuardTokenExchangeProviderFactory : TokenExchangeProviderFactory 
     // Set BC as default provider
     setupSecurityProviders()
 
-    trustMaterial = TrustMaterial.load()
     integrityProviderService = Arc.container().instance(IntegrityProviderService::class.java).get()
-
-    if (trustMaterial.ocsp == null) {
-      logger.warn("OCSP checking disabled, Keystore or Meta File unavailable")
-    }
-
-    if (trustMaterial.aliasesWithoutMeta.isNotEmpty()) {
-      logger.warn("No meta entry for ${trustMaterial.aliasesWithoutMeta}, the revocation check fails open for those")
-    }
-
-    scheduleTrustMaterialReload(factory, { trustMaterial }, { trustMaterial = it })
   }
 
   override fun getId() = ZETAGUARD_TOKEN_EXCHANGE_PROVIDER_ID

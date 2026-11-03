@@ -23,20 +23,14 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
-import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import io.kotest.assertions.arrow.core.shouldBeRight
-import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldNotBe
 
-class NonceCreationIT : FunSpec() {
-  val keycloakWebClient = KeycloakWebClient.instance()
-
+class NonceCreationIT : ZetaGuardFunSpecIT() {
   init {
-    afterSpec { keycloakWebClient.close() }
-
     test("Create nonce") {
-      val nonce1 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
-      val nonce2 = keycloakWebClient.getNonce().shouldBeRight().reponseObject
+      val nonce1 = keycloakWebClient.getNonce().shouldBeRight().responseObject
+      val nonce2 = keycloakWebClient.getNonce().shouldBeRight().responseObject
 
       nonce1 shouldNotBe nonce2
     }

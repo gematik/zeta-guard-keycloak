@@ -44,11 +44,11 @@ fun String.toRefreshToken(): RefreshToken = TokenVerifier.create(this, RefreshTo
 
 fun String.toJsonWebToken(): JsonWebToken = TokenVerifier.create(this, JsonWebToken::class.java).token
 
-fun String.toIDTokenInfo(verifer: SignatureVerifierContext? = null): IDTokenInfo {
+fun String.toIDTokenInfo(verifier: SignatureVerifierContext? = null): IDTokenInfo {
   val tokenVerifier =
       TokenVerifier.create(this, IDToken::class.java).also {
-        if (verifer != null) {
-          it.verifierContext(verifer).verify()
+        if (verifier != null) {
+          it.verifierContext(verifier).verify()
         }
       }
 

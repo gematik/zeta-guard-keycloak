@@ -26,6 +26,7 @@ package de.gematik.zeta.zetaguard.keycloak.client_assertion
 import com.fasterxml.jackson.annotation.JsonProperty
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
+import de.gematik.zeta.zetaguard.keycloak.commons.Platform
 import java.beans.ConstructorProperties
 
 const val PROPERTY_PLATFORM = "platform"

@@ -23,18 +23,28 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.AppleRegistrationRequest
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.TpmRegistrationRequest
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientRequestRepresentation
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_REGISTRATION_DATA
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_RAW
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_CLIENT_MANAGEMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_EMAIL_BINDING
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_MOBILE_BROWSER_FLOW
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
+import de.gematik.zeta.zetaguard.keycloak.plugins.attestation.google.GoogleCertificateStatusService
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterial
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
+import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.NonceFactory
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.justRun
@@ -44,29 +54,64 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import io.mockk.verify
+import org.apache.http.HttpStatus.SC_BAD_REQUEST
 import org.keycloak.models.AuthenticationFlowBindings
 import org.keycloak.models.AuthenticationFlowModel
 import org.keycloak.models.ClientModel
 import org.keycloak.models.ClientScopeModel
+import org.keycloak.models.KeycloakSession
 import org.keycloak.models.RealmModel
 import org.keycloak.models.utils.KeycloakModelUtils
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper.TokenExchangeRefreshTokenEnabled.SAME_SESSION
 import org.keycloak.protocol.oidc.OIDCConfigAttributes.DPOP_BOUND_ACCESS_TOKENS
 import org.keycloak.protocol.oidc.OIDCConfigAttributes.STANDARD_TOKEN_EXCHANGE_ENABLED
 import org.keycloak.protocol.oidc.OIDCConfigAttributes.STANDARD_TOKEN_EXCHANGE_REFRESH_ENABLED
+import org.keycloak.services.ErrorResponseException
 import org.keycloak.services.clientregistration.ClientRegistrationContext
 
 class ZetaGuardClientRegistrationPolicyTest : FunSpec() {
   init {
+    val session = mockk<KeycloakSession>()
+    val context = mockk<ClientRegistrationContext>(relaxed = true)
+
     beforeEach {
       mockkObject(OidcFlowSettings)
       every { OidcFlowSettings.isEnabled() } returns true
+      every { context.session } returns session
+      every {
+        session.getAttribute(
+            ATTRIBUTE_CLIENT_REGISTRATION_DATA,
+            ZetaGuardOIDCClientRequestRepresentation::class.java
+        )
+      } returns AppleRegistrationRequest()
     }
+
     afterEach { unmockkObject(OidcFlowSettings) }
 
+    val status = GoogleCertificateStatusService(ZetaGuardClientRegistrationPolicyTest::class.java.getResourceAsStream("/status.json")!!)
     val dataService = mockk<ZetaGuardDataService>(relaxed = true)
+    val appleTrustStore = mockk<KeystoreService>(relaxed = true)
+    val googleTrustStore = mockk<KeystoreService>(relaxed = true)
     val integrityProviderService = mockk<IntegrityProviderService>(relaxed = true)
-    val policy = ZetaGuardClientRegistrationPolicy(dataService, integrityProviderService)
+    val nonceFactory = mockk<NonceFactory>(relaxed = true)
+    val trustMaterial = TrustMaterial(
+        mockk(relaxed = true), mockk(relaxed = true), mockk(relaxed = true), appleTrustStore, googleTrustStore, status, ""
+    )
+    val policy = ZetaGuardClientRegistrationPolicy(
+        session,
+        nonceFactory,
+        trustMaterial,
+        dataService,
+        integrityProviderService
+    )
+
+    test("beforeRegister rejects unsupported attestation types") {
+      every { context.client.redirectUris } returns listOf("zeta://callback")
+      every { session.getAttribute(ATTRIBUTE_CLIENT_REGISTRATION_DATA, ZetaGuardOIDCClientRequestRepresentation::class.java) } returns
+          TpmRegistrationRequest()
+
+      shouldThrow<ErrorResponseException> { policy.beforeRegister(context) }.response.status shouldBe SC_BAD_REQUEST
+    }
 
     test("afterRegister for SMC-B client creates client data without email-binding scopes") {
       val clientModel = mockk<ClientModel>(relaxed = true)
@@ -77,13 +122,11 @@ class ZetaGuardClientRegistrationPolicyTest : FunSpec() {
       clientData.attestationState = ClientAttestationState.PENDING
       every { dataService.createClientData("smc-client", ClientAuthMethod.SMC_B) } returns clientData
 
-      val context = mockk<ClientRegistrationContext>(relaxed = true)
-      every { context.session } returns mockk(relaxed = true)
-
       policy.afterRegister(context, clientModel)
 
       // SMC-B clients stay pending until the attestation check in the token exchange
       clientData.attestationState shouldBe ClientAttestationState.PENDING
+      clientData.attestationType.shouldBeNull() // set during Token exchange
 
       verify {
         clientModel.setAttribute(STANDARD_TOKEN_EXCHANGE_REFRESH_ENABLED, SAME_SESSION.name)
@@ -94,8 +137,9 @@ class ZetaGuardClientRegistrationPolicyTest : FunSpec() {
       verify(exactly = 0) { clientModel.setAttribute(STANDARD_TOKEN_EXCHANGE_ENABLED, any()) }
     }
 
-    test("afterRegister for SEK_IDP client assigns email-binding scopes and creates SEK_IDP client data") {
+    test("afterRegister for SEK_IDP client assigns email-binding and client-management scopes and creates SEK_IDP client data") {
       mockkStatic(KeycloakModelUtils::class)
+
       try {
         val realm = mockk<RealmModel>()
         val flow = mockk<AuthenticationFlowModel>()
@@ -107,21 +151,20 @@ class ZetaGuardClientRegistrationPolicyTest : FunSpec() {
         every { KeycloakModelUtils.getClientScopeByName(realm, SCOPE_EMAIL_BINDING) } returns emailBindingScope
         every { KeycloakModelUtils.getClientScopeByName(realm, SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION) } returns
             emailVerifyScope
+        val clientManagementScope = mockk<ClientScopeModel>()
+        every { KeycloakModelUtils.getClientScopeByName(realm, SCOPE_CLIENT_MANAGEMENT) } returns clientManagementScope
 
         val clientModel = mockk<ClientModel>(relaxed = true)
         every { clientModel.clientId } returns "mobile-client"
         every { clientModel.redirectUris } returns setOf("zeta://callback")
         every { clientModel.realm } returns realm
-        justRun { clientModel.addClientScope(any(), false) }
+        justRun { clientModel.addClientScope(any(), any()) }
         justRun { clientModel.setAuthenticationFlowBindingOverride(any(), any()) }
         justRun { clientModel.setAttribute(any(), any()) }
 
         val clientData = ZetaGuardClientData("mobile-client", currentTime(), currentTime())
         clientData.attestationState = ClientAttestationState.PENDING
         every { dataService.createClientData("mobile-client", ClientAuthMethod.SEK_IDP) } returns clientData
-
-        val context = mockk<ClientRegistrationContext>(relaxed = true)
-        every { context.session } returns mockk(relaxed = true)
 
         policy.afterRegister(context, clientModel)
 
@@ -134,6 +177,7 @@ class ZetaGuardClientRegistrationPolicyTest : FunSpec() {
           clientModel.setAuthenticationFlowBindingOverride(AuthenticationFlowBindings.BROWSER_BINDING, "mobile-browser-flow-id")
           clientModel.addClientScope(emailBindingScope, false)
           clientModel.addClientScope(emailVerifyScope, false)
+          clientModel.addClientScope(clientManagementScope, true)
           dataService.createClientData("mobile-client", ClientAuthMethod.SEK_IDP)
         }
       } finally {
@@ -159,7 +203,33 @@ class ZetaGuardClientRegistrationPolicyTest : FunSpec() {
         every { context.session } returns mockk(relaxed = true)
 
         val ex = shouldThrow<IllegalStateException> { policy.afterRegister(context, clientModel) }
-        ex.message shouldBe "Client scope '$SCOPE_EMAIL_BINDING' not found."
+        ex.message shouldBe "Client scope »$SCOPE_EMAIL_BINDING« not found."
+      } finally {
+        unmockkStatic(KeycloakModelUtils::class)
+      }
+    }
+
+    test("afterRegister for SEK_IDP client fails when client-management client scope is missing") {
+      mockkStatic(KeycloakModelUtils::class)
+      try {
+        val realm = mockk<RealmModel>()
+        val flow = mockk<AuthenticationFlowModel>()
+        every { flow.id } returns "mobile-browser-flow-id"
+        every { realm.getFlowByAlias(ZETA_MOBILE_BROWSER_FLOW) } returns flow
+        every { KeycloakModelUtils.getClientScopeByName(realm, SCOPE_EMAIL_BINDING) } returns mockk()
+        every { KeycloakModelUtils.getClientScopeByName(realm, SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION) } returns mockk()
+        every { KeycloakModelUtils.getClientScopeByName(realm, SCOPE_CLIENT_MANAGEMENT) } returns null
+
+        val clientModel = mockk<ClientModel>(relaxed = true)
+        every { clientModel.clientId } returns "mobile-client"
+        every { clientModel.redirectUris } returns setOf("zeta://callback")
+        every { clientModel.realm } returns realm
+
+        val context = mockk<ClientRegistrationContext>(relaxed = true)
+        every { context.session } returns mockk(relaxed = true)
+
+        val ex = shouldThrow<IllegalStateException> { policy.afterRegister(context, clientModel) }
+        ex.message shouldBe "Client scope »$SCOPE_CLIENT_MANAGEMENT« not found."
       } finally {
         unmockkStatic(KeycloakModelUtils::class)
       }
@@ -171,9 +241,6 @@ class ZetaGuardClientRegistrationPolicyTest : FunSpec() {
       val clientModel = mockk<ClientModel>(relaxed = true)
       every { clientModel.clientId } returns "mobile-looking-client"
       every { clientModel.redirectUris } returns setOf("zeta://callback")
-
-      val context = mockk<ClientRegistrationContext>(relaxed = true)
-      every { context.session } returns mockk(relaxed = true)
 
       policy.afterRegister(context, clientModel)
 

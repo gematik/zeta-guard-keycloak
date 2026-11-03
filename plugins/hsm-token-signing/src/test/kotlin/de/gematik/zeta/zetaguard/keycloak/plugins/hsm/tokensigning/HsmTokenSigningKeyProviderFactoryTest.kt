@@ -23,6 +23,8 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.hsm.tokensigning
 
+import arrow.core.Either
+import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.collections.shouldHaveSize
@@ -43,7 +45,6 @@ import org.keycloak.provider.ProviderConfigProperty
 class HsmTokenSigningKeyProviderFactoryTest : FunSpec() {
 
   init {
-
     test("getId returns expected provider ID") { HsmTokenSigningKeyProviderFactory().getId() shouldBe HsmTokenSigningKeyProviderFactory.PROVIDER_ID }
 
     test("getHelpText returns non-empty string") { HsmTokenSigningKeyProviderFactory().getHelpText() shouldNotBe "" }
@@ -111,9 +112,8 @@ class HsmTokenSigningKeyProviderFactoryTest : FunSpec() {
             put(HsmTokenSigningKeyProviderFactory.CONFIG_KEY_ID, "token-key.p256")
           }
 
-      val result = runCatching { factory.create(mockk(), model) }
-      result.isFailure shouldBe true
-      result.exceptionOrNull()!!.message shouldBe "HSM endpoint not configured"
+      Either.catch { factory.create(mockk<KeycloakSession>(), model) }
+          .shouldBeLeft().message shouldBe "HSM endpoint not configured"
     }
 
     test("create throws when keyId is missing") {
@@ -124,9 +124,8 @@ class HsmTokenSigningKeyProviderFactoryTest : FunSpec() {
             put(HsmTokenSigningKeyProviderFactory.CONFIG_ENDPOINT, "localhost:50051")
           }
 
-      val result = runCatching { factory.create(mockk(), model) }
-      result.isFailure shouldBe true
-      result.exceptionOrNull()!!.message shouldBe "HSM keyId not configured"
+      Either.catch { factory.create(mockk(), model) }
+          .shouldBeLeft().message shouldBe "HSM keyId not configured"
     }
 
     // ── createFallbackKeys (fail-closed guard) ──────────────────────────────
@@ -170,8 +169,8 @@ class HsmTokenSigningKeyProviderFactoryTest : FunSpec() {
   /** Test factory: overrides `hsmEnforcingRealmName` to bypass mockk's KeycloakContext proxy issue. */
   private fun guardFactory(failClosed: Boolean, realmHasHsmProvider: Boolean = true): HsmTokenSigningKeyProviderFactory =
       object : HsmTokenSigningKeyProviderFactory() {
-            override fun hsmEnforcingRealmName(session: KeycloakSession): String? = if (realmHasHsmProvider) "<test>" else null
-          }
+        override fun hsmEnforcingRealmName(session: KeycloakSession): String? = if (realmHasHsmProvider) "<test>" else null
+      }
           .also { it.failClosed = failClosed }
 
   /** Creates a factory with buildKeyStore stubbed to avoid real gRPC. */

@@ -24,30 +24,24 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_A_ID
-import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import io.kotest.assertions.arrow.core.shouldBeRight
-import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import jakarta.security.enterprise.authentication.mechanism.http.openid.OpenIdConstant.OPENID_SCOPE
 import jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN
 
-class UserInfoIT : FunSpec() {
-  val keycloakWebClient = KeycloakWebClient.instance()
-
+class UserInfoIT : ZetaGuardFunSpecIT() {
   init {
-    afterSpec { keycloakWebClient.close() }
-
     test("Get user info without openid scope fails") {
-      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().reponseObject
+      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID).shouldBeRight().responseObject
 
       keycloakWebClient.getUserInfo(ZETA_REALM, accessTokenResponse.token, SC_FORBIDDEN)
       keycloakWebClient.logout(ZETA_REALM)
     }
 
     test("Get user info") {
-      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = OPENID_SCOPE).shouldBeRight().reponseObject
-      val userInfo = keycloakWebClient.getUserInfo(ZETA_REALM, accessTokenResponse.token).shouldBeRight().reponseObject
+      val accessTokenResponse = keycloakWebClient.login(client = CLIENT_A_ID, requestedClientScope = OPENID_SCOPE).shouldBeRight().responseObject
+      val userInfo = keycloakWebClient.getUserInfo(ZETA_REALM, accessTokenResponse.token).shouldBeRight().responseObject
 
       userInfo.email shouldBe "user1@foo.bar.com"
       userInfo.preferredUsername shouldBe "user1"

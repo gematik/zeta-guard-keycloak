@@ -24,7 +24,6 @@
 package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.client_attestation.TPM_ATTEST_MAGIC
-import de.gematik.zeta.zetaguard.keycloak.client_attestation.calculateAttestationChallenge
 import de.gematik.zeta.zetaguard.keycloak.client_attestation.deserializeQuote
 import de.gematik.zeta.zetaguard.keycloak.client_attestation.validateQuoteSignature
 import de.gematik.zeta.zetaguard.keycloak.commons.TPMPostureHelper.intermediateCertificate
@@ -40,6 +39,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toThumbprint
 import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateChain
 import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
+import de.gematik.zeta.zetaguard.keycloak.client_attestation.calculateAttestationChallenge
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.shouldBe
 import io.mockk.every

@@ -23,10 +23,14 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.authorization_code
 
+import arrow.core.Either
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
+import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOTPMailer
+import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOTPService
 import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaSessionContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_RAW
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_LAST_CLIENT_IP
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ACR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_AMR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KVNR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_PROFESSION_OID
@@ -36,23 +40,21 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.BINDING_MODE_VERIFY_OTP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import de.gematik.zeta.zetaguard.keycloak.commons.server.RESPONSE_MEMBER_BINDING_MODE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.RESPONSE_MEMBER_EMAIL_HINT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_EMAIL_BINDING
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.MOCK_MOBILE_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
-import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOtpMailer
-import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOtpService
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ACR
-import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.plugins.emailbinding.withTokenScopesReducedTo
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateEnforcer
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateInput
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.justRun
@@ -68,10 +70,10 @@ import jakarta.ws.rs.WebApplicationException
 import jakarta.ws.rs.core.MultivaluedHashMap
 import jakarta.ws.rs.core.Response
 import java.time.Duration
+import java.time.ZoneId
 import org.keycloak.OAuth2Constants
 import org.keycloak.OAuthErrorException.UNSUPPORTED_GRANT_TYPE
 import org.keycloak.common.util.Time
-import org.keycloak.representations.idm.OAuth2ErrorRepresentation
 import org.keycloak.connections.jpa.JpaConnectionProvider
 import org.keycloak.events.EventBuilder
 import org.keycloak.models.AuthenticatedClientSessionModel
@@ -83,12 +85,13 @@ import org.keycloak.models.UserModel
 import org.keycloak.models.UserSessionModel
 import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper
 import org.keycloak.protocol.oidc.TokenManager
-import org.keycloak.protocol.oidc.grants.OAuth2GrantType
-import org.keycloak.protocol.oidc.grants.OAuth2GrantTypeBase
 import org.keycloak.protocol.oidc.encode.AccessTokenContext
 import org.keycloak.protocol.oidc.encode.TokenContextEncoderProvider
+import org.keycloak.protocol.oidc.grants.OAuth2GrantType
+import org.keycloak.protocol.oidc.grants.OAuth2GrantTypeBase
 import org.keycloak.representations.AccessToken
 import org.keycloak.representations.AccessTokenResponse
+import org.keycloak.representations.idm.OAuth2ErrorRepresentation
 import org.keycloak.services.cors.Cors
 
 class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
@@ -97,10 +100,11 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       mockkObject(OidcFlowSettings)
       every { OidcFlowSettings.isEnabled() } returns true
     }
+
     afterEach {
       unmockkObject(OidcFlowSettings)
-      unmockkObject(EmailOtpService)
-      unmockkObject(EmailOtpMailer)
+      unmockkObject(EmailOTPService)
+      unmockkObject(EmailOTPMailer)
       unmockkObject(OpaGateEnforcer)
       unmockkStatic(Time::class)
       unmockkStatic("de.gematik.zeta.zetaguard.keycloak.commons.server.EncodingUtilKt")
@@ -146,10 +150,10 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       every { user.email } returns "alice@example.de"
       every { user.isEmailVerified } returns true
 
-      mockkObject(EmailOtpService)
-      mockkObject(EmailOtpMailer)
-      every { EmailOtpService.issue(session, "mobile-client") } returns "123456"
-      justRun { EmailOtpMailer.send(session, "alice@example.de", "123456") }
+      mockkObject(EmailOTPService)
+      mockkObject(EmailOTPMailer)
+      every { EmailOTPService.issue(session, "mobile-client") } returns "123456"
+      justRun { EmailOTPMailer.send(session, "alice@example.de", "123456") }
 
       val response = AccessTokenResponse()
       invokeAddCustomTokenResponseClaims(grant, response, clientSessionContext(user))
@@ -157,7 +161,8 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       response.otherClaims[RESPONSE_MEMBER_BINDING_MODE] shouldBe BINDING_MODE_VERIFY_OTP
       response.otherClaims[RESPONSE_MEMBER_EMAIL_HINT] shouldBe "a*@e*.de"
       clientData.registrationStatus shouldBe ClientRegistrationStatus.OTP_PENDING
-      verify { EmailOtpMailer.send(session, "alice@example.de", "123456") }
+
+      verify { EmailOTPMailer.send(session, "alice@example.de", "123456") }
     }
 
     test("process for unconfirmed SEK_IDP disables refresh tokens") {
@@ -166,7 +171,7 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       val clientConfig = mockk<OIDCAdvancedConfigWrapper>(relaxed = true)
       every { clientConfig.isUseRefreshToken } returns true
 
-      runCatching { grant.process(grantContext(clientData, clientConfig)) }
+      Either.catch { grant.process(grantContext(clientData, clientConfig)) }
 
       invokeUseRefreshToken(grant) shouldBe false
     }
@@ -177,7 +182,7 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       val clientConfig = mockk<OIDCAdvancedConfigWrapper>(relaxed = true)
       every { clientConfig.isUseRefreshToken } returns true
 
-      runCatching { grant.process(grantContext(clientData, clientConfig)) }
+      Either.catch { grant.process(grantContext(clientData, clientConfig)) }
 
       invokeUseRefreshToken(grant) shouldBe true
     }
@@ -198,15 +203,18 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       val sourceCtx = mockk<ClientSessionContext>(relaxed = true)
       val reducedCtx = mockk<ClientSessionContext>(relaxed = true)
       val scopeSlot = slot<Set<String>>()
+
       every { sourceCtx.withTokenScopesReducedTo(any(), capture(scopeSlot)) } returns reducedCtx
 
-      val accessToken = AccessToken()
-      val builder = prepareBuilder(grant, accessToken, expectedCtx = reducedCtx)
+      val accessToken = AccessToken().also {
+        prepareBuilder(grant, it, expectedCtx = reducedCtx)
+      }
 
       invokeCreateTokenResponseBuilder(grant, user, userSession, sourceCtx)
 
       scopeSlot.captured shouldBe setOf(SCOPE_EMAIL_BINDING, SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION)
       accessToken.exp shouldBe 1_700_000_300L
+
       verify { sourceCtx.withTokenScopesReducedTo(any(), any()) }
     }
 
@@ -329,8 +337,34 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       ttls.clientId shouldBe "client-internal-id"
       ttls.userIdentifier shouldBe "X110123456"
       accessToken.exp shouldBe 9_999_999_999L
+
       val client = getField<ClientModel>(grant, OAuth2GrantTypeBase::class.java, "client")
       verify(exactly = 0) { client.setAttribute(ATTRIBUTE_LAST_CLIENT_IP, any()) }
+    }
+
+    test("OPA allow stores client data and session data for CONFIRMED clients") {
+      val clientData = mobileClientData(ClientRegistrationStatus.CONFIRMED)
+      val grant = ZetaGuardAuthorizationCodeGrantType()
+      setIssuance(grant, fullIssuance(clientData))
+
+      val user = mockk<UserModel>(relaxed = true)
+      val userSession = mockk<UserSessionModel>(relaxed = true)
+      val sourceCtx = mockk<ClientSessionContext>(relaxed = true)
+      val opaInput = """{"input":{"version":"1.0"}}"""
+
+      prepareBuilder(grant, AccessToken(), expectedCtx = sourceCtx, useRefreshToken = true)
+      val inputSlot = stubOpa(grant, userSession, sourceCtx, OpaGateEnforcer.Outcome.Allow(payload = opaInput))
+
+      invokeCreateTokenResponseBuilder(grant, user, userSession, sourceCtx)
+
+      inputSlot.captured.clientRegistrationTimestamp shouldBe clientData.createdAt.atZone(ZoneId.systemDefault()).toEpochSecond()
+      inputSlot.captured.attestationTimestamp shouldBe 1_753_272_000L
+      clientData.platform shouldBe "apple"
+      clientData.productId shouldBe "demo_client"
+      clientData.productVersion shouldBe "0.1.0"
+      clientData.deviceModel shouldBe "iPhone15,3"
+      clientData.sessionData shouldBe opaInput
+      clientData.sessionUpdatedAt.shouldNotBeNull()
     }
 
     test("OPA allow with partial TTLs does not update the session note") {
@@ -434,7 +468,7 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       val context = grantContext(clientData, realmName = "master")
       val entityManager = context.session.getProvider(JpaConnectionProvider::class.java).entityManager
 
-      runCatching { grant.process(context) }
+      Either.catch { grant.process(context) }
 
       verify(exactly = 0) { entityManager.find(ZetaGuardClientData::class.java, any()) }
     }
@@ -446,7 +480,7 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       val context = grantContext(clientData)
       val entityManager = context.session.getProvider(JpaConnectionProvider::class.java).entityManager
 
-      runCatching { grant.process(context) }
+      Either.catch { grant.process(context) }
 
       verify(exactly = 0) { entityManager.find(ZetaGuardClientData::class.java, any()) }
     }
@@ -457,11 +491,10 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       val context = grantContext(clientData)
       val entityManager = context.session.getProvider(JpaConnectionProvider::class.java).entityManager
 
-      runCatching { grant.process(context) }
+      Either.catch { grant.process(context) }
 
       verify { entityManager.find(ZetaGuardClientData::class.java, "mobile-client") }
     }
-
   }
 
   private fun prepareBuilder(
@@ -629,7 +662,8 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
   private fun emailConfirmationRequired(clientData: ZetaGuardClientData): Any {
     val clazz =
         Class.forName(
-            "de.gematik.zeta.zetaguard.keycloak.plugins.authorization_code.Issuance\$EmailConfirmationRequired")
+            "de.gematik.zeta.zetaguard.keycloak.plugins.authorization_code.Issuance\$EmailConfirmationRequired"
+        )
     return clazz.getDeclaredConstructor(ZetaGuardClientData::class.java).newInstance(clientData)
   }
 
@@ -655,7 +689,8 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
   ) {
     val method =
         ZetaGuardAuthorizationCodeGrantType::class.java.getDeclaredMethod(
-            "addCustomTokenResponseClaims", AccessTokenResponse::class.java, ClientSessionContext::class.java)
+            "addCustomTokenResponseClaims", AccessTokenResponse::class.java, ClientSessionContext::class.java
+        )
     method.isAccessible = true
     method.invoke(grant, response, clientSessionCtx)
   }

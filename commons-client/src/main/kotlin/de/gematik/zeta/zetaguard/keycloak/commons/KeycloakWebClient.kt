@@ -29,16 +29,23 @@ import arrow.core.Either
 import arrow.core.getOrElse
 import arrow.core.left
 import arrow.core.merge
+import arrow.core.raise.either
 import arrow.core.right
-import com.fasterxml.jackson.databind.ObjectMapper
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientRequestRepresentation
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientResponseRepresentation
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakSuccessResponse
 import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_FULL_PATH
-import de.gematik.zeta.zetaguard.keycloak.commons.server.VALID_GRANT_TYPES
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OIDC_CLIENT_REGISTRATION_PATH
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPENID_FEDERATION_ALIAS
+import de.gematik.zeta.zetaguard.keycloak.commons.server.WELLKNOWN_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.message
+import jakarta.ws.rs.core.Response
 import java.io.BufferedReader
+import java.net.URI
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.minutes
 import org.apache.http.HttpHeaders.ACCEPT
@@ -83,21 +90,11 @@ import org.keycloak.OAuth2Constants.SUBJECT_TOKEN_TYPE
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
 import org.keycloak.OAuth2Constants.USERNAME
 import org.keycloak.admin.client.resource.BearerAuthFilter.AUTH_HEADER_PREFIX
-import org.keycloak.crypto.Algorithm.ES256
 import org.keycloak.jose.jwk.JSONWebKeySet
-import org.keycloak.models.Constants.REALM_CLIENT
-import org.keycloak.models.utils.KeycloakModelUtils.AUTH_TYPE_CLIENT_SECRET
-import org.keycloak.protocol.oidc.OIDCAdvancedConfigWrapper.TokenExchangeRefreshTokenEnabled.SAME_SESSION
-import org.keycloak.protocol.oidc.OIDCConfigAttributes.STANDARD_TOKEN_EXCHANGE_ENABLED
-import org.keycloak.protocol.oidc.OIDCConfigAttributes.STANDARD_TOKEN_EXCHANGE_REFRESH_ENABLED
-import org.keycloak.protocol.oidc.OIDCLoginProtocol.PRIVATE_KEY_JWT
-import org.keycloak.protocol.oidc.utils.OIDCResponseType
 import org.keycloak.representations.AccessTokenResponse
 import org.keycloak.representations.UserInfo
 import org.keycloak.representations.idm.ClientInitialAccessCreatePresentation
 import org.keycloak.representations.idm.ClientInitialAccessPresentation
-import org.keycloak.representations.idm.ClientRepresentation
-import org.keycloak.representations.oidc.OIDCClientRepresentation
 
 typealias KeycloakResponse<T> = Either<KeycloakError, KeycloakSuccessResponse<T>>
 
@@ -168,12 +165,25 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
     return if (response.statusLine.statusCode == SC_NO_CONTENT) Unit.right() else response.mapError()
   }
 
+  /** Ends the session of [refreshToken] the way a client logs out, through the OIDC logout endpoint. */
+  fun logoutSession(refreshToken: String, client: String, realm: String = ZETA_REALM): Either<KeycloakError, Unit> {
+    val request =
+        post(uriBuilder().logoutUrl(realm))
+            .addFormHeaders()
+            .addParameter(CLIENT_ID, client)
+            .addParameter(REFRESH_TOKEN, refreshToken)
+            .build()
+    val response = httpClient().execute(request)
+
+    return if (response.statusLine.statusCode == SC_NO_CONTENT) Unit.right() else response.mapError()
+  }
+
   /** Ends a session through the admin API, as an operator would from the admin console. */
   fun adminRevokeSession(sessionId: String): Either<KeycloakError, Unit> {
     val adminToken =
         login(realm = ADMIN_REALM, user = ADMIN_USER, password = ADMIN_PASSWORD, client = ADMIN_CLIENT, requestedClientScope = SCOPE_OPENID)
             .getOrElse { error(it.errorDescription) }
-            .reponseObject
+            .responseObject
 
     val request = delete(uriBuilder().adminSessionRevocationUrl(sessionId)).addFormHeaders().addHeader(AUTHORIZATION, "Bearer ${adminToken.token}")
     val response = httpClient().execute(request.build())
@@ -181,10 +191,14 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
     return if (response.statusLine.statusCode == SC_NO_CONTENT) Unit.right() else response.mapError()
   }
 
-  fun getNonce(): KeycloakResponse<String> {
-    val request = get(uriBuilder().createUri(NONCE_FULL_PATH, ZETA_REALM))
+  fun getNonce(): KeycloakResponse<String> = getString(uriBuilder().createUri(NONCE_FULL_PATH, ZETA_REALM))
 
-    return httpClient().execute(request.build()).mapStringResponse()
+  fun getString(url: URI): KeycloakResponse<String> = either {
+    val request = get(url).addJsonHeaders()
+    val response = Either.catch { httpClient().execute(request.build()) }
+        .mapLeft { KeycloakError(it.message(), it.message(), Response.Status.INTERNAL_SERVER_ERROR) }.bind()
+
+    return response.mapStringResponse()
   }
 
   fun refreshToken(refreshToken: String, clientAssertion: String, dPoPToken: String): KeycloakResponse<AccessTokenResponse> {
@@ -311,79 +325,59 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
   }
 
   /**
-   * Create a client (client registration) using a previously obtained initial access token
-   *
-   * https://www.keycloak.org/securing-apps/client-registration
-   *
-   * @param initialAccessToken The access token of the keycloak admin user.
-   * @param expectedStatusCode The expected status code.
-   * @return A [KeycloakResponse] containing a [ClientRepresentation].
-   */
-  fun createClientKeycloak(
-      initialAccessToken: String,
-      newClientId: String,
-      expectedStatusCode: Int = SC_CREATED,
-  ): KeycloakResponse<ClientRepresentation> {
-    val body =
-        ClientRepresentation()
-            .apply {
-              id = newClientId
-              isFullScopeAllowed = true
-              isPublicClient = true
-              isBearerOnly = false
-              description = ZETA_GUARD_CLIENT_NAME
-              clientId = newClientId
-              name = ZETA_GUARD_CLIENT_NAME
-              isEnabled = true
-              isStandardFlowEnabled = true
-              clientAuthenticatorType = AUTH_TYPE_CLIENT_SECRET
-              attributes =
-                  mapOf(
-                      REALM_CLIENT to "false",
-                      STANDARD_TOKEN_EXCHANGE_ENABLED to "true",
-                      STANDARD_TOKEN_EXCHANGE_REFRESH_ENABLED to SAME_SESSION.name,
-                  )
-            }
-            .toJSON()
-
-    val request =
-        post(uriBuilder().clientRegistrationKeycloakUrl())
-            .addJsonHeaders()
-            .addHeader(AUTHORIZATION, "$AUTH_HEADER_PREFIX$initialAccessToken")
-            .setEntity(StringEntity(body))
-
-    return httpClient().execute(request.build()).mapJSONResponse<ClientRepresentation>(expectedStatusCode)
-  }
-
-  /**
    * Create a client (client registration) using a previously obtained initial access token.
    *
    * The given JWKS is stored internally by Keycloak to verify the client_assertion JWT later on.
    *
    * https://www.keycloak.org/securing-apps/client-registration
    *
+   * The response is parsed as a [ZetaGuardOIDCClientResponseRepresentation], because 𝝵-Guard adds the registration's `status` (A_30086) and the mapper
+   * behind `as` rejects unknown members.
+   *
    * @param expectedStatusCode The expected status code.
-   * @return A [KeycloakResponse] containing a [OIDCClientRepresentation].
+   * @return A [KeycloakResponse] containing a [ZetaGuardOIDCClientResponseRepresentation].
    */
-  fun createClientOIDC(webKeySet: JSONWebKeySet, expectedStatusCode: Int = SC_CREATED): KeycloakResponse<OIDCClientRepresentation> {
-    val body =
-        OIDCClientRepresentation()
-            .apply {
-              clientName = ZETA_GUARD_CLIENT_NAME
-
-              // See https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/gemSpec_ZETA_V1.1.0/#A_27799
-              grantTypes = VALID_GRANT_TYPES
-              tokenEndpointAuthMethod = PRIVATE_KEY_JWT // "none" -> public client
-              tokenEndpointAuthSigningAlg = ES256
-              //          dpopBoundAccessTokens = true
-              jwks = webKeySet
-              responseTypes = listOf(OIDCResponseType.TOKEN) // DPoPUtil.DPOP_TOKEN_TYPE
-            }
-            .toJSON()
-
+  fun registerClientOIDC(
+      expectedStatusCode: Int = SC_CREATED,
+      clientRegistrationRequest: ZetaGuardOIDCClientRequestRepresentation
+  ): KeycloakResponse<ZetaGuardOIDCClientResponseRepresentation> {
+    val body = clientRegistrationRequest.toJSON()
     val request = post(uriBuilder().clientRegistrationOIDCUrl()).addJsonHeaders().setEntity(StringEntity(body, Charsets.UTF_8))
 
-    return httpClient().execute(request.build()).mapJSONResponse<OIDCClientRepresentation>(expectedStatusCode)
+    return httpClient().execute(request.build()).mapJSONResponse<ZetaGuardOIDCClientResponseRepresentation>(expectedStatusCode)
+  }
+
+  /**
+   * Read a previously registered client, authorized by its registration access token.
+   *
+   * https://www.keycloak.org/securing-apps/client-registration
+   *
+   * @param clientId The id of the registered client.
+   * @param registrationAccessToken The registration access token handed out by [registerClientOIDC].
+   * @param expectedStatusCode The expected status code.
+   * @return A [KeycloakResponse] containing a [ZetaGuardOIDCClientResponseRepresentation].
+   */
+  fun getClientOIDC(
+      clientId: String,
+      registrationAccessToken: String,
+      expectedStatusCode: Int = SC_OK,
+  ): KeycloakResponse<ZetaGuardOIDCClientResponseRepresentation> {
+    val request =
+        get(uriBuilder().createUri("$OIDC_CLIENT_REGISTRATION_PATH/$clientId", ZETA_REALM))
+            .addJsonHeaders()
+            .addHeader(AUTHORIZATION, "$AUTH_HEADER_PREFIX$registrationAccessToken")
+
+    return httpClient().execute(request.build()).mapJSONResponse<ZetaGuardOIDCClientResponseRepresentation>(expectedStatusCode)
+  }
+
+  fun fetchWellKnownJson() = getString(uriBuilder().wellknownUrl(WELLKNOWN_PROVIDER_ID))
+
+  fun fetchEntityStatement() = getString(uriBuilder().wellknownUrl(OPENID_FEDERATION_ALIAS))
+
+  fun fetchJwks(): KeycloakResponse<JSONWebKeySet> {
+    val request = get(uriBuilder().jwksCertificatesUrl()).addJsonHeaders()
+
+    return httpClient().execute(request.build()).mapJSONResponse<JSONWebKeySet>()
   }
 
   /**
@@ -427,7 +421,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
    * @param T The type to deserialize to.
    * @return An [Either] containing a [Throwable] or an object of type [T].
    */
-  inline fun <reified T> HttpResponse.`as`(): Either<Throwable, T> = Either.catch { ObjectMapper().readValue(asString(), T::class.java) }
+  inline fun <reified T> HttpResponse.`as`(): Either<Throwable, T> = Either.catch { asString().toObject() }
 
   /**
    * Deserializes a [HttpResponse] to a [KeycloakError] in case of an error.

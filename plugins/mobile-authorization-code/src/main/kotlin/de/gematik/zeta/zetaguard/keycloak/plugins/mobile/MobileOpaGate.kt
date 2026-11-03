@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.mobile
 
+import arrow.core.Either
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
@@ -33,6 +34,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_LAST_CLIENT_IP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ACR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_AMR
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_DISPLAY_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KVNR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILE_OPA_CONTEXT
@@ -46,7 +48,7 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateEnforcer
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateInput
 import jakarta.ws.rs.core.MultivaluedMap
 import jakarta.ws.rs.core.Response
-import java.time.ZoneOffset
+import java.time.ZoneId
 import org.jboss.logging.Logger
 import org.keycloak.OAuth2Constants
 import org.keycloak.OAuthErrorException.UNSUPPORTED_GRANT_TYPE
@@ -82,7 +84,10 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
             request.event,
         )
 
-      is OpaGateEnforcer.Outcome.Allow -> storeContext(request.userSession, input, outcome.accessTokenTtl, outcome.refreshTokenTtl)
+      is OpaGateEnforcer.Outcome.Allow -> {
+        storeContext(request.userSession, input, outcome.accessTokenTtl, outcome.refreshTokenTtl)
+        storeClientData(request, outcome.payload)
+      }
 
       is OpaGateEnforcer.Outcome.Deny -> throw mapToCorsException(outcome.error, request.cors, request.event)
       is OpaGateEnforcer.Outcome.Error -> throw mapToCorsException(outcome.error, request.cors, request.event)
@@ -117,9 +122,16 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
                 userProfessionOid = input.userProfessionOid,
                 userCommonName = input.userCommonName,
                 deviceInfo = input.deviceInfo,
+                attestationTimestamp = input.attestationTimestamp,
             )
             .toJSON(),
     )
+  }
+
+  /** Persist client data (A_26585-02) and the OPA input as session data (A_26586-01) */
+  private fun storeClientData(request: Request, opaInput: String?) {
+    request.client.clientStatement()?.let(request.clientData::updateFrom)
+    opaInput?.let(request.clientData::storeSessionData)
   }
 
   private fun buildInput(request: Request): OpaGateInput {
@@ -131,7 +143,7 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
         clientPlatform = clientStatement?.platform?.value,
         clientProductID = clientStatement?.posture?.productId,
         clientProductVersion = clientStatement?.posture?.productVersion,
-        clientRegistrationTimestamp = request.clientData.lastAccess.toEpochSecond(ZoneOffset.UTC),
+        clientRegistrationTimestamp = request.clientData.createdAt.atZone(ZoneId.systemDefault()).toEpochSecond(),
         grantType = request.grantType,
         scopes = request.scopes,
         authenticationMethodsReferences = splitSpaceSeparated(request.userSession.getNote(ATTRIBUTE_MOBILEUSER_AMR)),
@@ -140,12 +152,14 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
         ipAddress = request.session.clientIP,
         previousIpAddress = request.client.attributes[ATTRIBUTE_LAST_CLIENT_IP] ?: "Unknown",
         postureType = clientStatement?.postureType?.value,
-        // A_26973-01 id_token user-data mapping: identifier/commonName from »urn:telematik:claims:id«,
+        // A_26973-03 id_token user-data mapping: identifier from »urn:telematik:claims:id«,
         userIdentifier = kvnr,
-        // A_26973-01 professionOID from »urn:telematik:claims:profession«.
+        // A_26973-03 professionOID from »urn:telematik:claims:profession«.
         userProfessionOid = request.userSession.getNote(ATTRIBUTE_MOBILEUSER_PROFESSION_OID),
-        userCommonName = kvnr,
+        // A_26973-03 commonName from »urn:telematik:claims:display_name«.
+        userCommonName = request.userSession.getNote(ATTRIBUTE_MOBILEUSER_DISPLAY_NAME),
         deviceInfo = clientStatement?.posture?.toOpaDeviceInfo(),
+        attestationTimestamp = clientStatement?.attestationTimestamp,
     )
   }
 
@@ -190,7 +204,8 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
 
 private fun ClientModel.clientStatement(): ClientStatementData? {
   val raw = getAttribute(ATTRIBUTE_CLIENT_STATEMENT_RAW) ?: return null
-  return runCatching { raw.toObject<ClientStatementData>() }
-      .onFailure { logger.warnf(it, "Failed to read client statement of client »%s«", clientId) }
+
+  return Either.catch { raw.toObject<ClientStatementData>() }
+      .onLeft { logger.warnf(it, "Failed to read client statement of client »%s«", clientId) }
       .getOrNull()
 }

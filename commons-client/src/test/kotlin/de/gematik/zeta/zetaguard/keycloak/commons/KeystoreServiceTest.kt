@@ -23,8 +23,6 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons
 
-import de.gematik.zeta.zetaguard.keycloak.commons.ClientCertificateService.getCertificate
-import de.gematik.zeta.zetaguard.keycloak.commons.ClientCertificateService.getPrivateKey
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstAdmission
@@ -48,16 +46,18 @@ import java.io.IOException
 import java.security.SignatureException
 import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 
+const val KEYSTORE_PASSWORD = "tyqvHpFoHdu68yRE+0F4q/I"
+
 class KeystoreServiceTest : ZetaGuardFunSpec() {
   init {
     val stream = SMCBTokenHelper::class.java.getResourceAsStream("/smcb-certificates.p12")!!
-    val objectUnderTest = KeystoreService(stream, SMCB_KEYSTORE_PASSWORD)
+    val objectUnderTest = KeystoreService("SMC-B", stream, KEYSTORE_PASSWORD)
     val intermediateCertificate = objectUnderTest.findCertificate(CRT_GEMATIK_INTERMEDIATE)!!
     val smcb = SMCBTokenHelper()
 
     test("Wrong password") {
       val stream = KeystoreServiceTest::class.java.getResourceAsStream("/smcb-certificates.p12")!!
-      val message = shouldThrow<IOException> { KeystoreService(stream, "wrong").aliases() }.message!!
+      val message = shouldThrow<IOException> { KeystoreService("SMC-B", stream, "wrong").aliases() }.message!!
 
       message shouldContain "password"
     }
@@ -99,11 +99,11 @@ class KeystoreServiceTest : ZetaGuardFunSpec() {
     }
 
     test("Checking zipped certificates") {
-      getPrivateKey(10).shouldNotBeNull()
-      getPrivateKey(100).shouldNotBeNull()
+      smcb.clientCertificateService.getPrivateKey(10).shouldNotBeNull()
+      smcb.clientCertificateService.getPrivateKey(100).shouldNotBeNull()
 
-      validateCertificateChain(intermediateCertificate, listOf(getCertificate(10))).shouldBeRight()
-      validateCertificateChain(intermediateCertificate, listOf(getCertificate(100))).shouldBeRight()
+      validateCertificateChain(intermediateCertificate, listOf(smcb.clientCertificateService.getCertificate(10))).shouldBeRight()
+      validateCertificateChain(intermediateCertificate, listOf(smcb.clientCertificateService.getCertificate(100))).shouldBeRight()
     }
 
     test("Check public key validation") {

@@ -23,7 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.revocation
 
-import org.jboss.logging.Logger
+import de.gematik.zeta.zetaguard.keycloak.commons.events.zetaEvent
 import org.keycloak.events.Details
 import org.keycloak.events.Event
 import org.keycloak.events.EventListenerProvider
@@ -33,23 +33,17 @@ import org.keycloak.events.admin.OperationType
 import org.keycloak.events.admin.ResourceType
 import org.keycloak.models.KeycloakSession
 
-private val log = Logger.getLogger(RevocationEventListener::class.java)
-
 /** Session-ending events whose sid must reach the enforcement points. */
 private val SESSION_ENDED = setOf(EventType.LOGOUT, EventType.REVOKE_GRANT, EventType.USER_SESSION_DELETED)
 
 private const val ADMIN_SESSION_PATH = "sessions/"
 
 /**
- * How long a block is held for sessions ended through Keycloak — see [RevocationEventListener.block] for why it is a flat value rather than the
- * token's own lifetime. Assumes no OPA policy ever grants an `access_ttl` beyond this; a longer one would leave the tail of that token unblocked.
- */
-private const val BLOCK_TTL_SECONDS = 60 * 60L
-
-/**
  * Turns a session being ended on purpose into a block, so enforcement points learn about revocations no matter who initiated them — a client logging
- * out, a grant being revoked, an operator deleting a session in the admin API, or our own report endpoint (which ends the session through Keycloak
- * and therefore lands here too).
+ * out, a grant being revoked or an operator deleting a session in the admin API.
+ *
+ * Ending a session programmatically (`AuthenticationManager.backchannelLogout`, `UserSessionProvider.removeUserSession`) emits no event and never
+ * reaches this listener; such callers, like the report endpoint, must record their block themselves.
  *
  * A session reaching the end of its own lifetime is not such a decision and produces no block: nobody withdrew trust ahead of schedule, and the
  * remaining exposure is bounded by the `exp` the enforcement points already check. Blocking on expiry too would make the stream scale with session
@@ -62,35 +56,21 @@ class RevocationEventListener(private val session: KeycloakSession) : EventListe
   override fun onEvent(event: Event) {
     if (event.type !in SESSION_ENDED) return
     if (event.details?.get(Details.REASON) == Details.USER_SESSION_EXPIRED_REASON) return
-    block(event.sessionId ?: return)
+    // ZETA events reuse these types to notify the user; whoever fires them revokes the affected sessions itself
+    if (event.zetaEvent() != null) return
+
+    blockSession(session, event.sessionId ?: return)
   }
 
   override fun onEvent(event: AdminEvent, includeRepresentation: Boolean) {
     if (event.operationType != OperationType.DELETE || event.resourceType != ResourceType.USER_SESSION) return
     val path = event.resourcePath ?: return
     if (!path.startsWith(ADMIN_SESSION_PATH)) return
-    block(path.substringAfterLast("/"))
+
+    blockSession(session, path.substringAfterLast("/"))
   }
 
   override fun close() {
     // No-op
-  }
-
-  /**
-   * The session is gone by now, so its lifetime cannot bound the block — and neither can the token's, which is what actually matters: the access
-   * token TTL is decided per exchange by OPA (`access_ttl`) and kept in the session note that dies with the session, so it is not knowable here.
-   * Asking OPA would answer "what would a new exchange get", not "what did the issued token get".
-   *
-   * So block for a flat [BLOCK_TTL_SECONDS], comfortably longer than any access token lifetime the policy is expected to grant. The asymmetry
-   * justifies it: over-blocking costs one cache entry outliving its purpose (the session is dead and sids are not reused), while under-blocking would
-   * let a revoked session's token keep working until its own `exp` — exactly what this is supposed to prevent.
-   */
-  private fun block(sid: String) {
-    if (sid.isBlank()) return
-    val now = System.currentTimeMillis() / 1000
-    val block = Block(`when` = now, until = now + BLOCK_TTL_SECONDS, what = sid)
-    runCatching { BlockStore.of(session).put(block) }
-        .onFailure { log.warnf(it, "could not record block for session %s", sid) }
-        .onSuccess { log.debugf("recorded block for session %s until %d", sid, block.until) }
   }
 }

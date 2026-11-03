@@ -29,9 +29,8 @@ import com.fasterxml.jackson.annotation.JsonProperty
 /**
  * JSON body of `POST /zeta/identity/email` (EmailChangeRequest in [zeta-guard-client-management]).
  *
- * Authorization does NOT travel in this body — it is the `Client-Assertion` header (instance key F2, A_30101),
- * which at the same time is the surviving factor of A_29911; there are deliberately no `pop`/`old_email_proof`
- * members. `idp_step_up` is accepted but not yet evaluated, so clients can already send the full wire format.
+ * Authorization does NOT travel in this body — the PEP verifies the ZETA access token (client-management scope) and
+ * forwards its payload; there are deliberately no `pop`/`old_email_proof` members. `idp_step_up` is accepted but not yet evaluated, so clients can already send the full wire format.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 class EmailChangeRequest {

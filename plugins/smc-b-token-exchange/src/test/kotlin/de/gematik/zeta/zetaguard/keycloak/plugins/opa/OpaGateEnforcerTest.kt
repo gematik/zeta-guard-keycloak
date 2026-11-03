@@ -24,10 +24,12 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
 import io.kotest.core.spec.style.StringSpec
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
+import io.mockk.slot
 import io.mockk.unmockkObject
 import io.mockk.verify
 import java.util.concurrent.Executor
@@ -236,9 +238,12 @@ class OpaGateEnforcerTest :
           )
       mockkObject(OpaDecisionClient)
       try {
-        every { OpaDecisionClient.evaluate(any(), any(), any()) } returns Decision.Allow()
+        val payload = slot<String>()
+        every { OpaDecisionClient.evaluate(any(), any(), capture(payload)) } returns Decision.Allow()
         val res = OpaGateEnforcer.enforce(httpClient, input, cfg)
         res.shouldBeInstanceOf<OpaGateEnforcer.Outcome.Allow>()
+        // Payload sent to OPA is handed out to be stored as session data (A_26586-01)
+        res.payload shouldBe payload.captured
       } finally {
         unmockkObject(OpaDecisionClient)
       }

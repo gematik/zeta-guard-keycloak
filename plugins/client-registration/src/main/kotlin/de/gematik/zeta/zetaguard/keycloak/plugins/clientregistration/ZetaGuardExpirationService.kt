@@ -26,6 +26,8 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 import arrow.core.Either
 import arrow.core.flatMap
 import arrow.core.getOrElse
+import de.gematik.zeta.zetaguard.keycloak.commons.events.ClientRemovalReason
+import de.gematik.zeta.zetaguard.keycloak.commons.events.fireClientRemoved
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_REALM_CLIENT_JOB_DISABLED
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_TTL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_IDLE_CLIENT_TTL
@@ -68,11 +70,12 @@ private val userTTL = IDLE_USER_TTL.toDateTimePeriod()
 private val clientRegistrationTTL = CLIENT_REGISTRATION_TTL.toDateTimePeriod()
 
 /** Why a client registration is removed, used as log label. */
-private enum class RemovalCause(val label: String) {
+private enum class RemovalCause(val label: String, val reason: ClientRemovalReason) {
   /** Idle beyond the configured TTL (A_28808). */
-  EXPIRED("expired"),
+  EXPIRED("expired", ClientRemovalReason.EXPIRED),
+
   /** Maximum number of clients per user exceeded (A_25748-02). */
-  EVICTED("evicted"),
+  EVICTED("evicted", ClientRemovalReason.MAX_CLIENTS_EXCEEDED),
 }
 
 /**
@@ -98,13 +101,11 @@ class ZetaGuardExpirationService(private val session: KeycloakSession) {
   fun removeOldestClient(userName: String): Boolean {
     val realm = session.realms().getRealmByName(ZETA_REALM)
     val clientId = expirationService.findOldestClients(userName).firstOrNull() ?: return false
-
+    // Not removed means the expiration job has removed it concurrently, which serves the caller just as well
     deleteAndRemoveAllExpiredClients(session, realm, setOf(clientId), cause = RemovalCause.EVICTED).getOrElse {
       logger.error("⚠️ Failed to remove oldest client »$clientId« for user »$userName«", it)
       return false
     }
-
-    SecurityEventLogger.logClientDeleted(clientId = clientId, reason = "max_clients_exceeded")
 
     return true
   }
@@ -186,26 +187,40 @@ class ZetaGuardExpirationService(private val session: KeycloakSession) {
    * @param realm The realm model where the clients belong.
    * @param expiredClientIds Set of client IDs of the expired clients to delete.
    * @param cause Why the clients are removed, only used for logging.
-   * @return An [Either] containing a [Throwable] if the removal failed, or the set of deleted client IDs on success.
+   * The client data is deleted first, and only if this call actually deleted it the Keycloak client is removed as well.
+   * Both the expiration job and the eviction of the oldest client end up here, possibly for the same client at the same
+   * time: deleting in the same order lets the second one wait for the row lock of the first and then skip the client,
+   * instead of failing on a row deleted in between or deadlocking on the two rows locked in opposite order.
+   *
+   * @return An [Either] containing a [Throwable] if the removal failed, or the set of client IDs deleted by this call.
    */
   private fun deleteAndRemoveAllExpiredClients(
       session: KeycloakSession,
       realm: RealmModel,
       expiredClientIds: Set<String>,
       cause: RemovalCause = RemovalCause.EXPIRED,
-  ) =
-      Either.catch {
-        val realmProvider = session.realmProvider
+  ) = Either.catch {
+    val realmProvider = session.realmProvider
 
-        expiredClientIds.forEach {
-          logger.info("🗑️ Removing ${cause.label} client with id »$it«")
+    expiredClientIds.filterTo(mutableSetOf()) { clientId ->
+      // ZETA client data is keyed by the public client_id; read before the deletion, which takes the owner with it.
+      // session.userProvider like in removeExpiredUsers: session.users() needs a realm-bound session, the job's is not
+      val kclient = realm.getClientByClientId(clientId)
+      val owner = dataService.findClientOwner(clientId)?.let { userName -> session.userProvider.getUserByUsername(realm, userName) }
 
-          realmProvider.removeClient(realm, it)
-          dataService.deleteClientData(it)
-        }
+      if (dataService.deleteClientDataIfPresent(clientId)) {
+        logger.info("🗑️ Removing ${cause.label} client »$clientId«")
 
-        expiredClientIds
+        SecurityEventLogger.logClientDeleted(clientId = clientId, reason = cause.reason.value)
+        owner?.let { user -> fireClientRemoved(session, realm, user.id, clientId, kclient?.name, cause.reason) }
+        kclient != null && realmProvider.removeClient(realm, kclient.id)
+      } else {
+        logger.info("⚠️️ Client »$clientId« has already been removed concurrently")
+
+        false
       }
+    }.toSet()
+  }
 
   /**
    * Identifies client registrations in the pending state that have exceeded the TTL limit and adds them to [expiredClientIds].

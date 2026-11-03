@@ -21,21 +21,23 @@ SMC-B token exchange
 
 ### Event authn_client_deleted:clientId
 
-**Description:** a client registration was deleted by ZETA Guard, e.g. the least-recently-used client of a user
-because the maximum number of clients per user (`SMCB_USER_MAX_CLIENTS`) was exceeded by a new registration
-(A_25748-02)
+**Description:** a client registration was deleted, by the user through the client management or by ZETA Guard: the
+least-recently-used client of a user because the maximum number of clients per user (`SMCB_USER_MAX_CLIENTS`) was
+exceeded by a new registration (A_25748-02), an expired client (A_28808), or a client still waiting for the one-time code
+sent to the previous address when the identity's e-mail address was changed
 
 **Level:** INFO
 
-**Endpoints:** POST /realms/zeta-guard/protocol/openid-connect/token
+**Endpoints:** POST /realms/zeta-guard/protocol/openid-connect/token, DELETE /realms/zeta-guard/zeta/clients/{client_id},
+POST /realms/zeta-guard/zeta/identity/email/verify; expired clients are deleted by the expiration job
 
 **Properties:**
 
-| Key                  | Requirement Level | Value Type | Description                        | Example Values         |
-|----------------------|-------------------|------------|------------------------------------|------------------------|
-| `auth.client_id`     | mandatory         | string     | Client id of the deleted client    |                        |
-| `zeta-client.reason` | mandatory         | string     | Reason why the client was deleted. | `max_clients_exceeded` |
-| `event_type`         | mandatory         | string     | Security event type                | `authn_client_deleted` |
+| Key                  | Requirement Level | Value Type | Description                        | Example Values                                                             |
+|----------------------|-------------------|------------|------------------------------------|----------------------------------------------------------------------------|
+| `auth.client_id`     | mandatory         | string     | Client id of the deleted client    |                                                                            |
+| `zeta-client.reason` | mandatory         | string     | Reason why the client was deleted. | `max_clients_exceeded`, `expired`, `user_request`, `email_change_pending` |
+| `event_type`         | mandatory         | string     | Security event type                | `authn_client_deleted`                                                     |
 
 ### Event authn_client_registered:clientId
 
@@ -79,7 +81,7 @@ because the maximum number of clients per user (`SMCB_USER_MAX_CLIENTS`) was exc
 
 **Level:** INFO
 
-**Endpoints:** POST /realms/zeta-guard/zeta/identity/email
+**Endpoints:** POST /realms/zeta-guard/zeta/identity/email/verify (the change takes effect once the code sent to the new address is confirmed)
 
 **Properties:**
 

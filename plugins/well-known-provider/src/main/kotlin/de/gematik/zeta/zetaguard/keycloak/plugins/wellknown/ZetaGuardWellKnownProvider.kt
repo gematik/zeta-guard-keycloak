@@ -37,7 +37,10 @@ import org.keycloak.urls.UrlType
 import org.keycloak.wellknown.WellKnownProvider
 
 // A_29691: supported token-issuance contract versions; contract v2 (resource indicator, RFC 8707) not yet implemented.
-internal val API_VERSIONS_SUPPORTED = listOf(ApiVersion(majorVersion = 1, version = "1.0.0", status = "stable"))
+internal val API_VERSIONS_SUPPORTED = listOf(
+    ApiVersion(majorVersion = 1, version = "1.0.0", status = "stable"),
+    ApiVersion(majorVersion = 2, version = "2.0.0", status = "stable")
+)
 
 /**
  * Provide REST endpoint for 𝛇-Guard well-known configuration as defined in https://github.com/gematik/zeta/blob/main/src/schemas/as-well-known.yaml

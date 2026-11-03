@@ -44,7 +44,7 @@ private const val ZETA_CLIENT_KS_PASSWORD = "IzMjk+PEE2QjZDMUF"
  */
 object ClientAssertionTokenHelper {
   private val stream = ClientAssertionTokenHelper::class.java.getResourceAsStream("/zeta-client.p12")!!
-  private val keystoreService = KeystoreService(stream, ZETA_CLIENT_KS_PASSWORD)
+  private val keystoreService = KeystoreService("SMC-B", stream, ZETA_CLIENT_KS_PASSWORD)
   private val privateKey: PrivateKey = keystoreService.getPrivateKey(ZETA_CLIENT, ZETA_CLIENT_KS_PASSWORD)
   private val publicKey: PublicKey = keystoreService.findCertificate(ZETA_CLIENT)!!.publicKey
   private val subjectKeyPair = KeyPair(publicKey, privateKey)
