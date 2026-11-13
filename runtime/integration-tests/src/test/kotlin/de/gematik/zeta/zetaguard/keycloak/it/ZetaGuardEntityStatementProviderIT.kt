@@ -28,23 +28,25 @@ import de.gematik.zeta.zetaguard.keycloak.commons.ADMIN_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.ClientAssertionTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFactory
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.AttestationType
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardUserData
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_VALID_GRANT_TYPES
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.createVerifierContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.kcHostname
 import io.kotest.assertions.arrow.core.shouldBeRight
+import io.kotest.assertions.withClue
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.collections.shouldNotBeEmpty
-import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.longs.shouldBeGreaterThan
+import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import java.nio.charset.StandardCharsets.UTF_8
+import org.apache.http.HttpHeaders.CONTENT_TYPE
 import org.keycloak.jose.jwk.JWK
 import org.keycloak.jose.jws.JWSInput
 import org.keycloak.protocol.oidc.utils.OIDCResponseType
@@ -62,6 +64,17 @@ class ZetaGuardEntityStatementProviderIT : ZetaGuardFunSpecIT() {
       header.type shouldBe "entity-statement+jwt"
       header.rawAlgorithm shouldBe "ES256"
       header.keyId.shouldNotBeNull()
+    }
+
+    test("ANFTI2-1074: the entity statement is served as application/entity-statement+jwt, whatever the Accept header") {
+      listOf(null, MediaTypes.ENTITY_STATEMENT_JWT, MediaTypes.JWT, "application/json", "*/*").forEach { accept ->
+        withClue("Accept: $accept") {
+          val response = keycloakWebClient.fetchEntityStatement(accept).shouldBeRight()
+
+          response.responseHeaders shouldContain (CONTENT_TYPE to MediaTypes.ENTITY_STATEMENT_JWT)
+          JWSInput(response.responseObject).header.type shouldBe "entity-statement+jwt"
+        }
+      }
     }
 
     test("A_23034-02: the signature verifies against the embedded jwks") {
@@ -127,7 +140,7 @@ class ZetaGuardEntityStatementProviderIT : ZetaGuardFunSpecIT() {
       contacts.shouldNotBeEmpty()
 
       val keywords = relyingParty.path("keywords").texts()
-      keywords shouldContainAll listOf("product_type:ZETA Guard","product_type_version:1.0.0")
+      keywords shouldContainAll listOf("product_type:ZETA Guard", "product_type_version:1.0.0")
 
       relyingParty.path("default_acr_values").texts() shouldContain "gematik-ehealth-loa-high"
     }
@@ -151,23 +164,27 @@ class ZetaGuardEntityStatementProviderIT : ZetaGuardFunSpecIT() {
       redirectUris shouldContainAll firstClientUris
       redirectUris shouldContainAll secondClientUris
 
-      val nonSekIdpRedirectUris = nonSekIdpClientRedirectUris()
-      nonSekIdpRedirectUris.forEach { uri ->
-        redirectUris shouldNotContain uri
-      }
+      val sekIdpRedirectUris = sekIdpClientRedirectUris()
+
+      redirectUris shouldContainExactlyInAnyOrder sekIdpRedirectUris
     }
   }
 
-  private fun nonSekIdpClientRedirectUris(): List<String> {
-    val sekIdpClientIds = JpaEntityManagerFactory(Docker.dbhost, Docker.dbport, ZetaGuardClientData::class.java, ZetaGuardUserData::class.java).use {
-      val dataService = ZetaGuardDataService { it.createEntityManager() }
-      dataService.findSekIdpClientIds().toSet()
+  // Deliberately not the query the endpoint uses: auth method from the client data, redirect URIs from the admin API.
+  private fun sekIdpClientRedirectUris(): List<String> {
+    val sekIdpClientIds = JpaEntityManagerFactory(Docker.dbhost, Docker.dbport, *entityClasses).use {
+      it.createEntityManager()
+          .createQuery("SELECT c.id FROM ZetaGuardClientData c WHERE c.clientAuthMethod = :authMethod", String::class.java)
+          .setParameter("authMethod", ClientAuthMethod.SEK_IDP)
+          .resultList
+          .toSet()
     }
 
     return keycloakWebClient.withKeycloak(clientId = ADMIN_CLIENT) {
       realm(ZETA_REALM).clients().findAll()
-          .filter { it.clientId !in sekIdpClientIds }
+          .filter { it.clientId in sekIdpClientIds }
           .flatMap { it.redirectUris.orEmpty() }
+          .distinct()
     }
   }
 

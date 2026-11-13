@@ -23,7 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.it
 
-import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_CLIENT_B
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.matchers.shouldBe
 import java.net.URI
@@ -31,8 +31,10 @@ import java.net.http.HttpClient
 import java.net.http.HttpRequest
 import java.net.http.HttpResponse
 import org.apache.http.HttpHeaders.CONTENT_TYPE
+import org.apache.http.HttpStatus.SC_BAD_REQUEST
 import org.apache.http.HttpStatus.SC_FORBIDDEN
 import org.apache.http.entity.ContentType.APPLICATION_JSON
+import org.keycloak.OAuthErrorException.INVALID_SCOPE
 import org.keycloak.events.Errors.ACCESS_DENIED
 
 private const val POLICY_DENIED = "policy_denied"
@@ -53,7 +55,23 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
               certificateChain = listOf(smcb.leafCertificate),
           )
 
-      testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE)
+      testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B)
+    }
+    test("Scope with invalid characters in scope: A_25661-01") {
+      val nonce = createNonce()
+      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
+      val smcb =
+          smcb.smcbTokenGenerator.generateSMCBToken(
+              nonceString = nonce,
+              subject = smcb.telematikId,
+              audiences = smcbTokenAudience,
+              certificateChain = listOf(smcb.leafCertificate),
+          )
+
+      testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B + '"') {
+        it.statusCode shouldBe SC_BAD_REQUEST
+        it.error shouldBe INVALID_SCOPE
+      }
     }
 
     test("OPA deny: scopes not allowed") {
@@ -68,7 +86,7 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
                 certificateChain = listOf(smcb.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B) {
           it.statusCode shouldBe SC_FORBIDDEN
           it.error shouldBe ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -88,7 +106,7 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
                 certificateChain = listOf(smcb.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B) {
           it.statusCode shouldBe SC_FORBIDDEN
           it.error shouldBe ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -108,7 +126,7 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
                 certificateChain = listOf(smcb.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B) {
           it.statusCode shouldBe SC_FORBIDDEN
           it.error shouldBe ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -128,7 +146,7 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
                 certificateChain = listOf(smcb.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B) {
           it.statusCode shouldBe SC_FORBIDDEN
           it.error shouldBe ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED
@@ -149,7 +167,7 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
                 certificateChain = listOf(smcb.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE)
+        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B)
       }
     }
 
@@ -166,7 +184,7 @@ class OpaEnforcementIT : ZetaGuardFunSpecIT() {
                 certificateChain = listOf(smcb.leafCertificate),
             )
 
-        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = CLIENT_B_SCOPE) {
+        testExchangeToken(subjectToken = smcb, clientAssertion = jwt, requestedClientScope = SCOPE_CLIENT_B) {
           it.statusCode shouldBe SC_FORBIDDEN
           it.error shouldBe ACCESS_DENIED
           it.errorDescription shouldBe POLICY_DENIED

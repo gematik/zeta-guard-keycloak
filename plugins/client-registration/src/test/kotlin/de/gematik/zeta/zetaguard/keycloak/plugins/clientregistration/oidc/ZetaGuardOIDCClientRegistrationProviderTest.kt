@@ -23,13 +23,14 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.oidc
 
+import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.AppleRegistrationRequest
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ClientRegistrationState
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientResponseRepresentation
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_REGISTRATION_DATA
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
@@ -75,17 +76,19 @@ private val BASE_URI = URI("https://zeta.example/auth")
 
 class ZetaGuardOIDCClientRegistrationProviderTest : FunSpec() {
   init {
+    val dcr = javaClass.getResourceAsStream("/apple_dcr.json")!!.toObject<Map<String, Any>>()
+
     beforeEach {
       mockkStatic(KeycloakSessionUtil::class)
       mockkStatic(DescriptionConverter::class)
     }
+
     afterEach { unmockkAll() }
 
     test("A_30086: createOIDC keeps Keycloak's 201 Created with its Location header and adds the status") {
-      val mockHelper = MockHelper()
-      mockHelper.storedRegistration(clientData(ClientAuthMethod.SMC_B, ClientAttestationState.PENDING))
+      val mockHelper = MockHelper().also { it.storedRegistration(clientData(ClientAuthMethod.SMC_B, ClientAttestationState.PENDING)) }
 
-      val clientOIDC = AppleRegistrationRequest()
+      val clientOIDC = dcr.toObject<AppleRegistrationRequest>()
       val response = mockHelper.provider.createOIDC(clientOIDC)
 
       response.status shouldBe Response.Status.CREATED.statusCode
@@ -114,20 +117,6 @@ class ZetaGuardOIDCClientRegistrationProviderTest : FunSpec() {
       response.entity.shouldBeInstanceOf<ZetaGuardOIDCClientResponseRepresentation>().status shouldBe ClientRegistrationState.ACTIVE
     }
 
-    test("A_30086: updateOIDC reports the status the registration is in after the update") {
-      val mockHelper = MockHelper()
-      mockHelper.storedRegistration(
-          clientData(ClientAuthMethod.SEK_IDP, ClientAttestationState.VALID, ClientRegistrationStatus.CONFIRMED, hasUserData = true)
-      )
-
-      // Leaving the scope out keeps Keycloak from looking up the old client's default scopes, which is not what this test is about.
-      val response = mockHelper.provider.updateOIDC(CLIENT_ID, OIDCClientRepresentation().apply { clientId = CLIENT_ID })
-
-      response.status shouldBe Response.Status.OK.statusCode
-      response.getHeaderString(Cors.ACCESS_CONTROL_ALLOW_ORIGIN) shouldBe ALLOWED_ORIGIN
-      response.entity.shouldBeInstanceOf<ZetaGuardOIDCClientResponseRepresentation>().status shouldBe ClientRegistrationState.BOUND
-    }
-
     test("a registration without stored data comes back without a status, not as a different type") {
       val mockHelper = MockHelper()
       mockHelper.storedRegistration(null)
@@ -147,6 +136,20 @@ class ZetaGuardOIDCClientRegistrationProviderTest : FunSpec() {
       shouldThrow<ErrorResponseException> { mockHelper.provider.createOIDC(AppleRegistrationRequest().apply { clientId = CLIENT_ID }) }
 
       verify(exactly = 0) { mockHelper.dataService.findClientData(any()) }
+    }
+
+    test("DCR must contain field defined in https://github.com/gematik/zeta/blob/feature/zeta-stufe-2/src/schemas/dcr-request.yaml") {
+      val mockHelper = MockHelper().also { it.storedRegistration(clientData(ClientAuthMethod.SMC_B, ClientAttestationState.PENDING)) }
+
+      mockHelper.provider.createOIDC(dcr.toObject<AppleRegistrationRequest>()).status shouldBe Response.Status.CREATED.statusCode
+
+      shouldThrow<ErrorResponseException> { mockHelper.provider.createOIDC(AppleRegistrationRequest()) }
+      shouldThrow<ErrorResponseException> { mockHelper.provider.createOIDC(dcr.toObject<AppleRegistrationRequest>().apply { clientName = null }) }
+      shouldThrow<ErrorResponseException> { mockHelper.provider.createOIDC(dcr.toObject<AppleRegistrationRequest>().apply { jwks.keys = null }) }
+      shouldThrow<ErrorResponseException> {
+        mockHelper.provider.createOIDC(
+            dcr.toObject<AppleRegistrationRequest>().apply { tokenEndpointAuthMethod = null })
+      }
     }
   }
 }

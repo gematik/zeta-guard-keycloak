@@ -37,20 +37,20 @@ import org.keycloak.Config
 class SekIDPIdentityProviderFactoryTest : ZetaGuardFunSpec() {
   init {
     test("no certificate before init, so the entity statement stays mTLS-free") {
-      SekIDPIdentityProviderFactory().mtlsClientCertificate shouldBe null
+      SekIDPIdentityProviderFactory().mtlsConfig()?.clientCertificate shouldBe null
     }
 
     test("mTLS switched off leaves the entity statement without a certificate") {
       val factory = SekIDPIdentityProviderFactory().apply { init(mtlsScope(enabled = false)) }
 
-      factory.mtlsClientCertificate shouldBe null
+      factory.mtlsConfig()?.clientCertificate shouldBe null
       factory.close()
     }
 
     test("the keystore is read from the documented SPI location") {
       val scope = mtlsScope(enabled = true, keystoreLocation = "/does/not/exist.p12", keystorePassword = "irrelevant")
 
-      shouldThrow<FileNotFoundException> { SekIDPIdentityProviderFactory().init(scope) }.message shouldContain "/does/not/exist.p12"
+      shouldThrow<FileNotFoundException> { SekIDPIdentityProviderFactory.resolveMtlsConfig(scope)?.keystore }.message shouldContain "/does/not/exist.p12"
     }
 
     test("the mTLS switch without a keystore location fails closed instead of downgrading") {
@@ -69,7 +69,7 @@ class SekIDPIdentityProviderFactoryTest : ZetaGuardFunSpec() {
       val scope = mtlsScope(enabled = true, keystoreLocation = CLIENT_KEYSTORE, keystorePassword = CLIENT_KEYSTORE_PASSWORD)
       val factory = SekIDPIdentityProviderFactory().apply { init(scope) }
 
-      factory.mtlsClientCertificate.shouldNotBeNull().subjectX500Principal.name shouldContain "sekidp-mtls-test-client"
+      factory.mtlsConfig()?.clientCertificate.shouldNotBeNull().subjectX500Principal.name shouldContain "sekidp-mtls-test-client"
       factory.close()
     }
 

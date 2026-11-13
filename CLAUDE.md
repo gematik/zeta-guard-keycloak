@@ -92,3 +92,4 @@ in `docker-keycloak/pom.xml`, an entry in `aggregate-code-coverage/pom.xml`, and
 ## Claude directives
 
 - Do not reformat or change any code unless required by the current refactoring
+- Update the release notes according to the current feature or refactoring

@@ -39,15 +39,27 @@ interface Success
 
 object SimpleSuccess : Success
 
-data class KeycloakSuccessResponse<T>(val responseObject: T) : Success
+/** On the client side, [responseHeaders] holds the headers of the HTTP response, like [KeycloakError.responseHeaders]. */
+data class KeycloakSuccessResponse<T>(val responseObject: T, val responseHeaders: Map<String, String> = emptyMap()) : Success
 
+/**
+ * Dual use:
+ * - On the server side used to parameterize the HTTP response
+ * - On the client side reconstructed from entity body + response headers
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
-open class KeycloakError(error: String, errorDescription: String, var statusCode: Int) : OAuth2ErrorRepresentation(error, errorDescription) {
-  val status : Status get() = Status.fromStatusCode(statusCode)
+open class KeycloakError(
+    error: String, errorDescription: String,
+    var statusCode: Int,
+    var responseHeaders: Map<String, String> = emptyMap()
+) : OAuth2ErrorRepresentation(error, errorDescription) {
+  val status: Status get() = Status.fromStatusCode(statusCode)
 
-  @Suppress("unused") constructor() : this("", "", 0)
+  @Suppress("unused")
+  constructor() : this("", "", 0, emptyMap())
 
-  constructor(error: String, errorDescription: String, status: Status) : this(error, errorDescription, status.statusCode)
+  constructor(error: String, errorDescription: String, status: Status, responseHeaders: Map<String, String> = emptyMap())
+      : this(error, errorDescription, status.statusCode, responseHeaders)
 
   override fun toString() = "$error: $errorDescription (HTTP $statusCode)"
 }

@@ -142,14 +142,8 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
             .addParameter(USERNAME, user)
             .addParameter(PASSWORD, password)
             .addParameter(GRANT_TYPE, PASSWORD)
-
-    if (clientSecret != null) {
-      request.addParameter(CLIENT_SECRET, clientSecret)
-    }
-
-    if (requestedClientScope != null) {
-      request.addParameter(SCOPE, requestedClientScope)
-    }
+            .addOptionalParameter(CLIENT_SECRET, clientSecret)
+            .addOptionalParameter(SCOPE, requestedClientScope)
 
     return httpClient().execute(request.build()).mapJSONResponse<AccessTokenResponse>()
   }
@@ -193,15 +187,22 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
 
   fun getNonce(): KeycloakResponse<String> = getString(uriBuilder().createUri(NONCE_FULL_PATH, ZETA_REALM))
 
-  fun getString(url: URI): KeycloakResponse<String> = either {
-    val request = get(url).addJsonHeaders()
+  /** @param accept the Accept header to send, none if null */
+  fun getString(url: URI, accept: String? = APPLICATION_JSON.mimeType): KeycloakResponse<String> = either {
+    val request = get(url).addHeader(CONTENT_TYPE, APPLICATION_JSON.mimeType)
+    accept?.let { request.addHeader(ACCEPT, it) }
     val response = Either.catch { httpClient().execute(request.build()) }
         .mapLeft { KeycloakError(it.message(), it.message(), Response.Status.INTERNAL_SERVER_ERROR) }.bind()
 
     return response.mapStringResponse()
   }
 
-  fun refreshToken(refreshToken: String, clientAssertion: String, dPoPToken: String): KeycloakResponse<AccessTokenResponse> {
+  fun refreshToken(
+      refreshToken: String,
+      clientAssertion: String,
+      dPoPToken: String,
+      requestedClientScope: String? = null
+  ): KeycloakResponse<AccessTokenResponse> {
     val request =
         post(uriBuilder().tokenUrl())
             .addFormHeaders()
@@ -211,6 +212,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
             .addParameter(REFRESH_TOKEN, refreshToken)
             .addParameter(CLIENT_ASSERTION_TYPE, CLIENT_ASSERTION_TYPE_JWT)
             .addParameter(CLIENT_ASSERTION, clientAssertion)
+            .addOptionalParameter(SCOPE, requestedClientScope)
 
     return httpClient().execute(request.build()).mapJSONResponse<AccessTokenResponse>()
   }
@@ -233,7 +235,7 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
       subjectToken: String,
       subjectTokenType: String = JWT_TOKEN_TYPE,
       clientSecret: String? = null,
-      requestedClientScope: String? = null,
+      requestedClientScope: String,
       requestedTokenType: String = REFRESH_TOKEN_TYPE,
       clientAssertionType: String? = null,
       clientAssertion: String? = null,
@@ -249,29 +251,14 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
             .addParameter(SUBJECT_TOKEN, subjectToken)
             .addParameter(SUBJECT_TOKEN_TYPE, subjectTokenType)
             .addParameter(REQUESTED_TOKEN_TYPE, requestedTokenType)
-
-    if (requestedClientScope != null) {
-      request.addParameter(SCOPE, requestedClientScope)
-    }
+            .addParameter(SCOPE, requestedClientScope)
+            .addOptionalParameter(CLIENT_SECRET, clientSecret)
+            .addOptionalParameter(CLIENT_ASSERTION_TYPE, clientAssertionType)
+            .addOptionalParameter(CLIENT_ASSERTION, clientAssertion)
+            .addOptionalParameter(AUDIENCE, audience)
 
     if (dPoPToken != null) {
       request.addHeader(DPOP_HTTP_HEADER, dPoPToken)
-    }
-
-    if (clientSecret != null) {
-      request.addParameter(CLIENT_SECRET, clientSecret)
-    }
-
-    if (clientAssertionType != null && clientAssertion != null) {
-      request.addParameter(CLIENT_ASSERTION_TYPE, clientAssertionType)
-    }
-
-    if (clientAssertion != null) {
-      request.addParameter(CLIENT_ASSERTION, clientAssertion)
-    }
-
-    if (audience != null) {
-      request.addParameter(AUDIENCE, audience)
     }
 
     return httpClient().execute(request.build()).mapJSONResponse<AccessTokenResponse>()
@@ -372,7 +359,8 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
 
   fun fetchWellKnownJson() = getString(uriBuilder().wellknownUrl(WELLKNOWN_PROVIDER_ID))
 
-  fun fetchEntityStatement() = getString(uriBuilder().wellknownUrl(OPENID_FEDERATION_ALIAS))
+  /** @param accept the Accept header to send, none if null */
+  fun fetchEntityStatement(accept: String? = APPLICATION_JSON.mimeType) = getString(uriBuilder().wellknownUrl(OPENID_FEDERATION_ALIAS), accept)
 
   fun fetchJwks(): KeycloakResponse<JSONWebKeySet> {
     val request = get(uriBuilder().jwksCertificatesUrl()).addJsonHeaders()
@@ -394,13 +382,12 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
         val clazz = T::class.java
         val body = `as`<T>()
 
-        body
-            .map { KeycloakSuccessResponse(it) }
-            .mapLeft { KeycloakError(it.message(), "Could not create ${clazz.simpleName} from " + asString(), this.statusLine.statusCode) }
+        body.map { KeycloakSuccessResponse(it, headerMap()) }
+            .mapLeft { KeycloakError(it.message(), "Could not create »${clazz.simpleName}« from »${asString()}«", this.statusLine.statusCode) }
       }
 
   fun HttpResponse.mapError(): Either<KeycloakError, Nothing> =
-      asError().mapLeft { KeycloakError(it.message(), asString(), this.statusLine.statusCode) }.merge().left()
+      asError().mapLeft { KeycloakError(it.message(), "Could not map »${asString()}« to »KeycloakError«", this.statusLine.statusCode) }.merge().left()
 
   /**
    * Maps an [HttpResponse] to an [Either] of [KeycloakError] or [KeycloakSuccessResponse].
@@ -412,8 +399,11 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
       if (this.statusLine.statusCode != expectedStatusCode) {
         mapError()
       } else {
-        KeycloakSuccessResponse(asString()).right()
+        KeycloakSuccessResponse(asString(), headerMap()).right()
       }
+
+  /** The response headers by name; of a header sent several times, the last value wins. */
+  fun HttpResponse.headerMap(): Map<String, String> = allHeaders.associate { header -> header.name to header.value }
 
   /**
    * Deserializes a [HttpResponse] to an object of type [T].
@@ -428,7 +418,12 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
    *
    * @return An [Either] containing a [Throwable] or a [KeycloakError].
    */
-  fun HttpResponse.asError(): Either<Throwable, KeycloakError> = `as`<KeycloakError>().map { it.apply { statusCode = statusLine.statusCode } }
+  fun HttpResponse.asError(): Either<Throwable, KeycloakError> = `as`<KeycloakError>().map {
+    it.apply {
+      statusCode = statusLine.statusCode
+      responseHeaders = headerMap()
+    }
+  }
 
   /**
    * Buffers [HttpResponse] body as a string.
@@ -493,3 +488,9 @@ private fun RequestBuilder.addJsonHeaders(): RequestBuilder =
 
 private fun RequestBuilder.addFormHeaders(): RequestBuilder =
     addHeader(CONTENT_TYPE, APPLICATION_FORM_URLENCODED.mimeType).addHeader(ACCEPT, APPLICATION_JSON.mimeType)
+
+private fun RequestBuilder.addOptionalParameter(name: String, value: String?): RequestBuilder = also {
+  if (value != null) {
+    addParameter(name, value)
+  }
+}

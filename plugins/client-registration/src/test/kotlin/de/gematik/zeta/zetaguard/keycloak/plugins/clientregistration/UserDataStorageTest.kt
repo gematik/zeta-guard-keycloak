@@ -158,5 +158,18 @@ class UserDataStorageTest : AbstractUserDataTest() {
       dataService.findClientData(clientData1.id).shouldBeNull()
       dataService.findClientData(clientData2.id).shouldBeNull()
     }
+
+    test("clients of a user are counted without the excluded client") {
+      val userData = dataService.createUserData("user1")
+      listOf("client1", "client2", "client3").forEach { dataService.createClientData(it, ClientAuthMethod.SEK_IDP).userData = userData }
+      dataService.createClientData("other", ClientAuthMethod.SEK_IDP).userData = dataService.createUserData("user2")
+      dataService.createClientData("unbound", ClientAuthMethod.SEK_IDP)
+
+      newTransaction()
+      dataService.countClients("user1", "client1") shouldBe 2L
+      dataService.countClients("user1", "new-client") shouldBe 3L
+      dataService.countClients("user2", "client1") shouldBe 1L
+      dataService.countClients("unknown", "client1") shouldBe 0L
+    }
   }
 }

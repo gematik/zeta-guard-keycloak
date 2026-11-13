@@ -50,8 +50,10 @@ import org.keycloak.protocol.oidc.TokenExchangeContext
 import org.keycloak.protocol.oidc.TokenManager
 import org.keycloak.protocol.oidc.tokenexchange.StandardTokenExchangeProvider
 import org.keycloak.representations.AccessToken
+import org.keycloak.representations.dpop.DPoP
 import org.keycloak.services.CorsErrorResponseException
 import org.keycloak.services.managers.AuthenticationManager
+import org.keycloak.services.util.DPoPUtil
 
 private val logger: Logger = Logger.getLogger(ZetaGuardEmailBindingTokenExchangeProvider::class.java)
 
@@ -67,7 +69,7 @@ private val logger: Logger = Logger.getLogger(ZetaGuardEmailBindingTokenExchange
  * Differences to [StandardTokenExchangeProvider]:
  * - only SEK_IDP clients (SMC-B clients keep the standard behavior)
  * - the DPoP-bound subject token is ACCEPTED (the standard provider rejects sender-constrained
- *   tokens)
+ *   tokens), but only with a DPoP proof of the very key it is bound to
  * - restores the originally authorized scopes and strips zeta:email-binding / zeta:email-verify
  */
 class ZetaGuardEmailBindingTokenExchangeProvider(private val opaConfig: OPAConfig = OPAConfig()) : StandardTokenExchangeProvider() {
@@ -119,6 +121,14 @@ class ZetaGuardEmailBindingTokenExchangeProvider(private val opaConfig: OPAConfi
     // The binding token is single-client: it must have been issued to the very client doing the exchange.
     if (token.issuedFor != client.clientId) {
       raiseError(Errors.INVALID_TOKEN, OAuthErrorException.INVALID_GRANT, "Subject token was not issued to this client")
+    }
+
+    // The binding token is sender-constrained (RFC 9449): only the holder of its key may exchange it. Keycloak validated
+    // the DPoP proof of this request before the grant ran and keeps it as session attribute.
+    val boundThumbprint = token.confirmation?.keyThumbprint
+    val proofThumbprint = session.getAttribute(DPoPUtil.DPOP_SESSION_ATTRIBUTE, DPoP::class.java)?.thumbprint
+    if (boundThumbprint == null || boundThumbprint != proofThumbprint) {
+      raiseError(Errors.INVALID_TOKEN, OAuthErrorException.INVALID_GRANT, "Subject token is not bound to the DPoP key of this request")
     }
 
     // Only the reduced E-Mail-Binding-Token may enter this exchange (full tokens have no reason to).

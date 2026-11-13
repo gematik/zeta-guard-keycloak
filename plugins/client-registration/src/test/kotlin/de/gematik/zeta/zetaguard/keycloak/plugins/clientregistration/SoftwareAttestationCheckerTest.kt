@@ -26,11 +26,10 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFactory.createClientRegistrationRequest
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.AttestationType
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.SoftwareRegistrationRequest
-import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.PKIData
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generateKeyPair
-import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
+import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAuthenticationBypassAttack
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.mockk.verify
@@ -54,7 +53,7 @@ class SoftwareAttestationCheckerTest : AbstractAttestationCheckerTest() {
 
         checker.checkSoftwareAttestation(softwareRequest()).shouldBeLeft().shouldMatch("Invalid nonce value")
 
-        verify { session.reportAttack(any<KeycloakError>(), AUTHENTICATION_BYPASS, "127.0.0.1") }
+        verify { session.reportAuthenticationBypassAttack(cause = any<KeycloakError>(), clientIP = "127.0.0.1") }
       }
 
       test("nonce can only be used once") {

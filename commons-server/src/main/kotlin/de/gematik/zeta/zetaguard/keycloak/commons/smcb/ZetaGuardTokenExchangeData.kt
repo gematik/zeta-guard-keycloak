@@ -65,7 +65,7 @@ constructor(
     val previousIpAddress: String,
     val telematikID: String,
     val professionOID: String,
-    val subjectOrganisation: String,
+    val subjectOrganisation: String?, // Only if present in the certificate (A_26972-03)
     val subjectCommonName: String,
     val clientIP: String,
     val accessTokenTTL: Duration,

@@ -24,10 +24,16 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.CRT_GEMATIK_LEAF_NAME
+import de.gematik.zeta.zetaguard.keycloak.commons.CRT_GEMATIK_LEAF_ORGANISATION
 import de.gematik.zeta.zetaguard.keycloak.commons.PROFESSION_OID
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_USER_LAST_ACCESS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_NAME
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_ORGANISATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_PROFESSION_OID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCBUSER_TELEMATIK_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_USER_LAST_ACCESS
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_COMMON_NAME
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_ORGANIZATION_NAME
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toLocalDateTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
@@ -36,9 +42,16 @@ import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbhost
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbport
 import de.spree.keycloak.commons.integrityProviderEnabled
 import io.kotest.matchers.date.shouldBeAfter
+import io.kotest.matchers.maps.shouldContainAll
+import io.kotest.matchers.maps.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
+import java.security.cert.X509Certificate
+import org.bouncycastle.asn1.ASN1ObjectIdentifier
+import org.bouncycastle.asn1.ASN1String
+import org.bouncycastle.asn1.x500.style.BCStyle
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder
 import org.hibernate.Hibernate
 import org.keycloak.models.jpa.entities.CredentialEntity
 import org.keycloak.models.jpa.entities.FederatedIdentityEntity
@@ -59,23 +72,46 @@ class SMCBUserDataIT : ZetaGuardFunSpecIT() {
             certificateChain = listOf(smcb.leafCertificate),
         )
 
-    test("Check stored user data attributes exist") {
+    // A_26972-03: Telematik-ID, commonName, professionOID and organizationName of the SM(C)-B certificate are stored as user data
+    // and issued as access-token claims (access-token.yaml, A_26589-01)
+    test("Check stored user data attributes and access-token claims") {
       val now = currentTime().minusSeconds(1) // Due to truncation
-      testExchangeToken(smcbToken, clientAssertion = jwt)
+      val accessToken = testExchangeToken(smcbToken, clientAssertion = jwt).second
+
+      accessToken.subject shouldBe smcb.telematikId
+      accessToken.otherClaims shouldContainAll
+          mapOf(
+              CLAIM_PROFESSION_OID to PROFESSION_OID,
+              CLAIM_COMMON_NAME to smcb.leafCertificate.rawSubjectAttribute(BCStyle.CN),
+              CLAIM_ORGANIZATION_NAME to smcb.leafCertificate.rawSubjectAttribute(BCStyle.O),
+          )
 
       val user = lookupUser(smcb.telematikId.toSpicyHash().lowercase())
+      val smcbAttributes =
+          listOf(ATTRIBUTE_SMCBUSER_TELEMATIK_ID, ATTRIBUTE_SMCBUSER_NAME, ATTRIBUTE_SMCBUSER_PROFESSION_OID, ATTRIBUTE_SMCBUSER_ORGANISATION)
 
       if (integrityProviderEnabled) { // Encrypted values
-        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_NAME }.value.shouldNotBeNull()
-        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_PROFESSION_OID }.value.shouldNotBeNull()
+        smcbAttributes.forEach { name -> user.attributes.first { it.name == name }.value.shouldNotBeNull() }
       } else {
-        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_NAME }.value shouldStartWith CRT_GEMATIK_LEAF_NAME
-        user.attributes.first { it.name == ATTRIBUTE_SMCBUSER_PROFESSION_OID }.value shouldBe PROFESSION_OID
+        val stored = user.attributes.filter { it.name in smcbAttributes }.associate { it.name to it.value }
+
+        stored shouldContainExactly
+            mapOf(
+                ATTRIBUTE_SMCBUSER_TELEMATIK_ID to smcb.telematikId,
+                ATTRIBUTE_SMCBUSER_NAME to smcb.leafCertificate.rawSubjectAttribute(BCStyle.CN),
+                ATTRIBUTE_SMCBUSER_PROFESSION_OID to PROFESSION_OID,
+                ATTRIBUTE_SMCBUSER_ORGANISATION to CRT_GEMATIK_LEAF_ORGANISATION,
+            )
+        stored[ATTRIBUTE_SMCBUSER_NAME] shouldStartWith CRT_GEMATIK_LEAF_NAME
         user.attributes.first { it.name == ATTRIBUTE_USER_LAST_ACCESS }.value.toLocalDateTime() shouldBeAfter now
       }
     }
   }
 }
+
+/** The attribute value exactly as encoded in the certificate's subject, without any DN escaping. */
+private fun X509Certificate.rawSubjectAttribute(identifier: ASN1ObjectIdentifier): String? =
+    JcaX509CertificateHolder(this).subject.getRDNs(identifier).firstOrNull()?.first?.value?.let { (it as ASN1String).string }
 
 fun lookupUser(userName: String): UserEntity {
   val entityClasses =

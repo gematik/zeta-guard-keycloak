@@ -46,6 +46,7 @@ import org.bouncycastle.asn1.ASN1Encodable
 import org.bouncycastle.asn1.ASN1ObjectIdentifier
 import org.bouncycastle.asn1.ASN1OctetString
 import org.bouncycastle.asn1.ASN1Sequence
+import org.bouncycastle.asn1.ASN1String
 import org.bouncycastle.asn1.ASN1TaggedObject
 import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 import org.bouncycastle.asn1.isismtt.x509.Admissions
@@ -267,21 +268,24 @@ fun Admissions.firstProfessionInfo(): ProfessionInfo? = if (professionInfos.isNo
 /** Return the first profession OID contained in a ProfessionInfo instance, or null if none exist. */
 fun ProfessionInfo.firstProfession(): ASN1ObjectIdentifier? = if (professionOIDs.isNotEmpty()) professionOIDs[0] else null
 
-/** Convenience: extract the Common Name (CN) component from the certificate's subject DN. */
-fun X509Certificate.subjectCommonName() = getSubjectComponent(BCStyle.CN)
+private const val UNKNOWN_COMPONENT = "Unbekannt"
+
+/** Convenience: extract the Common Name (CN) component from the certificate's subject DN, unchanged (A_26972-03). */
+fun X509Certificate.subjectCommonName(): String = getSubjectComponent(BCStyle.CN) ?: UNKNOWN_COMPONENT
 
 /** Convenience: extract the Common Name (CN) component from the certificate's issuer DN. */
-fun X509Certificate.issuerCommonName() = getIssuerComponent(BCStyle.CN)
+fun X509Certificate.issuerCommonName(): String = getIssuerComponent(BCStyle.CN) ?: UNKNOWN_COMPONENT
 
-/** Convenience: extract the Organization (O) component from the certificate's subject DN. */
-fun X509Certificate.subjectOrganisationName() = getSubjectComponent(BCStyle.O)
+/** Convenience: extract the Organization (O) component from the certificate's subject DN, unchanged, or null if absent (A_26972-03). */
+fun X509Certificate.subjectOrganisationName(): String? = getSubjectComponent(BCStyle.O)
 
 /** Internal helper to extract a single subject component value from this certificate's subject DN using the provided ASN.1 identifier. */
 private fun X509Certificate.getSubjectComponent(identifier: ASN1ObjectIdentifier) =
-    X500Name(subjectX500Principal.name).getIdentifier(identifier)
+    X500Name.getInstance(subjectX500Principal.encoded).getIdentifier(identifier)
 
-private fun X500Name.getIdentifier(identifier: ASN1ObjectIdentifier) =
-    getRDNs(identifier).map { IETFUtils.valueToString(it.first.value) }.firstOrNull() ?: "Unbekannt"
+/** The first value of the given attribute as encoded in the certificate, i.e. without the escaping of a DN string (RFC 4514). */
+private fun X500Name.getIdentifier(identifier: ASN1ObjectIdentifier): String? =
+    getRDNs(identifier).firstOrNull()?.first?.value?.let { if (it is ASN1String) it.string else IETFUtils.valueToString(it) }
 
 private fun X509Certificate.getIssuerComponent(identifier: ASN1ObjectIdentifier) =
-    X500Name(issuerX500Principal.name).getIdentifier(identifier)
+    X500Name.getInstance(issuerX500Principal.encoded).getIdentifier(identifier)

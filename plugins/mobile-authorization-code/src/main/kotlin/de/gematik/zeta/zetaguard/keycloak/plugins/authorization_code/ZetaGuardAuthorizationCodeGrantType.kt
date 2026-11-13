@@ -34,6 +34,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.RESPONSE_MEMBER_BINDING
 import de.gematik.zeta.zetaguard.keycloak.commons.server.RESPONSE_MEMBER_EMAIL_HINT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.isSuccessStatus
+import de.gematik.zeta.zetaguard.keycloak.commons.server.permitMobileIssuance
 import de.gematik.zeta.zetaguard.keycloak.commons.server.rememberLastClientIp
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.ZetaGuardTokenManager
@@ -133,6 +134,8 @@ class ZetaGuardAuthorizationCodeGrantType(private val opaConfig: OPAConfig = OPA
           )
     } else if (issuance is Issuance.EmailConfirmationRequired) {
       persistRequestedAudience(clientSessionCtx.clientSession)
+      // The reduced binding token skips the PDP gate by design: it lacks the audience scope, so it is not PEP-valid
+      session.permitMobileIssuance(client)
     }
 
     val builder = super.createTokenResponseBuilder(user, userSession, effectiveCtx, scopeParam, clientPolicyContextGenerator)
@@ -156,7 +159,7 @@ class ZetaGuardAuthorizationCodeGrantType(private val opaConfig: OPAConfig = OPA
     if (storedEmail.isNullOrBlank() || !user.isEmailVerified) {
       response.otherClaims[RESPONSE_MEMBER_BINDING_MODE] = BINDING_MODE_COLLECT_EMAIL
     } else {
-      val otp = EmailOTPService.issue(session, client.clientId)
+      val otp = EmailOTPService.issue(session, client.clientId, storedEmail)
       try {
         EmailOTPMailer.send(session, storedEmail, otp)
       } catch (e: EmailException) {

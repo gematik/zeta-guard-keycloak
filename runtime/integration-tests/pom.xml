@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>2.0.1</version>
+        <version>2.0.2</version>
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
@@ -106,7 +106,7 @@
         <dependency>
             <groupId>jakarta.platform</groupId>
             <artifactId>jakarta.jakartaee-api</artifactId>
-            <version>10.0.0</version>
+            <version>11.0.0</version>
         </dependency>
 
         <dependency>

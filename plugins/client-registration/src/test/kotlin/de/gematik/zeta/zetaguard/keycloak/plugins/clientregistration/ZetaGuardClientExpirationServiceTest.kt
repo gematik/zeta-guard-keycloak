@@ -27,7 +27,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
-import io.kotest.matchers.shouldBe
+import io.kotest.matchers.collections.shouldHaveSize
 import java.time.LocalDateTime
 import kotlinx.datetime.DateTimePeriod
 
@@ -40,10 +40,51 @@ class ZetaGuardClientExpirationServiceTest : AbstractUserDataTest() {
 
       newTransaction()
 
-      expirationService.findExpiredClients(DateTimePeriod(minutes = 13)).shouldBeEmpty()
-      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 8)) shouldBe listOf(clientData2.id, clientData1.id)
-      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 11)) shouldBe listOf(clientData2.id)
-      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 13)).shouldBeEmpty()
+      expirationService.findExpiredClients(DateTimePeriod(minutes = 13), 100).shouldBeEmpty()
+      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 8), 100) shouldContainExactly listOf(clientData2.id, clientData1.id)
+      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 11), 100) shouldContainExactly listOf(clientData2.id)
+      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 13), 100).shouldBeEmpty()
+    }
+
+    test("Expired clients and registrations are found oldest first, at most the given number") {
+      val expirationService = ZetaGuardClientExpirationDao { entityManager }
+      val clients =
+          (1..5).map { i ->
+            dataService.createClientData("client$i", ClientAuthMethod.SMC_B).apply { lastAccess = LocalDateTime.now().minusMinutes(10L + i) }
+          }
+
+      newTransaction()
+
+      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 8), 3) shouldContainExactly clients.reversed().take(3).map { it.id }
+      expirationService.findExpiredClientRegistrations(DateTimePeriod(minutes = 8), 100) shouldHaveSize 5
+    }
+
+    test("Expired valid clients are found oldest first, at most the given number") {
+      val expirationService = ZetaGuardClientExpirationDao { entityManager }
+      val userData = dataService.createUserData("user1").apply { lastAccess = LocalDateTime.now().minusMinutes(10) }
+      val clients =
+          (1..5).map { i ->
+            dataService.createClientData("client$i", ClientAuthMethod.SMC_B).apply {
+              lastAccess = LocalDateTime.now().minusMinutes(10L + i)
+              this.userData = userData
+              attestationState = ClientAttestationState.VALID
+            }
+          }
+
+      newTransaction()
+
+      expirationService.findExpiredClients(DateTimePeriod(minutes = 8), 3) shouldContainExactly clients.reversed().take(3).map { it.id }
+      expirationService.findExpiredClients(DateTimePeriod(minutes = 8), 100) shouldHaveSize 5
+    }
+
+    test("Expired users are found at most the given number") {
+      val expirationService = ZetaGuardClientExpirationDao { entityManager }
+      (1..5).forEach { i -> dataService.createUserData("user$i").apply { lastAccess = LocalDateTime.now().minusMinutes(10) } }
+
+      newTransaction()
+
+      expirationService.findExpiredUsers(DateTimePeriod(minutes = 9), 2) shouldHaveSize 2
+      expirationService.findExpiredUsers(DateTimePeriod(minutes = 9), 100) shouldHaveSize 5
     }
 
     test("Find expired clients") {
@@ -59,11 +100,11 @@ class ZetaGuardClientExpirationServiceTest : AbstractUserDataTest() {
 
       newTransaction()
 
-      expirationService.findExpiredClients(DateTimePeriod(minutes = 13)).shouldBeEmpty()
-      expirationService.findExpiredClients(DateTimePeriod(minutes = 11)) shouldBe listOf(clientData2.id)
-      expirationService.findExpiredClients(DateTimePeriod(minutes = 8)) shouldBe listOf(clientData2.id, clientData1.id)
+      expirationService.findExpiredClients(DateTimePeriod(minutes = 13), 100).shouldBeEmpty()
+      expirationService.findExpiredClients(DateTimePeriod(minutes = 11), 100) shouldContainExactly listOf(clientData2.id)
+      expirationService.findExpiredClients(DateTimePeriod(minutes = 8), 100) shouldContainExactly listOf(clientData2.id, clientData1.id)
 
-      expirationService.findOldestClients(userData1.id) shouldBe listOf(clientData2.id, clientData1.id)
+      expirationService.findOldestClients(userData1.id) shouldContainExactly listOf(clientData2.id, clientData1.id)
     }
 
     test("User expiry") {
@@ -76,8 +117,8 @@ class ZetaGuardClientExpirationServiceTest : AbstractUserDataTest() {
 
       newTransaction()
 
-      expirationService.findExpiredUsers(DateTimePeriod(minutes = 13)).shouldBeEmpty()
-      expirationService.findExpiredUsers(DateTimePeriod(minutes = 9)).shouldContainExactly(userData1.id)
+      expirationService.findExpiredUsers(DateTimePeriod(minutes = 13), 100).shouldBeEmpty()
+      expirationService.findExpiredUsers(DateTimePeriod(minutes = 9), 100) shouldContainExactly listOf(userData1.id)
     }
   }
 }

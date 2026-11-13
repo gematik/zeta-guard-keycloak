@@ -27,7 +27,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.getPublicKey
 import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreService
 import java.security.KeyPair
 
-const val TPM_KEYSTORE_PASSWORD = "O3Bdel9P5+cOgzIGANkOPEzBQM3V"
+const val TPM_KEYSTORE_PASSWORD = "O3Bdel9P5+cOgzIGANkOPEzBQM3V" // NOSONAR: password of the test keystore, not a real secret
 
 const val CRT_TPM_LEAF = "tpm-leaf"
 const val CRT_TPM_INTERMEDIATE = "tpm-intermediate"

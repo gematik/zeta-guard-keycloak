@@ -28,7 +28,9 @@ import arrow.core.raise.either
 import arrow.core.raise.ensure
 import arrow.core.recover
 import com.fasterxml.jackson.databind.JsonNode
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_MTLS_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.createVerifierContext
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.ConcurrentHashMap
@@ -91,7 +93,7 @@ class Federation(private val session: KeycloakSession, private val fedmasterUrl:
 
       val what = "Federation Master entity statement of »$fedmasterUrl«"
       val statement =
-          Either.catch { SimpleHttp.create(session).doGet("$fedmasterUrl/.well-known/openid-federation").asString() }
+          Either.catch { SimpleHttp.create(session.lookupHttpClient(SEKIDP_MTLS_HTTP_CLIENT_ID)).doGet("$fedmasterUrl/.well-known/openid-federation").asString() }
               .mapLeft { SekIdpFederationError.Unreachable(what, it) }
               .bind()
       val input = Either.catch { JWSInput(statement) }.mapLeft { SekIdpFederationError.MalformedJws(what, it) }.bind()
@@ -141,7 +143,7 @@ class Federation(private val session: KeycloakSession, private val fedmasterUrl:
       val what = "Federation Master's statement about »$sekIdpIssuer«"
       val statement =
           Either.catch {
-                SimpleHttp.create(session)
+                SimpleHttp.create(session.lookupHttpClient(SEKIDP_MTLS_HTTP_CLIENT_ID))
                     .doGet(fetchEndpoint)
                     .param("iss", fedmasterIssuer)
                     .param(CLAIM_NAME_SUB, sekIdpIssuer)
@@ -190,7 +192,8 @@ class VouchedSekIDP(
 
       val what = "SekIDP entity statement of »$issuer«"
       val statement =
-          Either.catch { SimpleHttp.create(session).doGet("$issuer/.well-known/openid-federation").asString() }
+          Either.catch { SimpleHttp.create(session.lookupHttpClient(SEKIDP_MTLS_HTTP_CLIENT_ID))
+              .doGet("$issuer/.well-known/openid-federation").asString() }
               .mapLeft { SekIdpFederationError.Unreachable(what, it) }
               .bind()
       val body = verifyAndDecode(statement, vouchedKeys, what).bind()
@@ -265,7 +268,7 @@ class VouchedSekIDP(
       val what = "SekIDP signed JWK set of »$issuer«"
       val signedJwksUri = resolveEndpoints().bind().signedJwksUri
       val signedJwks =
-          Either.catch { SimpleHttp.create(session).doGet(signedJwksUri).asString() }
+          Either.catch { SimpleHttp.create(session.lookupHttpClient(SEKIDP_MTLS_HTTP_CLIENT_ID)).doGet(signedJwksUri).asString() }
               .mapLeft { SekIdpFederationError.Unreachable(what, it) }
               .bind()
       val body = verifyAndDecode(signedJwks, vouchedKeys, what).bind()

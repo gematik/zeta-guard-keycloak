@@ -87,6 +87,22 @@ else
   [[ -z "${BC_JAR}" ]] && echo "    - org.bouncycastle.bcprov-jdk18on-*.jar (in /opt/keycloak/lib/lib/main/)"
 fi
 
+# ── Disabled features ────────────────────────────────────────────────────────
+# The hardened set is always disabled. A deployment may add further features through KC_FEATURES_DISABLED
+# (e.g. persistent-user-sessions together with KC_FEATURES=clusterless for an external Infinispan).
+# `kc.sh build` and `kc.sh start --optimized` have to see the same value: kc.features-disabled is a build-time option,
+# and if it differs from the persisted one, start exits with code 2. Hence the merged value is exported for both.
+# KC_HARDENED_FEATURES_DISABLED is set by the Dockerfile (single source). The chart does not know this name, so it can't be overridden by accident.
+HARDENED_FEATURES_DISABLED="${KC_HARDENED_FEATURES_DISABLED:?KC_HARDENED_FEATURES_DISABLED is not set, the image is broken}"
+MERGED_FEATURES_DISABLED=""
+IFS=',' read -ra FEATURES_DISABLED_LIST <<< "${HARDENED_FEATURES_DISABLED},${KC_FEATURES_DISABLED:-}"
+for FEATURE in "${FEATURES_DISABLED_LIST[@]}"; do
+  [[ -z "${FEATURE}" || ",${MERGED_FEATURES_DISABLED}," == *",${FEATURE},"* ]] && continue
+  MERGED_FEATURES_DISABLED="${MERGED_FEATURES_DISABLED:+${MERGED_FEATURES_DISABLED},}${FEATURE}"
+done
+export KC_FEATURES_DISABLED="${MERGED_FEATURES_DISABLED}"
+echo "🛡️ KC_FEATURES_DISABLED=${KC_FEATURES_DISABLED}"
+
 # shellcheck disable=SC2164
 cd /opt/keycloak/bin
 
@@ -94,7 +110,7 @@ KC_SPI_CLIENT_REGISTRATION__DEFAULT__ENABLED=false \
 KC_SPI_CLIENT_REGISTRATION__INSTALL__ENABLED=false \
 KC_SPI_CLIENT_REGISTRATION__SAML2_ENTITY_DESCRIPTOR__ENABLED=false \
 KC_SPI_WELL_KNOWN__UMA2_CONFIGURATION__ENABLED=false \
-KC_FEATURES_DISABLED=account,account-api,ciba,device-flow,jwt-authorization-grant,authorization,admin-fine-grained-authz,impersonation,workflows,identity-brokering-api \
+KC_SPI_OAUTH2_TOKEN_EXCHANGE__STANDARD__ENABLED=false \
 KC_DEBUG=false ./kc.sh build
 
 rm -f /opt/keycloak/data/*.jfr

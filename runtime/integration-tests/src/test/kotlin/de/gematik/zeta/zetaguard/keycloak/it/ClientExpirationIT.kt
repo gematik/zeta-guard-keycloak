@@ -26,18 +26,16 @@ package de.gematik.zeta.zetaguard.keycloak.it
 import arrow.core.Either
 import arrow.core.raise.either
 import de.gematik.zeta.zetaguard.keycloak.commons.ADMIN_CLIENT
-import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
 import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFactory
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_CLIENT_B
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbhost
 import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbport
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardUserData
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.collections.shouldContainAll
 import io.kotest.matchers.collections.shouldHaveSize
@@ -134,7 +132,7 @@ private class PreparedTokenExchange(val clientId: String, val subjectToken: Stri
             clientId = clientId,
             subjectToken = subjectToken,
             subjectTokenType = JWT_TOKEN_TYPE,
-            requestedClientScope = CLIENT_B_SCOPE,
+            requestedClientScope = SCOPE_CLIENT_B,
             clientAssertionType = CLIENT_ASSERTION_TYPE_JWT,
             clientAssertion = clientAssertion,
             dPoPToken = dPoPToken,
@@ -147,7 +145,7 @@ private class PreparedTokenExchange(val clientId: String, val subjectToken: Stri
 
 /** Ids of the clients bound to the user, as stored in `ZETA_CLIENT_DATA`. */
 private fun lookupUserClientIds(userName: String): List<String> =
-    JpaEntityManagerFactory(dbhost, dbport, ZetaGuardUserData::class.java, ZetaGuardClientData::class.java).use {
+    JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
       it.createEntityManager()
           .createQuery("SELECT c.id FROM ZetaGuardClientData c WHERE c.userData.id = :userName", String::class.java)
           .setParameter("userName", userName)

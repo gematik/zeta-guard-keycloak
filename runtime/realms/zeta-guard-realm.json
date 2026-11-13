@@ -1781,6 +1781,18 @@
   "clientProfiles": {
     "profiles": [
       {
+        "name": "zeta-reject-implicit",
+        "description": "Authorization code flow only: implicit and hybrid flows are rejected, registration switches them off.",
+        "executors": [
+          {
+            "executor": "reject-implicit-grant",
+            "configuration": {
+              "auto-configure": "true"
+            }
+          }
+        ]
+      },
+      {
         "name": "zeta-outer-par-validation",
         "description": "Outer PAR must carry all SekIDP flow parameters.",
         "executors": [
@@ -1794,6 +1806,20 @@
   },
   "clientPolicies": {
     "policies": [
+      {
+        "name": "zeta-reject-implicit",
+        "description": "Applies to any client.",
+        "enabled": true,
+        "conditions": [
+          {
+            "condition": "any-client",
+            "configuration": {}
+          }
+        ],
+        "profiles": [
+          "zeta-reject-implicit"
+        ]
+      },
       {
         "name": "zeta-outer-par-validation",
         "description": "Applies to clients with mandatory PAR (set for SekIDP clients at registration).",

@@ -33,11 +33,11 @@ POST /realms/zeta-guard/zeta/identity/email/verify; expired clients are deleted 
 
 **Properties:**
 
-| Key                  | Requirement Level | Value Type | Description                        | Example Values                                                             |
-|----------------------|-------------------|------------|------------------------------------|----------------------------------------------------------------------------|
-| `auth.client_id`     | mandatory         | string     | Client id of the deleted client    |                                                                            |
+| Key                  | Requirement Level | Value Type | Description                        | Example Values                                                            |
+|----------------------|-------------------|------------|------------------------------------|---------------------------------------------------------------------------|
+| `auth.client_id`     | mandatory         | string     | Client id of the deleted client    |                                                                           |
 | `zeta-client.reason` | mandatory         | string     | Reason why the client was deleted. | `max_clients_exceeded`, `expired`, `user_request`, `email_change_pending` |
-| `event_type`         | mandatory         | string     | Security event type                | `authn_client_deleted`                                                     |
+| `event_type`         | mandatory         | string     | Security event type                | `authn_client_deleted`                                                    |
 
 ### Event authn_client_registered:clientId
 
@@ -69,11 +69,12 @@ POST /realms/zeta-guard/zeta/identity/email/verify; expired clients are deleted 
 
 **Properties:**
 
-| Key                  | Requirement Level | Value Type | Description                                      | Example Values                                                                          |
-|----------------------|-------------------|------------|--------------------------------------------------|-----------------------------------------------------------------------------------------|
-| `auth.client_id`     | mandatory         | string     | Client id                                        |                                                                                         |
-| `zeta-client.reason` | mandatory         | string     | Reason why the client registration was rejected. | `integrity_provider_unavailable`, `registration_expired`, `too_many_clients_registered` |
-| `event_type`         | mandatory         | string     | Security event type                              | `authn_client_registration_fail`                                                        |
+| Key                  | Requirement Level | Value Type | Description                                                   | Example Values                                                                          |
+|----------------------|-------------------|------------|---------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| `auth.client_id`     | mandatory         | string     | Client id                                                     |                                                                                         |
+| `zeta-client.reason` | mandatory         | string     | Reason why the client registration was rejected.              | `integrity_provider_unavailable`, `registration_expired`, `too_many_clients_registered` |
+| `event_type`         | mandatory         | string     | Security event type                                           | `authn_client_registration_fail`                                                        |
+| `user.roles`         | mandatory         | string     | User type (`Versicherter`, `Leistungserbringer`, `Unbekannt`) | `Leistungserbringer`                                                                    |
 
 ### Event authn_email_change:clientId
 
@@ -120,13 +121,14 @@ registration
 
 **Properties:**
 
-| Key                         |           | Value Type | Description         | Example Values                                                          |
-|-----------------------------|-----------|------------|---------------------|-------------------------------------------------------------------------|
-| `attackDetection.capecId`   | mandatory | int        | Attack Pattern ID   | `115`                                                                   |
-| `attackDetection.capecName` | mandatory | string     | Attack Pattern Name | `"Authentication Bypass"`                                               |
-| `attackDetection.clientIP`  | mandatory | string     |                     | `127.0.0.1`                                                             |
-| `attackDetection.detail`    | mandatory | string     |                     | `Expected audience not available in the token`                          |
-| `attackDetection.origin`    | optional  | string     |                     | `org.keycloak.TokenVerifier$AudienceCheck.test(TokenVerifier.java:163)` |
+| Key                         |           | Value Type | Description                                                   | Example Values                                                          |
+|-----------------------------|-----------|------------|---------------------------------------------------------------|-------------------------------------------------------------------------|
+| `attackDetection.capecId`   | mandatory | int        | Attack Pattern ID                                             | `115`                                                                   |
+| `attackDetection.capecName` | mandatory | string     | Attack Pattern Name                                           | `"Authentication Bypass"`                                               |
+| `attackDetection.clientIP`  | mandatory | string     |                                                               | `127.0.0.1`                                                             |
+| `attackDetection.detail`    | mandatory | string     |                                                               | `Expected audience not available in the token`                          |
+| `attackDetection.origin`    | optional  | string     |                                                               | `org.keycloak.TokenVerifier$AudienceCheck.test(TokenVerifier.java:163)` |
+| `user.roles`                | mandatory | string     | User type (`Versicherter`, `Leistungserbringer`, `Unbekannt`) | `Leistungserbringer`                                                    |
 
 ## Tracing
 
@@ -134,11 +136,12 @@ registration
 
 #### Attributes
 
-| Key                         |           | Value Type | Description         | Example Values                                                          |
-|-----------------------------|-----------|------------|---------------------|-------------------------------------------------------------------------|
-| `attackDetection.capecId`   | mandatory | int        | Attack Pattern ID   | `115`                                                                   |
-| `attackDetection.capecName` | mandatory | string     | Attack Pattern Name | `"Authentication Bypass"`                                               |
-| `attackDetection.clientIP`  | mandatory | string     |                     | `127.0.0.1`                                                             |
-| `attackDetection.detail`    | mandatory | string     |                     | `Expected audience not available in the token`                          |
-| `attackDetection.origin`    | optional  | string     |                     | `org.keycloak.TokenVerifier$AudienceCheck.test(TokenVerifier.java:163)` |
+| Key                         |           | Value Type | Description                                                   | Example Values                                                          |
+|-----------------------------|-----------|------------|---------------------------------------------------------------|-------------------------------------------------------------------------|
+| `attackDetection.capecId`   | mandatory | int        | Attack Pattern ID                                             | `115`                                                                   |
+| `attackDetection.capecName` | mandatory | string     | Attack Pattern Name                                           | `"Authentication Bypass"`                                               |
+| `attackDetection.clientIP`  | mandatory | string     |                                                               | `127.0.0.1`                                                             |
+| `attackDetection.detail`    | mandatory | string     |                                                               | `Expected audience not available in the token`                          |
+| `attackDetection.origin`    | optional  | string     |                                                               | `org.keycloak.TokenVerifier$AudienceCheck.test(TokenVerifier.java:163)` |
+| `user.roles`                | mandatory | string     | User type (`Versicherter`, `Leistungserbringer`, `Unbekannt`) | `Leistungserbringer`                                                    |
 

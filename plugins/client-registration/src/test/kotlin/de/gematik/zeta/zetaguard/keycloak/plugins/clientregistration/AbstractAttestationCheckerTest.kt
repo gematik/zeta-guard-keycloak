@@ -25,11 +25,10 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
 import de.gematik.zeta.zetaguard.keycloak.commons.server.AttackDetectionLogger
-import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.clientIP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.fromBase64
-import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
+import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAuthenticationBypassAttack
 import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.NonceFactory
 import io.kotest.matchers.string.shouldContain
 import io.mockk.every
@@ -56,7 +55,7 @@ abstract class AbstractAttestationCheckerTest : ZetaGuardFunSpec() {
 
     beforeEach {
       every { session.clientIP } returns "127.0.0.1"
-      every { session.reportAttack(any<KeycloakError>(), eq(AUTHENTICATION_BYPASS), eq("127.0.0.1")) } returns Unit
+      every { session.reportAuthenticationBypassAttack(cause = any<KeycloakError>(), clientIP = "127.0.0.1") } returns Unit
 
       nonce = nonceFactory.createNonce().nonceValue.fromBase64()
     }

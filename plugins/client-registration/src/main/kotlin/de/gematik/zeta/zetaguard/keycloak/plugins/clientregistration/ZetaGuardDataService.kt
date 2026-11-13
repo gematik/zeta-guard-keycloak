@@ -31,7 +31,7 @@ import de.gematik.zeta.zetaguard.keycloak.jpa.EntityManagerCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.COUNT_CLIENTS
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.DELETE_CLIENT_DATA
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.FIND_CLIENT_OWNER
-import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.FIND_SEKIDP_CLIENT_IDS
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.FIND_SEKIDP_REDIRECT_URIS
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.LOCK_USER_DATA
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardUserData
@@ -75,12 +75,12 @@ constructor(emCreator: EntityManagerCreator) {
 
   fun findClientData(clientId: String): ZetaGuardClientData? = entityManager.find(ZetaGuardClientData::class.java, clientId)
 
-  @Suppress("UNCHECKED_CAST")
-  fun findSekIdpClientIds(): List<String> =
+  fun findSekIdpRedirectUris(realmId: String): List<String> =
       entityManager
-          .createNamedQuery(FIND_SEKIDP_CLIENT_IDS)
+          .createNamedQuery(FIND_SEKIDP_REDIRECT_URIS, String::class.java)
           .setParameter("authMethod", ClientAuthMethod.SEK_IDP)
-          .resultList as List<String>
+          .setParameter("realmId", realmId)
+          .resultList
 
   fun findUserData(userId: String): ZetaGuardUserData? = entityManager.find(ZetaGuardUserData::class.java, userId)
 
@@ -124,7 +124,8 @@ constructor(emCreator: EntityManagerCreator) {
    *
    * @return true if this call deleted the client data
    */
-  fun deleteClientDataIfPresent(clientId: String) = entityManager.createNamedQuery(DELETE_CLIENT_DATA).setParameter("clientId", clientId).executeUpdate() == 1
+  fun deleteClientDataIfPresent(clientId: String) =
+      entityManager.createNamedQuery(DELETE_CLIENT_DATA).setParameter("clientId", clientId).executeUpdate() == 1
 
   fun deleteClientData(clientId: String) {
     val deletions = entityManager.createNamedQuery(DELETE_CLIENT_DATA).setParameter("clientId", clientId).executeUpdate()

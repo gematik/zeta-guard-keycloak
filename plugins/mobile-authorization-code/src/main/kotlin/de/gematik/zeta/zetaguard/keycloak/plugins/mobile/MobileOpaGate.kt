@@ -34,13 +34,17 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_LAST_CLIENT_IP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ACR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_AMR
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_BIRTHDATE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_DISPLAY_NAME
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KVNR
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ORGANIZATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILE_OPA_CONTEXT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPA_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.clientIP
-import de.gematik.zeta.zetaguard.keycloak.commons.server.httpClient
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
+import de.gematik.zeta.zetaguard.keycloak.commons.server.permitMobileIssuance
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
 import de.gematik.zeta.zetaguard.keycloak.plugins.mapToCorsException
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
@@ -76,7 +80,7 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
 
   fun enforce(request: Request) {
     val input = buildInput(request)
-    when (val outcome = OpaGateEnforcer.enforce(request.session.httpClient, input, opaConfig)) {
+    when (val outcome = OpaGateEnforcer.enforce(request.session.lookupHttpClient(OPA_HTTP_CLIENT_ID), input, opaConfig)) {
       is OpaGateEnforcer.Outcome.Skip ->
         throw mapToCorsException(
             KeycloakError(UNSUPPORTED_GRANT_TYPE, "Unsupported grant type", Response.Status.BAD_REQUEST),
@@ -87,6 +91,7 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
       is OpaGateEnforcer.Outcome.Allow -> {
         storeContext(request.userSession, input, outcome.accessTokenTtl, outcome.refreshTokenTtl)
         storeClientData(request, outcome.payload)
+        request.session.permitMobileIssuance(request.client)
       }
 
       is OpaGateEnforcer.Outcome.Deny -> throw mapToCorsException(outcome.error, request.cors, request.event)
@@ -121,6 +126,8 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
                 userIdentifier = input.userIdentifier,
                 userProfessionOid = input.userProfessionOid,
                 userCommonName = input.userCommonName,
+                userOrganizationName = input.userOrganizationName,
+                userBirthdate = input.userBirthdate,
                 deviceInfo = input.deviceInfo,
                 attestationTimestamp = input.attestationTimestamp,
             )
@@ -158,6 +165,9 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
         userProfessionOid = request.userSession.getNote(ATTRIBUTE_MOBILEUSER_PROFESSION_OID),
         // A_26973-03 commonName from »urn:telematik:claims:display_name«.
         userCommonName = request.userSession.getNote(ATTRIBUTE_MOBILEUSER_DISPLAY_NAME),
+        // organizationName from »urn:telematik:claims:organization«, birthdate (consent-dependent) from »birthdate«.
+        userOrganizationName = request.userSession.getNote(ATTRIBUTE_MOBILEUSER_ORGANIZATION),
+        userBirthdate = request.userSession.getNote(ATTRIBUTE_MOBILEUSER_BIRTHDATE),
         deviceInfo = clientStatement?.posture?.toOpaDeviceInfo(),
         attestationTimestamp = clientStatement?.attestationTimestamp,
     )

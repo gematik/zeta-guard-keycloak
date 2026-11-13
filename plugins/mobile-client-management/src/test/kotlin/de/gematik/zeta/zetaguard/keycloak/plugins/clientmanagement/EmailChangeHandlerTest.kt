@@ -38,7 +38,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CHALLENGE_TYPE_EMAIL_OT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
-import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
@@ -146,7 +146,7 @@ class EmailChangeHandlerTest :
       justRun { logZetaAdminEvent(any(), any(), any(), any(), any(), any()) }
       justRun { fireZetaEvent(any(), any(), any(), any(), any(), any(), any()) }
       justRun { fireClientRemoved(any(), any(), any(), any(), any(), any()) }
-      every { EmailOTPService.issue(session, CALLER_ID) } returns OTP
+      every { EmailOTPService.issue(session, CALLER_ID, NEW_EMAIL) } returns OTP
       justRun { EmailOTPMailer.send(any(), any(), any()) }
     }
 
@@ -158,7 +158,7 @@ class EmailChangeHandlerTest :
       val response = handler().handle(callerData, null)
 
       response.status shouldBe 400
-      response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+      response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
       response.entityMap()["code"] shouldBe ProblemCodes.INVALID_REQUEST
     }
 
@@ -195,7 +195,7 @@ class EmailChangeHandlerTest :
 
       response.status shouldBe 202
       response.entityMap() shouldBe mapOf("status" to "verified")
-      verify(exactly = 0) { EmailOTPService.issue(any(), any()) }
+      verify(exactly = 0) { EmailOTPService.issue(any(), any(), any()) }
       verify(exactly = 0) { user.setSingleAttribute(any(), any<String>()) }
     }
 

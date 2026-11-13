@@ -24,6 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_MTLS_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.plugins.sekidp.FederationEndpoint.FEDMASTER_FETCH
 import de.gematik.zeta.zetaguard.keycloak.plugins.sekidp.FederationEndpoint.FEDMASTER_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.plugins.sekidp.FederationEndpoint.IDP_STATEMENT
@@ -34,6 +35,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
 import org.keycloak.common.util.Time
@@ -54,7 +57,11 @@ class FederationTest : ZetaGuardFunSpec() {
   init {
     beforeEach { httpClient = HttpClients.createDefault() }
 
-    afterEach { httpClient.close() }
+    afterEach {
+      withContext(Dispatchers.IO) {
+        httpClient.close()
+      }
+    }
 
     context("verifyIdToken — trust chain and signature (A_29672)") {
       test("accepts an ID token signed with the protocol key from the signed JWK set") {
@@ -387,7 +394,7 @@ class FederationTest : ZetaGuardFunSpec() {
           every { it.httpClient } returns httpClient
           every { it.maxConsumedResponseSize } returns HttpClientProvider.DEFAULT_MAX_CONSUMED_RESPONSE_SIZE
         }
-    val session = mockk<KeycloakSession>().also { every { it.getProvider(HttpClientProvider::class.java) } returns httpClientProvider }
+    val session = mockk<KeycloakSession>().also { every { it.getProvider(HttpClientProvider::class.java, SEKIDP_MTLS_HTTP_CLIENT_ID) } returns httpClientProvider }
 
     return Federation(session, mock.fedmasterUrl)
   }

@@ -17,6 +17,7 @@ fi
 # scope alone still has the ZETA claims. The Guard audience is a deployment property and is configured by
 # the deployment tooling, not here.
 ./kcadm.sh create client-scopes -r zeta-guard \
+  -s "id=zeta:client-management" \
   -s "name=zeta:client-management" \
   -s protocol=openid-connect \
   -s "description=ZETA scope for managing the clients and email of the caller's identity" \
@@ -26,6 +27,7 @@ fi
 SCOPE_ID=$(./kcadm.sh get client-scopes -r zeta-guard | jq -r '.[] | select(.name=="zeta:client-management") | .id')
 
 ./kcadm.sh create "client-scopes/$SCOPE_ID/protocol-mappers/models" -r zeta-guard \
+  -s id=zeta-guard-mapper-client-management \
   -s name=zeta-guard-mapper \
   -s protocol=openid-connect \
   -s protocolMapper=zeta-guard-accesstoken-mapper \

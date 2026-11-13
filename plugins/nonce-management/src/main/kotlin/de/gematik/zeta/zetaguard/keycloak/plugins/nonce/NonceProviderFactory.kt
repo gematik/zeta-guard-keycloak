@@ -27,15 +27,17 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.nonce
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_NONCE_TTL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PROVIDER_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
 import java.time.Duration
 import java.time.LocalDateTime
 import org.keycloak.Config
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.KeycloakSessionFactory
+import org.keycloak.services.resource.RealmResourceProvider
 import org.keycloak.services.resource.RealmResourceProviderFactory
 
 // "Time-to-live" of a "nonce" in ISO-8601 format.
-private val NONCE_TTL = System.getenv(ENV_NONCE_TTL) ?: "PT1H"
+private val NONCE_TTL = safeGetenv(ENV_NONCE_TTL, "PT1H")
 
 typealias TimeProvider = () -> LocalDateTime
 
@@ -71,3 +73,6 @@ open class NonceProviderFactory : RealmResourceProviderFactory {
     // No-op
   }
 }
+
+fun KeycloakSession.lookupNonceProviderFactory(): NonceProviderFactory = keycloakSessionFactory
+    .getProviderFactory(RealmResourceProvider::class.java, NONCE_PROVIDER_ID) as NonceProviderFactory

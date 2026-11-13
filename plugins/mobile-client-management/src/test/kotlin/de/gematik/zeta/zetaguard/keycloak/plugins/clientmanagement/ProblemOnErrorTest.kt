@@ -23,7 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
-import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -58,7 +58,7 @@ class ProblemOnErrorTest :
         val response = session.problemOnError { throw IllegalStateException("boom") }
 
         response.status shouldBe 500
-        response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+        response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
         verify { transactionManager.setRollbackOnly() }
       }
 

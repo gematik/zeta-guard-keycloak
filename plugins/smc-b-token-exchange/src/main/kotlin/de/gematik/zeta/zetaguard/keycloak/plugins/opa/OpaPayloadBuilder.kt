@@ -46,6 +46,8 @@ object OpaPayloadBuilder {
       val userIdentifier: String? = null,
       val userProfessionOid: String? = null,
       val userCommonName: String? = null,
+      val userOrganizationName: String? = null,
+      val userBirthdate: String? = null,
       val deviceInfo: OpaDeviceInfo? = null,
       val attestationTimestamp: Long? = null,
   )
@@ -55,6 +57,8 @@ object OpaPayloadBuilder {
           identifier = userIdentifier?.takeIf(String::isNotBlank),
           professionOid = userProfessionOid?.takeIf(String::isNotBlank),
           commonName = userCommonName?.takeIf(String::isNotBlank),
+          organizationName = userOrganizationName?.takeIf(String::isNotBlank),
+          birthdate = userBirthdate?.takeIf(String::isNotBlank),
       )
 
   private fun PayloadParams.toAuthorizationRequest(): OpaInput.OpaAuthorizationRequest {
@@ -122,6 +126,8 @@ object OpaPayloadBuilder {
           userIdentifier = input.userIdentifier,
           userProfessionOid = input.userProfessionOid,
           userCommonName = input.userCommonName,
+          userOrganizationName = input.userOrganizationName,
+          userBirthdate = input.userBirthdate,
           deviceInfo = input.deviceInfo,
           attestationTimestamp = input.attestationTimestamp,
       )

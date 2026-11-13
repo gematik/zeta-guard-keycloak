@@ -34,7 +34,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.events.logZetaAdminEvent
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
-import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
@@ -161,7 +161,7 @@ class ClientManagementEndpointsTest :
       val response = provider().listClients(null)
 
       response.status shouldBe 401
-      response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+      response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
     }
 
     "a zeta client without Keycloak client is skipped" {
@@ -181,7 +181,7 @@ class ClientManagementEndpointsTest :
       val response = provider().listClients(header())
 
       response.status shouldBe 500
-      response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+      response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
       response.entityMap()["code"] shouldBe ProblemCodes.INTERNAL_ERROR
       verify { transactionManager.setRollbackOnly() }
     }

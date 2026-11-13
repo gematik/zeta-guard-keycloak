@@ -63,4 +63,27 @@ COPY --chown=1000:1000 maven/jars/jackson-jakarta-rs-yaml-provider-2.21.7.jar   
 COPY --chown=1000:1000 maven/jars/jackson-module-jakarta-xmlbind-annotations-2.21.7.jar  lib/lib/main/com.fasterxml.jackson.module.jackson-module-jakarta-xmlbind-annotations-2.21.2.jar
 COPY --chown=1000:1000 maven/jars/jackson-module-parameter-names-2.21.7.jar              lib/lib/main/com.fasterxml.jackson.module.jackson-module-parameter-names-2.21.2.jar
 
+# Remove the compromised emSign / eMudhra root CAs (eight emSign intermediate CA keys compromised,
+# CVE-2026-114406 / CVE-2026-91403). A forged chain under these roots must not be trusted: for the
+# Authserver a forged Federation Master / SekIDP would otherwise allow registering users with a
+# freely chosen KVNR. Keycloak uses the JVM cacerts for outbound TLS (decisive); the OS trust
+# bundles are cleaned too for defense in depth. update-ca-trust is unusable here (libp11-kit is
+# absent in the base image), so both stores are edited directly.
+RUN set -eu; \
+    for alias in emsignrootca-c1 emsigneccrootca-c3 emsignrootca-g1 emsigneccrootca-g3; do \
+      keytool -delete -cacerts -storepass changeit -alias "$alias" 2>/dev/null || true; \
+    done; \
+    for f in /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem \
+             /etc/pki/ca-trust/extracted/pem/email-ca-bundle.pem \
+             /etc/pki/ca-trust/extracted/pem/objsign-ca-bundle.pem \
+             /etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt; do \
+      [ -f "$f" ] && sed -i '/^# emSign/,/^-----END.*CERTIFICATE-----/d' "$f"; \
+    done; \
+    ! keytool -list -cacerts -storepass changeit 2>/dev/null | grep -qi emsign \
+      || { echo "ERROR: emSign roots still present in cacerts" >&2; exit 1; }; \
+    ! grep -rqi emSign /etc/pki/ca-trust/extracted/pem/ \
+                       /etc/pki/ca-trust/extracted/openssl/ca-bundle.trust.crt \
+      || { echo "ERROR: emSign roots still present in OS trust bundles" >&2; exit 1; }
+
+
 USER keycloak

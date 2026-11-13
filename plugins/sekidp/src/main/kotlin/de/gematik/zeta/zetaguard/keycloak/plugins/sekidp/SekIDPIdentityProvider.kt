@@ -60,6 +60,7 @@ import org.keycloak.broker.provider.IdentityBrokerException
 import org.keycloak.broker.provider.UserAuthenticationIdentityProvider
 import org.keycloak.common.util.SecretGenerator
 import org.keycloak.events.EventBuilder
+import org.keycloak.http.simple.SimpleHttp
 import org.keycloak.http.simple.SimpleHttpRequest
 import org.keycloak.jose.jws.JWSInput
 import org.keycloak.models.FederatedIdentityModel
@@ -143,9 +144,9 @@ private val PERSISTED_USER_DATA =
 class SekIDPIdentityProvider(
     session: KeycloakSession,
     config: OIDCIdentityProviderConfig,
-    private val sekIdpHttpClient: SekIdpHttpClient,
+    private val sekIdpHttpClient: SimpleHttp,
     private val integrityProviderService: IntegrityProviderService,
-    private val fedmasterUrl: String,
+    fedmasterUrl: String,
 ) : AbstractZetaGuardIdentityProvider(session, config) {
 
   private val federation = Federation(session, fedmasterUrl)
@@ -230,7 +231,7 @@ class SekIDPIdentityProvider(
       nonce: String,
   ): Either<SekIdpAuthorizationRequestError, String> = either {
     sekIdpHttpClient
-        .doPost(session, endpoints.pushedAuthorizationRequestEndpoint)
+        .doPost(endpoints.pushedAuthorizationRequestEndpoint)
         .param(OAUTH2_PARAMETER_CLIENT_ID, providerConfig.clientId)
         .param(OAUTH2_PARAMETER_STATE, state)
         .param(OAUTH2_PARAMETER_REDIRECT_URI, oidcRedirectUri)
@@ -335,6 +336,8 @@ class SekIDPIdentityProvider(
 
   /** Nothing extra for a newly bound client: [updateBrokeredUser] stores the user data on every login. */
   override fun updateUserModel(context: BrokeredIdentityContext, userModel: UserModel) = Unit
+
+  override fun professionOid(context: BrokeredIdentityContext): String? = context.contextData[ATTRIBUTE_MOBILEUSER_PROFESSION_OID] as? String
 
   /** The login stores the user data of the ID token (A_26973-02), which must not end up in the database unencrypted. */
   fun checkIntegrityProvider(): Either<KeycloakError, Unit> = either {
@@ -485,7 +488,7 @@ class SekIDPIdentityProvider(
 
       val tokenRequest =
           sekProvider.sekIdpHttpClient
-              .doPost(sekProvider.session, sekProvider.config.tokenUrl)
+              .doPost(sekProvider.config.tokenUrl)
               .param(OAUTH2_PARAMETER_CODE, authorizationCode)
               .param(OAUTH2_PARAMETER_REDIRECT_URI, redirectUri)
               .param(OAUTH2_PARAMETER_GRANT_TYPE, OAUTH2_GRANT_TYPE_AUTHORIZATION_CODE)

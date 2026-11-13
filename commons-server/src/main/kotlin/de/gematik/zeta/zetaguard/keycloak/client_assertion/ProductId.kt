@@ -31,7 +31,7 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo
 import de.gematik.zeta.zetaguard.keycloak.commons.Platform
 import java.beans.ConstructorProperties
 
-const val PROPERTY_PLATFORM_DISCRIMINATOR = "platform"
+const val PROPERTY_PLATFORM_DISCRIMINATOR = PROPERTY_PLATFORM
 
 // Android
 const val PROPERTY_PACKAGE_NAME = "package_name"

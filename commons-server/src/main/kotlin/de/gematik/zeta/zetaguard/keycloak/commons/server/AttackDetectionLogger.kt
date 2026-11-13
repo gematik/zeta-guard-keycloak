@@ -23,6 +23,9 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
+import de.gematik.zeta.zetaguard.keycloak.commons.server.opentelemetry.AttackDetectionAttributes
+import de.gematik.zeta.zetaguard.keycloak.commons.server.opentelemetry.UserAttributes
 import io.opentelemetry.semconv.ServerAttributes
 import java.time.ZoneId
 import org.jboss.logging.Logger
@@ -43,7 +46,7 @@ private const val ATTACK_TRACER = "zetaguard.attackDetection"
 object AttackDetectionLogger {
   private val logger = Logger.getLogger(AttackDetectionLogger::class.java)
 
-  fun warn(attack: CapecAttackMechanics, message: String, cause: Any?, clientIP: String) = logger.warn(
+  fun warn(attack: CapecAttackMechanics, message: String, cause: Any?, clientIP: String, userRole: UserRole) = logger.warn(
       message = "Possible attack detected",
       attributes = mapOf(
           ATTACK_DETECTION_CAPEC_ID to attack.id,
@@ -51,26 +54,27 @@ object AttackDetectionLogger {
           ATTACK_DETECTION_DETAIL to message,
           ATTACK_DETECTION_ORIGIN to (cause ?: "no details available"),
           ATTACK_DETECTION_CLIENT_IP to clientIP,
+          USER_ROLES to userRole.toLoggableString(),
       ),
   )
 }
 
-fun KeycloakSession.reportAttack(cause: Throwable, attack: CapecAttackMechanics, clientIP: String) {
+fun KeycloakSession.reportAuthenticationBypassAttack(cause: Throwable, clientIP: String, userRole: UserRole = UserRole.Unbekannt) {
   val message = cause.message ?: "unknown"
   val cause = cause.stackTrace[0]
 
-  AttackDetectionLogger.warn(attack, message, cause, clientIP)
-  reportAttack(attack, message, clientIP)
+  AttackDetectionLogger.warn(AUTHENTICATION_BYPASS, message, cause, clientIP, userRole)
+  reportAttack(AUTHENTICATION_BYPASS, message, clientIP, userRole)
 }
 
-fun KeycloakSession.reportAttack(cause: KeycloakError, attack: CapecAttackMechanics, clientIP: String) {
+fun KeycloakSession.reportAuthenticationBypassAttack(cause: KeycloakError, clientIP: String, userRole: UserRole = UserRole.Unbekannt) {
   val message = cause.errorDescription
 
-  AttackDetectionLogger.warn(attack, message, cause, clientIP)
-  reportAttack(attack, message, clientIP)
+  AttackDetectionLogger.warn(AUTHENTICATION_BYPASS, message, cause, clientIP, userRole)
+  reportAttack(AUTHENTICATION_BYPASS, message, clientIP, userRole)
 }
 
-fun KeycloakSession.reportAttack(attack: CapecAttackMechanics, message: String, clientIP: String) {
+private fun KeycloakSession.reportAttack(attack: CapecAttackMechanics, message: String, clientIP: String, userRole: UserRole) {
   val span = getTracer(ATTACK_TRACER)
       .spanBuilder(attack.name)
       .setAttribute(AttackDetectionAttributes.CAPEC_NAME, attack.attackName)
@@ -79,6 +83,7 @@ fun KeycloakSession.reportAttack(attack: CapecAttackMechanics, message: String, 
       .setAttribute(AttackDetectionAttributes.ORIGIN, "no details available")
       .setAttribute(AttackDetectionAttributes.CLIENT_IP, clientIP)
       .setAttribute(ServerAttributes.SERVER_ADDRESS, serverHost)
+      .setAttribute(UserAttributes.ROLES, userRole.toLoggableString())
       .startSpan()
       .addEvent(attack.attackName, currentTime().atZone(ZoneId.systemDefault()).toInstant())
 

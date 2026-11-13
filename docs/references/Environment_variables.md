@@ -23,11 +23,19 @@ Keycloak does not start with the OIDC flow enabled if one of them is missing or 
 | `ENTITY_STATEMENT_PRODUCT_TYPE_VERSION` | `1.0.0`       | `product_type_version` keyword in the entity statement's `openid_relying_party` metadata.                                                                                                   |
 | `ENTITY_STATEMENT_REDIRECT_URIS`        | unset         | Comma-separated `redirect_uris` in the entity statement's `openid_relying_party` metadata (A_25656). Unset or empty: the redirect URIs of the realm's SekIDP clients.                       |
 | `FEDERATION_MASTER_LOCATION`            | —             | Path to the `federation-master.json` file produced by the provisioning processor. The file contains a JSON object with a `fedmasterUrl` field. Required when `ZETA_OIDC_FLOW_ENABLED=true`. |
+| `CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE` | `500`      | Maximum number of expired client registrations, clients and users the expiration job removes per run (each run is one transaction). A larger backlog (e.g. after a load test) is worked off over several runs, see the note below. |
 
 > **Note:** Both `TRUSTSTORE_RELOAD_*` variables exist for test setups, where waiting an hour for a reload is not
 > practical. Their defaults are the production setting — leave them alone there. Turning the reload off means new trust
 > anchors only take effect on the next restart and a short interval has the server re-read several megabytes of trust
 > material that often.
+
+> **Note:** The client expiration job removes at most `CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE` entries per run, oldest first, so that the
+> memory and the duration of its transaction stay bounded however many expired clients there are. What is left is removed by the next run, every
+> `CLIENT_REGISTRATION_SCHEDULER_INTERVAL` (default `PT5M`), i.e. 500 clients and 500 users per 5 minutes by default. After a load test that leaves
+> a large backlog, shorten the interval (e.g. `PT1M`) or raise the batch size, temporarily if need be, until the backlog is gone. A run takes
+> roughly 15 seconds for 500 entries, so keep the interval well above that: the job runs on Keycloak's timer thread, which also runs other
+> scheduled tasks, e.g. the keepalive of the revocation stream (every 20 s).
 
 ## Reloading the truststores
 

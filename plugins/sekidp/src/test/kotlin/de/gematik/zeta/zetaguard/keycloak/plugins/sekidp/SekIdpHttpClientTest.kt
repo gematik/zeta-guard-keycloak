@@ -29,6 +29,7 @@ import com.github.tomakehurst.wiremock.client.WireMock.any
 import com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_IDENTITY_PROVIDER_ID
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -37,58 +38,60 @@ import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
 import java.security.KeyStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.apache.http.conn.ssl.NoopHostnameVerifier
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.impl.client.HttpClients
 import org.apache.http.ssl.SSLContexts
+import org.keycloak.Config
+import org.keycloak.broker.provider.IdentityProvider
 import org.keycloak.common.enums.HostnameVerificationPolicy
-import org.keycloak.connections.httpclient.HttpClientProvider
+import org.keycloak.http.simple.SimpleHttp
 import org.keycloak.models.KeycloakSession
+import org.keycloak.models.KeycloakSessionFactory
+import org.keycloak.provider.ProviderFactory
 import org.keycloak.truststore.TruststoreProvider
 
 private const val TEST_PASSWORD = "test-password"
 
 class SekIdpHttpClientTest : ZetaGuardFunSpec() {
   init {
-    test("without mTLS config no keystore is read and no certificate is published") {
-      SekIdpHttpClient(null).use { client -> client.clientCertificate shouldBe null }
-    }
-
     test("a missing keystore file fails closed") {
-      val config = MtlsClientConfig(keystoreLocation = "/does/not/exist.p12", keystorePassword = TEST_PASSWORD)
+      val config = MTLSClientConfig(keystoreLocation = "/does/not/exist.p12", keystorePassword = TEST_PASSWORD)
 
-      shouldThrow<FileNotFoundException> { SekIdpHttpClient(config) }
+      shouldThrow<FileNotFoundException> { config.keystore }
     }
 
     test("an unreadable keystore file fails closed") {
       // Empty file: BouncyCastle rejects it as a PKCS12 store, so no client is built.
-      val corruptFile = File.createTempFile("sekidp-client-corrupt", ".p12").apply { deleteOnExit() }
+      val corruptFile = withContext(Dispatchers.IO) {
+        File.createTempFile("sekidp-client-corrupt", ".p12")
+      }.apply { deleteOnExit() }
 
-      shouldThrow<IOException> { SekIdpHttpClient(MtlsClientConfig(corruptFile.absolutePath, TEST_PASSWORD)) }
+      shouldThrow<IOException> { MTLSClientConfig(corruptFile.absolutePath, TEST_PASSWORD).keystore }
     }
 
     // PAR and token requests both run through doPost, so proving the certificate here covers both (A_23183).
     context("mTLS — client certificate at PAR and token requests (A_23183)") {
       test("presents the client certificate to a server that demands one") {
-        withMtlsServer { server ->
-          SekIdpHttpClient(MtlsClientConfig(CLIENT_KEYSTORE, CLIENT_KEYSTORE_PASSWORD)).use { client ->
-            val session = sessionTrusting(server.serverTrust)
+        withMTLSServer { server ->
+          val httpClientFactory = mtlsHttpClientFactory(MTLSClientConfig(CLIENT_KEYSTORE, CLIENT_KEYSTORE_PASSWORD))
+          val session = sessionTrusting(server.serverTrust)
+          val client = SimpleHttp.create(httpClientFactory.create(session).httpClient)
 
-            client.doPost(session, server.parUrl).param("client_id", "zeta-guard").asResponse().use { it.status shouldBe 201 }
-          }
+          client.doPost(server.parUrl).param("client_id", "zeta-guard").asResponse().use { it.status shouldBe 201 }
         }
       }
 
       test("without mTLS config the handshake fails — the 201 above really hinges on the certificate") {
-        withMtlsServer { server ->
-          SekIdpHttpClient(null).use { client ->
-            // This plain client trusts the server, so the only difference to the test above is the missing key material.
-            httpClientWithoutClientCertificate(server.serverTrust).use { httpClient ->
-              val session = sessionUsing(httpClient)
+        withMTLSServer { server ->
+          // This plain client trusts the server, so the only difference to the test above is the missing key material.
+          httpClientWithoutClientCertificate(server.serverTrust).use { httpClient ->
+            val client = SimpleHttp.create(httpClient)
 
-              // SSLException extends IOException; TLS 1.3 surfaces the missing certificate only on the first read.
-              shouldThrow<IOException> { client.doPost(session, server.parUrl).param("client_id", "zeta-guard").asResponse() }
-            }
+            // SSLException extends IOException; TLS 1.3 surfaces the missing certificate only on the first read.
+            shouldThrow<IOException> { client.doPost(server.parUrl).param("client_id", "zeta-guard").asResponse() }
           }
         }
       }
@@ -97,7 +100,7 @@ class SekIdpHttpClientTest : ZetaGuardFunSpec() {
 }
 
 /** An HTTPS listener that answers `/par` with 201 — but only for clients presenting the committed test certificate. */
-private class MtlsServer(val parUrl: String, val serverTrust: KeyStore)
+private class MTLSServer(val parUrl: String, val serverTrust: KeyStore)
 
 /**
  * Runs [block] against a WireMock HTTPS listener requiring TLS client authentication.
@@ -106,31 +109,35 @@ private class MtlsServer(val parUrl: String, val serverTrust: KeyStore)
  * certificates are exactly the ones in [CLIENT_KEYSTORE], so the positive test also proves that generated keystore
  * is usable.
  */
-private fun withMtlsServer(block: (MtlsServer) -> Unit) {
+private fun withMTLSServer(block: (MTLSServer) -> Unit) {
   val (serverKeystoreFile, serverCertificate) = generateSelfSignedKeystore("server", "127.0.0.1", TEST_PASSWORD)
   val serverTrust = KeyStore.getInstance("PKCS12").apply { load(null, null) }.apply { setCertificateEntry("server", serverCertificate) }
 
   val server =
       WireMockServer(
-              options()
-                  .dynamicPort()
-                  .dynamicHttpsPort()
-                  .bindAddress("127.0.0.1")
-                  .keystorePath(serverKeystoreFile.absolutePath)
-                  .keystoreType("PKCS12")
-                  .keystorePassword(TEST_PASSWORD)
-                  .keyManagerPassword(TEST_PASSWORD)
-                  .needClientAuth(true)
-                  .trustStorePath(CLIENT_KEYSTORE)
-                  .trustStoreType("PKCS12")
-                  .trustStorePassword(CLIENT_KEYSTORE_PASSWORD))
+          options()
+              .dynamicPort()
+              .dynamicHttpsPort()
+              .bindAddress("127.0.0.1")
+              .keystorePath(serverKeystoreFile.absolutePath)
+              .keystoreType("PKCS12")
+              .keystorePassword(TEST_PASSWORD)
+              .keyManagerPassword(TEST_PASSWORD)
+              .needClientAuth(true)
+              .trustStorePath(CLIENT_KEYSTORE)
+              .trustStoreType("PKCS12")
+              .trustStorePassword(CLIENT_KEYSTORE_PASSWORD)
+      )
           .apply { start() }
 
   try {
     server.stubFor(
         any(urlPathEqualTo("/par"))
-            .willReturn(aResponse().withStatus(201).withHeader("Content-Type", "application/json").withBody("""{"request_uri":"urn:mock","expires_in":60}""")))
-    block(MtlsServer("https://127.0.0.1:${server.httpsPort()}/par", serverTrust))
+            .willReturn(
+                aResponse().withStatus(201).withHeader("Content-Type", "application/json").withBody("""{"request_uri":"urn:mock","expires_in":60}""")
+            )
+    )
+    block(MTLSServer("https://127.0.0.1:${server.httpsPort()}/par", serverTrust))
   } finally {
     server.stop()
   }
@@ -143,6 +150,21 @@ private fun httpClientWithoutClientCertificate(serverTrust: KeyStore): Closeable
         .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE)
         .build()
 
+/** The factory as Keycloak initializes it: `init`, then `postInit` reading the key material from the SekIDP factory. */
+private fun mtlsHttpClientFactory(mtlsConfig: MTLSClientConfig): SekIDPHttpClientFactory {
+  val sekIdpFactory = mockk<SekIDPIdentityProviderFactory>().also { every { it.mtlsConfig() } returns mtlsConfig }
+  val sessionFactory =
+      mockk<KeycloakSessionFactory>().also {
+        @Suppress("UNCHECKED_CAST")
+        every { it.getProviderFactory(IdentityProvider::class.java, SEKIDP_IDENTITY_PROVIDER_ID) } returns sekIdpFactory as ProviderFactory<IdentityProvider<*>>
+      }
+
+  return SekIDPHttpClientFactory().apply {
+    init(Config.scope())
+    postInit(sessionFactory)
+  }
+}
+
 /** A session whose TruststoreProvider trusts [truststore] — what the mTLS client factory reads to build its SSLContext. */
 private fun sessionTrusting(truststore: KeyStore): KeycloakSession =
     mockk<KeycloakSession>().also { session ->
@@ -150,15 +172,5 @@ private fun sessionTrusting(truststore: KeyStore): KeycloakSession =
           mockk<TruststoreProvider>().also {
             every { it.policy } returns HostnameVerificationPolicy.ANY
             every { it.truststore } returns truststore
-          }
-    }
-
-/** A session whose HttpClientProvider hands back [httpClient] — what the non-mTLS path falls back to. */
-private fun sessionUsing(httpClient: CloseableHttpClient): KeycloakSession =
-    mockk<KeycloakSession>().also { session ->
-      every { session.getProvider(HttpClientProvider::class.java) } returns
-          mockk<HttpClientProvider>().also {
-            every { it.httpClient } returns httpClient
-            every { it.maxConsumedResponseSize } returns HttpClientProvider.DEFAULT_MAX_CONSUMED_RESPONSE_SIZE
           }
     }

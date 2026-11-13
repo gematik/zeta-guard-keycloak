@@ -36,19 +36,23 @@ const val ADMIN_USER = "zeta"
 const val ADMIN_PASSWORD = "sigma"
 
 const val CLIENT_A_ID = "initial-client"
-const val CLIENT_A_SCOPE = "audience-requester-scope"
+const val SCOPE_CLIENT_A = "audience-requester-scope"
 
 // Client performing the exchange (confidential)
 const val CLIENT_B_ID = "requester-client"
-const val CLIENT_B_SECRET = "qXpy5mlykWglKNSvs65N8sjNXRZDJDwH"
-const val CLIENT_B_SCOPE = "audience-target-scope"
+const val CLIENT_B_SECRET = "qXpy5mlykWglKNSvs65N8sjNXRZDJDwH" // NOSONAR: test value of the local stack, not a real secret
+const val SCOPE_CLIENT_B = "audience-target-scope"
 
 // Target client for the new token (audience)
 const val CLIENT_C_ID = "target-client"
-const val CLIENT_C_SECRET = "jnG1UuQzWgQROtjhU1ku9YlsRsupzL5o"
+const val CLIENT_C_SECRET = "jnG1UuQzWgQROtjhU1ku9YlsRsupzL5o" // NOSONAR: test value of the local stack, not a real secret
 
 const val ZETA = "\uD835\uDEC7"
 const val ZETA_GUARD_CLIENT_NAME = "$ZETA-Guard client"
+
+// A_29843
+const val SCOPE_ZETA_TEST = "zeta:test"
+const val SCOPE_ZETA_GUARD = "zeta-guard-scope"
 
 const val TELEMATIK_ID = "1-20014060625"
 const val TELEMATIK_ID2 = "1-10.3.9876541000.10.249"

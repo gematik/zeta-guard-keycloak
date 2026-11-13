@@ -4,7 +4,7 @@
 
     <groupId>de.gematik.zeta.zeta-guard</groupId>
     <artifactId>keycloak-zeta</artifactId>
-    <version>2.0.1</version>
+    <version>2.0.2</version>
     <packaging>pom</packaging>
 
     <name>𝝵-Guard :: Create ZETA-Guard Keycloak</name>

@@ -35,10 +35,12 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILE_OPA_CO
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPA_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_EMAIL_BINDING
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.commons.server.permitMobileIssuance
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.MOCK_MOBILE_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
@@ -48,6 +50,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
+import io.kotest.matchers.throwable.shouldHaveMessage
 import io.mockk.CapturingSlot
 import io.mockk.every
 import io.mockk.mockk
@@ -87,17 +90,22 @@ import org.keycloak.protocol.oidc.TokenExchangeContext
 import org.keycloak.protocol.oidc.TokenExchangeContext.Params
 import org.keycloak.protocol.oidc.TokenManager
 import org.keycloak.representations.AccessToken
+import org.keycloak.representations.dpop.DPoP
 import org.keycloak.services.CorsErrorResponseException
 import org.keycloak.services.cors.Cors
 import org.keycloak.services.managers.AuthenticationManager
+import org.keycloak.services.util.DPoPUtil
 
 class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
   init {
     beforeEach {
       mockkObject(OidcFlowSettings)
       every { OidcFlowSettings.isEnabled() } returns true
+      // Records permitMobileIssuance calls; unstubbed SessionUtil functions keep their real behaviour
+      mockkStatic(SESSION_UTIL)
     }
     afterEach {
+      unmockkStatic(SESSION_UTIL)
       unmockkObject(OidcFlowSettings)
       unmockkConstructor(ZetaGuardDataService::class)
       unmockkObject(OpaGateEnforcer)
@@ -151,8 +159,35 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
                 clientData = mobileClientData(ClientRegistrationStatus.CONFIRMED),
             )
           }
-      ex.message shouldBe OAuthErrorException.INVALID_GRANT
+      ex shouldHaveMessage OAuthErrorException.INVALID_GRANT
       ex.errorDescription shouldBe "Subject token was not issued to this client"
+    }
+
+    test("tokenExchange rejects subject token bound to another DPoP key") {
+      val ex =
+          shouldThrow<CorsErrorResponseException> {
+            exchange(
+                token = accessToken(issuedFor = "mobile-client", scope = SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION),
+                clientData = mobileClientData(ClientRegistrationStatus.CONFIRMED),
+                proofThumbprint = "attacker-key-thumbprint",
+            )
+          }
+      ex shouldHaveMessage OAuthErrorException.INVALID_GRANT
+      ex.errorDescription shouldBe "Subject token is not bound to the DPoP key of this request"
+      verify(exactly = 0) { OpaGateEnforcer.enforce(any(), any(), any()) }
+    }
+
+    test("tokenExchange rejects subject token without DPoP binding") {
+      val ex =
+          shouldThrow<CorsErrorResponseException> {
+            exchange(
+                token =
+                    accessToken(issuedFor = "mobile-client", scope = SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION, boundThumbprint = null),
+                clientData = mobileClientData(ClientRegistrationStatus.CONFIRMED),
+            )
+          }
+      ex shouldHaveMessage OAuthErrorException.INVALID_GRANT
+      ex.errorDescription shouldBe "Subject token is not bound to the DPoP key of this request"
     }
 
     test("tokenExchange rejects subject token without zeta:email-verify even if email-binding is present") {
@@ -167,7 +202,7 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
                 clientData = mobileClientData(ClientRegistrationStatus.CONFIRMED),
             )
           }
-      ex.message shouldBe OAuthErrorException.INVALID_GRANT
+      ex shouldHaveMessage OAuthErrorException.INVALID_GRANT
       ex.errorDescription shouldBe "Subject token is not an email-binding token"
     }
 
@@ -179,7 +214,7 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
                 clientData = mobileClientData(ClientRegistrationStatus.OTP_PENDING),
             )
           }
-      ex.message shouldBe OAuthErrorException.INVALID_GRANT
+      ex shouldHaveMessage OAuthErrorException.INVALID_GRANT
       ex.errorDescription shouldBe "Email binding not complete"
       verify(exactly = 0) { OpaGateEnforcer.enforce(any(), any(), any()) }
     }
@@ -190,7 +225,7 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
       val emailBinding = clientScope(SCOPE_EMAIL_BINDING)
       val emailVerify = clientScope(SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION)
 
-      var restrictedScopes: Set<String>? = null
+      lateinit var restrictedScopes: Set<String>
       val ok = Response.ok(mapOf("token_type" to "Bearer")).build()
       val opaInput = slot<OpaGateInput>()
       val provider =
@@ -229,6 +264,7 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
             audienceNote = "https://fachdienst.example",
             opaOutcome = OpaGateEnforcer.Outcome.Deny(KeycloakError("access_denied", "policy_denied", Response.Status.FORBIDDEN)),
             expectLastIpUpdate = false,
+            expectIssuancePermit = false,
         )
       }
     }
@@ -252,6 +288,18 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
       ttls.refreshTokenTTL shouldBe Duration.ofSeconds(600)
       ttls.scopes shouldBe listOf("openid", "profile")
       ttls.audiences shouldBe listOf("https://fachdienst.example")
+    }
+
+    test("OPA allow permits KVNR issuance for the exchanging client") {
+      exchange(
+          token = accessToken(issuedFor = "mobile-client", scope = SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION),
+          clientData = mobileClientData(ClientRegistrationStatus.CONFIRMED),
+          originalScopeNote = "openid profile",
+          audienceNote = "https://fachdienst.example",
+          exchangeResponse = Response.ok(mapOf("token_type" to "Bearer")).build(),
+          onRestrictedScopes = {},
+          expectIssuancePermit = true,
+      )
     }
 
     test("OPA allow records last client IP only after successful issuance") {
@@ -322,6 +370,8 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
       ttlNoteSlot: CapturingSlot<String>? = null,
       expectSuccess: Boolean = true,
       expectLastIpUpdate: Boolean? = null,
+      expectIssuancePermit: Boolean? = null,
+      proofThumbprint: String? = CLIENT_KEY_THUMBPRINT,
   ): ZetaGuardEmailBindingTokenExchangeProvider? {
     mockkConstructor(ZetaGuardDataService::class)
     mockkStatic(OIDCAdvancedConfigWrapper::class)
@@ -373,7 +423,9 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
     every { session.context } returns keycloakContext
     val httpClientProvider = mockk<HttpClientProvider>()
     every { httpClientProvider.httpClient } returns mockk(relaxed = true)
-    every { session.getProvider(HttpClientProvider::class.java) } returns httpClientProvider
+    every { session.getProvider(HttpClientProvider::class.java, OPA_HTTP_CLIENT_ID) } returns httpClientProvider
+    every { session.getAttribute(DPoPUtil.DPOP_SESSION_ATTRIBUTE, DPoP::class.java) } returns
+        proofThumbprint?.let { DPoP().apply { thumbprint = it } }
 
     every { TokenManager.getRequestedClientScopes(any(), any(), any(), any()) } returns requestedScopes
 
@@ -431,6 +483,11 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
       false -> verify(exactly = 0) { client.setAttribute(ATTRIBUTE_LAST_CLIENT_IP, any()) }
       null -> {}
     }
+    when (expectIssuancePermit) {
+      true -> verify { session.permitMobileIssuance(client) }
+      false -> verify(exactly = 0) { session.permitMobileIssuance(any()) }
+      null -> {}
+    }
     if (thrown != null) throw thrown
     if (onRestrictedScopes != null) {
       if (expectSuccess) {
@@ -465,11 +522,12 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
     return JWSBuilder().jsonContent(token).none()
   }
 
-  private fun accessToken(issuedFor: String, scope: String): AccessToken =
+  private fun accessToken(issuedFor: String, scope: String, boundThumbprint: String? = CLIENT_KEY_THUMBPRINT): AccessToken =
       AccessToken().apply {
         this.issuedFor = issuedFor
         this.scope = scope
         this.sessionId = "session-1"
+        boundThumbprint?.let { confirmation = AccessToken.Confirmation().apply { keyThumbprint = it } }
       }
 
   private fun clientScope(name: String): ClientScopeModel {
@@ -482,5 +540,10 @@ class ZetaGuardEmailBindingTokenExchangeProviderTest : FunSpec() {
     val field = ZetaGuardEmailBindingTokenExchangeProvider::class.java.getDeclaredField("restoredScopeParam")
     field.isAccessible = true
     return field.get(provider) as String?
+  }
+
+  private companion object {
+    const val CLIENT_KEY_THUMBPRINT = "client-key-thumbprint"
+    const val SESSION_UTIL = "de.gematik.zeta.zetaguard.keycloak.commons.server.SessionUtilKt"
   }
 }

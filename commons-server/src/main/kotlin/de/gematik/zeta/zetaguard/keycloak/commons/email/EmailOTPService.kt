@@ -24,6 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.commons.email
 
 import de.gematik.zeta.zetaguard.keycloak.commons.OTPUtil.createOTP
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toHash
 import org.keycloak.models.KeycloakSession
 
 const val EMAIL_OTP_TTL_SECONDS = 300L
@@ -32,22 +33,25 @@ const val EMAIL_OTP_TTL_SECONDS = 300L
 const val EMAIL_OTP_STORE_PREFIX = "zeta-email-otp:"
 
 private const val KEY_OTP = "otp"
+private const val KEY_EMAIL = "email"
 
 object EmailOTPService {
-  fun issue(session: KeycloakSession, clientId: String) = createOTP().also {
-    session.singleUseObjects().put(key(clientId), EMAIL_OTP_TTL_SECONDS, mapOf(KEY_OTP to it))
+  /** The code is bound to [email], the address it is sent to. */
+  fun issue(session: KeycloakSession, clientId: String, email: String) = createOTP().also {
+    session.singleUseObjects().put(key(clientId), EMAIL_OTP_TTL_SECONDS, mapOf(KEY_OTP to it, KEY_EMAIL to email.fingerprint()))
   }
 
-  fun verify(session: KeycloakSession, clientId: String, code: String?): Boolean {
-    if (code.isNullOrBlank()) {
+  /** A code only confirms [email] if it was sent there. */
+  fun verify(session: KeycloakSession, clientId: String, code: String?, email: String?): Boolean {
+    if (code.isNullOrBlank() || email.isNullOrBlank()) {
       return false
     }
 
     val singleUseObjectProvider = session.singleUseObjects()
     val key = key(clientId)
-    val stored = singleUseObjectProvider[key]?.get(KEY_OTP) ?: return false
+    val stored: Map<String, String> = singleUseObjectProvider[key] ?: return false
 
-    if (stored != code) {
+    if (stored[KEY_OTP] != code || stored[KEY_EMAIL] != email.fingerprint()) {
       return false
     }
 
@@ -61,4 +65,7 @@ object EmailOTPService {
   }
 
   private fun key(clientId: String) = EMAIL_OTP_STORE_PREFIX + clientId
+
+  // only the hash is kept in the store
+  private fun String.fingerprint() = trim().lowercase().toHash()
 }

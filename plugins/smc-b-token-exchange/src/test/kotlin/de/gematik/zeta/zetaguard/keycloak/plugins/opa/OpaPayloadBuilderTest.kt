@@ -23,223 +23,124 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.opa
 
-import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJsonNode
 import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaDeviceInfo
 import io.kotest.assertions.json.shouldContainJsonKey
 import io.kotest.assertions.json.shouldContainJsonKeyValue
 import io.kotest.assertions.json.shouldNotContainJsonKey
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.nulls.shouldBeNull
-import io.kotest.matchers.shouldBe
 
 class OpaPayloadBuilderTest :
     FunSpec({
+
+       val minimalParams = OpaPayloadBuilder.PayloadParams(
+          scopes = emptyList(),
+          audiences = null,
+          grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
+          ipAddress = "127.0.0.1",
+          userProfessionOid = null,
+          clientProductId = null,
+          clientProductVersion = null,
+          clientId = null,
+          clientPlatform = null,
+          clientRegistrationTimestamp = null,
+          authenticationMethodsReferences = emptyList(),
+          authenticationContextClassReference = "abc",
+          previousIpAddress = null,
+      )
+
       test("scopes empty -> authorization_request.scopes omitted/null") {
-        val json =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = emptyList(),
-                    audiences = null,
-                    grantType = "urn:ietf:params:oauth:grant-type:token-exchange",
-                    ipAddress = "127.0.0.1",
-                    userProfessionOid = null,
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
-            )
-        val node = json.toJsonNode()
-        val req = node["input"]["authorization_request"]
-        req["scopes"].shouldBeNull()
+        val json = OpaPayloadBuilder.build(
+            minimalParams.copy(scopes = emptyList())
+        )
+        json shouldNotContainJsonKey "$.input.authorization_request.scopes"
       }
 
       test("audiences blank entries -> audience omitted/null") {
-        val json =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = listOf(" ", "  "),
-                    grantType = null,
-                    ipAddress = null,
-                    userProfessionOid = null,
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
-            )
-        val node = json.toJsonNode()
-        val req = node["input"]["authorization_request"]
-        req["audience"].shouldBeNull()
+        val json = OpaPayloadBuilder.build(
+            minimalParams.copy(audiences = listOf(" ", "  "))
+        )
+        json shouldNotContainJsonKey "$.input.authorization_request.audience"
       }
 
       test("audiences provided -> only audience is present") {
-        val json =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = listOf(" audience-1 ", "audience-2"),
-                    grantType = null,
-                    ipAddress = null,
-                    userProfessionOid = null,
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
-            )
-        val node = json.toJsonNode()
-        val req = node["input"]["authorization_request"]
-        req["aud"].shouldBeNull()
-        req["audience"].map { it.asText() } shouldBe listOf("audience-1", "audience-2")
+        val json = OpaPayloadBuilder.build(
+            minimalParams.copy(audiences = listOf(" audience-1 ", "audience-2"))
+        )
+        json shouldNotContainJsonKey "$.input.authorization_request.aud"
+        json.shouldContainJsonKeyValue("$.input.authorization_request.audience", listOf("audience-1", "audience-2"))
       }
 
       test("professionOid provided -> user_info.professionOID present; blank omitted") {
-        val withProfJson =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = null,
-                    grantType = null,
-                    ipAddress = null,
-                    userIdentifier = "007",
-                    userProfessionOid = "1.2.3",
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
+        val withProfJson = OpaPayloadBuilder.build(
+            minimalParams.copy(
+                userIdentifier = "007",
+                userProfessionOid = "1.2.3",
             )
+        )
         withProfJson.shouldContainJsonKeyValue("$.input.user_info.identifier", "007")
         withProfJson.shouldContainJsonKeyValue("$.input.user_info.professionOID", "1.2.3")
 
-        val withoutProfJson =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = null,
-                    grantType = null,
-                    ipAddress = null,
-                    userIdentifier = "",
-                    userProfessionOid = "",
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
+        val withoutProfJson = OpaPayloadBuilder.build(
+            minimalParams.copy(
+                userIdentifier = null,
+                userProfessionOid = null,
             )
+        )
         withoutProfJson shouldContainJsonKey "$.input.user_info"
         withoutProfJson shouldNotContainJsonKey "$.input.user_info.identifier"
         withoutProfJson shouldNotContainJsonKey "$.input.user_info.professionOID"
       }
 
       test("commonName provided -> user_info.commonName present; blank omitted") {
-        val withNameJson =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = null,
-                    grantType = null,
-                    ipAddress = null,
-                    userIdentifier = "007",
-                    userCommonName = "007",
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
+        val withNameJson = OpaPayloadBuilder.build(
+            minimalParams.copy(
+                userIdentifier = "007",
+                userCommonName = "007",
             )
+        )
         withNameJson.shouldContainJsonKeyValue("$.input.user_info.commonName", "007")
 
-        val withoutNameJson =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = null,
-                    grantType = null,
-                    ipAddress = null,
-                    userIdentifier = "",
-                    userCommonName = "",
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
+        val withoutNameJson = OpaPayloadBuilder.build(
+            minimalParams.copy(
+                userIdentifier = null,
+                userCommonName = null,
             )
+        )
         withoutNameJson shouldNotContainJsonKey "$.input.user_info.commonName"
       }
 
-      test("ip blank -> ip_address omitted; ip present -> included") {
-        val withIpJson =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = null,
-                    grantType = null,
-                    ipAddress = "10.0.0.1",
-                    userProfessionOid = null,
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
-            )
-        val withIp = withIpJson.toJsonNode()
-        withIp["input"]["authorization_request"]["ip_address"].asText() shouldBe "10.0.0.1"
+      test("organizationName provided -> user_info.organizationName present; blank omitted") {
+        val withOrgJson = OpaPayloadBuilder.build(minimalParams.copy(userOrganizationName = "Praxis Dr. Mustermann"))
+        withOrgJson.shouldContainJsonKeyValue("$.input.user_info.organizationName", "Praxis Dr. Mustermann")
 
-        val withoutIpJson =
-            OpaPayloadBuilder.build(
-                OpaPayloadBuilder.PayloadParams(
-                    scopes = listOf("s1"),
-                    audiences = null,
-                    grantType = null,
-                    ipAddress = "",
-                    userProfessionOid = null,
-                    clientProductId = null,
-                    clientProductVersion = null,
-                    clientId = null,
-                    clientPlatform = null,
-                    clientRegistrationTimestamp = null,
-                    authenticationMethodsReferences = emptyList(),
-                    authenticationContextClassReference = "abc",
-                    previousIpAddress = null,
-                )
-            )
-        val withoutIp = withoutIpJson.toJsonNode()
-        withoutIp["input"]["authorization_request"]["ip_address"].shouldBeNull()
+        val blankOrgJson = OpaPayloadBuilder.build(minimalParams.copy(userOrganizationName = " "))
+        blankOrgJson shouldNotContainJsonKey "$.input.user_info.organizationName"
+
+        val withoutOrgJson = OpaPayloadBuilder.build(minimalParams.copy(userOrganizationName = null))
+        withoutOrgJson shouldNotContainJsonKey "$.input.user_info.organizationName"
+      }
+
+      test("birthdate provided -> user_info.birthdate present; blank omitted") {
+        val withBirthdateJson = OpaPayloadBuilder.build(minimalParams.copy(userBirthdate = "1970-01-31"))
+        withBirthdateJson.shouldContainJsonKeyValue("$.input.user_info.birthdate", "1970-01-31")
+
+        val blankBirthdateJson = OpaPayloadBuilder.build(minimalParams.copy(userBirthdate = ""))
+        blankBirthdateJson shouldNotContainJsonKey "$.input.user_info.birthdate"
+
+        val withoutBirthdateJson = OpaPayloadBuilder.build(minimalParams.copy(userBirthdate = null))
+        withoutBirthdateJson shouldNotContainJsonKey "$.input.user_info.birthdate"
+      }
+
+      test("ip blank -> ip_address omitted; ip present -> included") {
+        val withIpJson = OpaPayloadBuilder.build(
+            minimalParams.copy(ipAddress = "10.0.0.1")
+        )
+        withIpJson.shouldContainJsonKeyValue("$.input.authorization_request.ip_address", "10.0.0.1")
+
+        val withoutIpJson = OpaPayloadBuilder.build(
+            minimalParams.copy(ipAddress = "")
+        )
+        withoutIpJson.shouldNotContainJsonKey("$.input.authorization_request.ip_address")
       }
 
       test("should have each mandatory field") {
@@ -259,6 +160,8 @@ class OpaPayloadBuilderTest :
                     userIdentifier = "userIdentifier",
                     userProfessionOid = "userProfessionOid",
                     userCommonName = "userCommonName",
+                    userOrganizationName = "userOrganizationName",
+                    userBirthdate = "1970-01-31",
                     authenticationMethodsReferences = listOf("method #1", "method #2"),
                     authenticationContextClassReference = "abc",
                     previousIpAddress = "10.0.0.2",
@@ -290,6 +193,8 @@ class OpaPayloadBuilderTest :
         json.shouldContainJsonKeyValue("$.input.user_info.identifier", "userIdentifier")
         json.shouldContainJsonKeyValue("$.input.user_info.professionOID", "userProfessionOid")
         json.shouldContainJsonKeyValue("$.input.user_info.commonName", "userCommonName")
+        json.shouldContainJsonKeyValue("$.input.user_info.organizationName", "userOrganizationName")
+        json.shouldContainJsonKeyValue("$.input.user_info.birthdate", "1970-01-31")
 
         json.shouldContainJsonKeyValue("$.input.version", "1.0")
       }
@@ -315,6 +220,8 @@ class OpaPayloadBuilderTest :
                         userIdentifier = "kvnr",
                         userProfessionOid = "1.2.3",
                         userCommonName = "kvnr",
+                        userOrganizationName = "AOK",
+                        userBirthdate = "1970-01-31",
                         deviceInfo = OpaDeviceInfo(os = "iOS", osVersion = "17.4.1", deviceModel = "iPhone15,2"),
                         attestationTimestamp = 1753272000,
                     )
@@ -330,6 +237,8 @@ class OpaPayloadBuilderTest :
         json.shouldContainJsonKeyValue("$.input.client_registration_data.attestation_timestamp", 1753272000)
         json.shouldContainJsonKeyValue("$.input.user_info.identifier", "kvnr")
         json.shouldContainJsonKeyValue("$.input.user_info.commonName", "kvnr")
+        json.shouldContainJsonKeyValue("$.input.user_info.organizationName", "AOK")
+        json.shouldContainJsonKeyValue("$.input.user_info.birthdate", "1970-01-31")
         json.shouldContainJsonKeyValue("$.input.authorization_request.grant_type", "authorization_code")
       }
 

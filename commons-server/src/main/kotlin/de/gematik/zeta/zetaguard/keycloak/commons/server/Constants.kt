@@ -25,10 +25,14 @@
 
 package de.gematik.zeta.zetaguard.keycloak.commons.server
 
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PLATFORM
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PRODUCT_ID
+import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PRODUCT_VERSION
 import org.jboss.logging.Logger
 import org.keycloak.OAuth2Constants.AUTHORIZATION_CODE
 import org.keycloak.OAuth2Constants.REFRESH_TOKEN
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
+import org.keycloak.connections.httpclient.HttpClientSpi
 
 /**
  * Non-persistent attributes
@@ -41,6 +45,7 @@ const val ATTRIBUTE_SESSION_END = "zetaguard.session.end"
 const val ATTRIBUTE_CLIENT_REGISTRATION_DATA = "zetaguard.client.registration_data"
 const val ATTRIBUTE_CLIENT_STATEMENT_DATA = "zetaguard.client.client_statement"
 const val ATTRIBUTE_CLIENT_STATEMENT_RAW = "zetaguard.client.client_statement_raw"
+const val ATTRIBUTE_REQUESTED_SCOPES = "zetaguard.refresh.requested_scopes"
 
 const val ATTRIBUTE_USER_CREATED_AT = "zetaguard.user.created_at"
 const val ATTRIBUTE_USER_LAST_ACCESS = "zetaguard.user.last_access"
@@ -108,16 +113,18 @@ const val CLAIM_JKT = "jkt"
 const val CLAIM_PROFESSION_OID = "profession_oid"
 const val CLAIM_COMMON_NAME = "common_name"
 const val CLAIM_ORGANIZATION_NAME = "organization_name"
-const val CLAIM_PLATFORM = "platform"
-const val CLAIM_PRODUCT_ID = "product_id"
+const val CLAIM_PLATFORM = PROPERTY_PLATFORM
+const val CLAIM_PRODUCT_ID = PROPERTY_PRODUCT_ID
 const val CLAIM_CLIENT_ID = "client_id"
-const val CLAIM_PRODUCT_VERSION = "product_version"
+const val CLAIM_PRODUCT_VERSION = PROPERTY_PRODUCT_VERSION
 const val CLAIM_IP_ADDRESS = "ip_address"
 
 const val ZETA_REALM = "zeta-guard"
 const val ZETA_CLIENT = "zeta-client"
 
 const val ATTRIBUTE_REALM_CLIENT_JOB_DISABLED = "zeta-guard.realm.client_job.disabled"
+
+const val USE_DPOP_NONCE = "use_dpop_nonce"
 
 // https://www.keycloak.org/securing-apps/client-registration
 const val OIDC_CLIENT_REGISTRATION_PATH = "/realms/{realm-name}/clients-registrations/openid-connect"
@@ -137,6 +144,13 @@ const val EMAIL_BINDING_TOKEN_EXCHANGE_PROVIDER_ID = "zeta-email-binding-token-e
 const val SMCB_IDENTITY_PROVIDER_ID = "zeta-smc-b-oidc"
 
 const val SEKIDP_IDENTITY_PROVIDER_ID = "zeta-sekidp-oidc"
+const val SEKIDP_MTLS_HTTP_CLIENT_ID = "zeta-sekidp-mtls"
+const val OPA_HTTP_CLIENT_ID = "zeta-opa-http-client"
+const val OCSP_HTTP_CLIENT_ID = "zeta-ocsp-http-client"
+const val KEYCLOAK_HTTP_CLIENT_ID = "default"
+
+val KEYCLOAK_DEFAULT_HTTP_SPI_NAME: String = HttpClientSpi().name
+
 const val ZETA_MOBILE_BROWSER_FLOW = "zeta-mobile"
 const val OPENID_FEDERATION_ALIAS = "openid-federation"
 
@@ -194,6 +208,7 @@ const val CLIENT_REGISTRATION_POLICY_PROVIDER_ID = "zeta-client-registration-pol
 const val ENV_CLIENT_REGISTRATION_TTL = "CLIENT_REGISTRATION_TTL"
 const val ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL = "CLIENT_REGISTRATION_SCHEDULER_INTERVAL"
 const val ENV_CLIENT_REGISTRATION_STARTUP_DELAY = "CLIENT_REGISTRATION_STARTUP_DELAY"
+const val ENV_CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE = "CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE"
 
 const val ENV_OIDC_FLOW_ENABLED = "ZETA_OIDC_FLOW_ENABLED"
 

@@ -32,6 +32,8 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KV
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ORGANIZATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_MTLS_HTTP_CLIENT_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
 import de.gematik.zeta.zetaguard.keycloak.plugins.sekidp.FederationEndpoint.SIGNED_JWKS
 import io.kotest.assertions.arrow.core.shouldBeLeft
@@ -60,6 +62,7 @@ import org.keycloak.broker.provider.AuthenticationRequest
 import org.keycloak.broker.provider.BrokeredIdentityContext
 import org.keycloak.broker.provider.IdentityBrokerException
 import org.keycloak.connections.httpclient.HttpClientProvider
+import org.keycloak.http.simple.SimpleHttp
 import org.keycloak.jose.jws.JWSInput
 import org.keycloak.models.IdentityProviderModel
 import org.keycloak.models.KeycloakContext
@@ -68,6 +71,7 @@ import org.keycloak.models.RealmModel
 import org.keycloak.models.UserModel
 import org.keycloak.protocol.oidc.endpoints.AuthorizationEndpoint
 import org.keycloak.protocol.oidc.utils.PkceUtils
+import org.keycloak.representations.IDToken
 import org.keycloak.services.ErrorResponseException
 import org.keycloak.sessions.AuthenticationSessionModel
 import org.keycloak.util.JsonSerialization
@@ -99,7 +103,7 @@ private const val CLAIM_DISPLAY_NAME = "urn:telematik:claims:display_name"
 private const val CLAIM_BIRTHDATE = "birthdate"
 private const val CLAIM_ACR = "acr"
 private const val CLAIM_AMR = "amr"
-private const val CLAIM_NONCE = "nonce"
+private const val CLAIM_NONCE = IDToken.NONCE
 
 private const val KVNR = "X110411675"
 private const val DISPLAY_NAME = "Dr. Erika Mustermann-Gabler"
@@ -139,7 +143,6 @@ class SekIDPIdentityProviderTest : ZetaGuardFunSpec() {
     }
 
     afterEach {
-      httpClient.close()
       unmockkStatic("de.gematik.zeta.zetaguard.keycloak.commons.server.EncodingUtilKt")
       unmockkConstructor(AuthSessionCookieValueByStateAs::class)
     }
@@ -461,7 +464,7 @@ class SekIDPIdentityProviderTest : ZetaGuardFunSpec() {
           par["acr_values"] shouldBe ACR_HIGH
           par["code_challenge_method"] shouldBe "S256"
           par["code_challenge"].shouldNotBeNull()
-          par["nonce"].shouldNotBeNull()
+          par[IDToken.NONCE].shouldNotBeNull()
         }
       }
 
@@ -489,7 +492,7 @@ class SekIDPIdentityProviderTest : ZetaGuardFunSpec() {
           val authSession = session.context.authenticationSession
           val par = sekIdp.parRequest()
           // The ID token's nonce echo is checked against this note (A_29672).
-          authSession.getClientNote(NOTE_BROKER_NONCE) shouldBe par["nonce"]
+          authSession.getClientNote(NOTE_BROKER_NONCE) shouldBe par[IDToken.NONCE]
           // The note stores the verifier; the PAR carried its S256 challenge.
           val verifier = authSession.getClientNote(NOTE_BROKER_CODE_VERIFIER).shouldNotBeNull()
           PkceUtils.encodeCodeChallenge(verifier, "S256") shouldBe par["code_challenge"]
@@ -551,7 +554,7 @@ class SekIDPIdentityProviderTest : ZetaGuardFunSpec() {
         }
 
     // Without an mTLS config this client holds no resources, so nothing has to close it.
-    return SekIDPIdentityProvider(session, config, SekIdpHttpClient(null), integrityProvider, sekIdp.fedmasterUrl)
+    return SekIDPIdentityProvider(session, config, SimpleHttp.create(session.lookupHttpClient(SEKIDP_MTLS_HTTP_CLIENT_ID)), integrityProvider, sekIdp.fedmasterUrl)
   }
 
   /**
@@ -586,7 +589,7 @@ class SekIDPIdentityProviderTest : ZetaGuardFunSpec() {
         }
 
     return mockk<KeycloakSession>().also {
-      every { it.getProvider(HttpClientProvider::class.java) } returns httpClientProvider
+      every { it.getProvider(HttpClientProvider::class.java, SEKIDP_MTLS_HTTP_CLIENT_ID) } returns httpClientProvider
       every { it.context } returns mockk<KeycloakContext>().also { context -> every { context.authenticationSession } returns authSession }
     }
   }
