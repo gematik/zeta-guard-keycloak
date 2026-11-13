@@ -129,7 +129,8 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession, pri
             .findFirst()
             .orElseThrow {
               NotFoundException(
-                  "No active EC encryption key in realm »${realm.name}« — add an »ecdh-generated« key provider (ecdhAlgorithm=ECDH-ES)")
+                  "No active EC encryption key in realm »${realm.name}« — add an »ecdh-generated« key provider (ecdhAlgorithm=ECDH-ES)"
+              )
             }
 
     // Federation-entity keys (top level): ONLY the key that self-signs this entity statement.
@@ -139,13 +140,17 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession, pri
             "keys" to
                 listOf(
                     JWKBuilder.create().kid(sigKey.kid).algorithm(sigKey.algorithm).ec(sigKey.publicKey, KeyUse.SIG),
-                ))
+                )
+        )
 
     // RP protocol keys: the ECDH-ES key the SekIDP encrypts the ID token with, plus — when mTLS is
     // enabled — the self-signed TLS client certificate the SekIDP matches at PAR/token (A_23183).
     val mtlsCertificate =
-        (session.keycloakSessionFactory.getProviderFactory(IdentityProvider::class.java, SEKIDP_IDENTITY_PROVIDER_ID) as? SekIDPIdentityProviderFactory)
-            ?.mtlsClientCertificate
+        (session.keycloakSessionFactory.getProviderFactory(
+            IdentityProvider::class.java,
+            SEKIDP_IDENTITY_PROVIDER_ID
+        ) as? SekIDPIdentityProviderFactory)
+            ?.let { it.mtlsConfig()?.clientCertificate }
     val relyingPartyJwks =
         mapOf(
             "keys" to
@@ -213,16 +218,8 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession, pri
   private fun redirectUris(realm: RealmModel): List<String> =
       effectiveRedirectUris(entityStatementConfig.redirectUris) { clientRedirectUris(realm) }
 
-  private fun clientRedirectUris(realm: RealmModel): List<String> {
-    val sekIdpClientIds = ZetaGuardDataService(DefaultEMCreator(session)).findSekIdpClientIds().toSet()
-    return session
-        .clients()
-        .getClientsStream(realm)
-        .filter { it.clientId in sekIdpClientIds }
-        .toList()
-        .flatMap { client -> client.redirectUris.orEmpty() }
-        .distinct()
-  }
+  private fun clientRedirectUris(realm: RealmModel): List<String> =
+      ZetaGuardDataService(DefaultEMCreator(session)).findSekIdpRedirectUris(realm.id)
 
   override fun close() {
     // No-op

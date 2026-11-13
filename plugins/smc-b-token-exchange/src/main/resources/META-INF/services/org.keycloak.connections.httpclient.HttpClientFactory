@@ -1,0 +1,2 @@
+ de.gematik.zeta.zetaguard.keycloak.plugins.ocsp.OCSPHttpClientFactory
+ de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAHttpClientFactory

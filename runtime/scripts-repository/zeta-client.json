@@ -62,6 +62,7 @@
     "offline_access",
     "microprofile-jwt",
     "audience-requester-scope",
-    "audience-target-scope"
+    "audience-target-scope",
+    "zeta:test"
   ]
 }

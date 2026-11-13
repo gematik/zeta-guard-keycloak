@@ -27,9 +27,13 @@ import com.fasterxml.jackson.annotation.JacksonInject
 import com.fasterxml.jackson.annotation.JsonCreator
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObjectWithCreator
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_REQUESTED_SCOPES
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SESSION_END
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toScope
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toScopes
 import org.keycloak.TokenCategory
 import org.keycloak.events.EventBuilder
+import org.keycloak.http.HttpRequest
 import org.keycloak.models.AuthenticatedClientSessionModel
 import org.keycloak.models.ClientModel
 import org.keycloak.models.ClientSessionContext
@@ -56,6 +60,34 @@ class ZetaGuardTokenManager : TokenManager() {
       clientSessionCtx: ClientSessionContext,
   ): AccessTokenResponseBuilder = ZetaGuardAccessTokenResponseBuilder(realm, client, event, session, userSession, clientSessionCtx)
 
+  /**
+   * A_29843: Allow requesting scopes in a refresh token grant that were not originally granted.
+   *
+   * [TokenManager.refreshAccessToken] intersects the requested scopes with the scope of the refresh token (RFC 6749, section 6), thus
+   * dropping all new scopes. Widening the scope of the verified refresh token makes the new access token contain exactly the requested
+   * scopes, while all other checks (session, consent, token reuse, protocol mappers) are still performed by Keycloak.
+   */
+  override fun verifyRefreshToken(
+      session: KeycloakSession,
+      realm: RealmModel,
+      client: ClientModel,
+      request: HttpRequest,
+      encodedRefreshToken: String,
+      checkExpiration: Boolean,
+  ): RefreshToken {
+    val refreshToken = super.verifyRefreshToken(session, realm, client, request, encodedRefreshToken, checkExpiration)
+    // Set by ZetaGuardRefreshTokenGrantType to pass validated request scopes, otherwise (logout request, e.g.) proceed as usual
+    @Suppress("UNCHECKED_CAST")
+    val rawRequestedScopes = session.getAttribute(ATTRIBUTE_REQUESTED_SCOPES) as? String ?: return refreshToken
+    val requestedScopes = rawRequestedScopes.toScopes()
+    val originalScopes = refreshToken.scope.toScopes()
+    val newScopes = requestedScopes - originalScopes
+
+    refreshToken.scope = (originalScopes + newScopes).toScope()
+
+    return refreshToken
+  }
+
   inner class ZetaGuardAccessTokenResponseBuilder(
       realm: RealmModel,
       client: ClientModel,
@@ -68,6 +100,7 @@ class ZetaGuardTokenManager : TokenManager() {
     override fun generateRefreshToken(): AccessTokenResponseBuilder {
       super.generateRefreshToken()
       val realmSessionEnd = refreshToken.exp
+
       refreshToken(createZetaGuardRefreshToken(refreshToken))
       transformRefreshToken()
       capExpiration(realmSessionEnd)
@@ -78,15 +111,18 @@ class ZetaGuardTokenManager : TokenManager() {
           userSession.setNote(ATTRIBUTE_SESSION_END, it.toString())
         }
       }
+
       return this
     }
 
     override fun generateRefreshToken(oldRefreshToken: RefreshToken, clientSession: AuthenticatedClientSessionModel): AccessTokenResponseBuilder {
       super.generateRefreshToken(oldRefreshToken, clientSession)
+
       val realmSessionEnd = refreshToken.exp
       refreshToken(createZetaGuardRefreshToken(refreshToken))
       transformRefreshToken()
       capExpiration(realmSessionEnd, userSession.getNote(ATTRIBUTE_SESSION_END)?.toLongOrNull())
+
       return this
     }
 

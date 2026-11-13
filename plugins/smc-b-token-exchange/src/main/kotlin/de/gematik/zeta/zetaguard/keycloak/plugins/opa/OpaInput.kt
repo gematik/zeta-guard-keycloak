@@ -70,10 +70,16 @@ data class OpaInput(val input: Input) {
       @get:JsonProperty("device_model") val deviceModel: String? = null,
   )
 
-  /** @see [https://github.com/gematik/zeta/blob/v1.3.0/src/schemas/user-info.yaml] */
+  /**
+   * ZETA 2.0.0 user info, the source of the access-token claims `sub`, `profession_oid`, `common_name`, `organization_name` and `birthdate`.
+   *
+   * @see [https://github.com/gematik/zeta/blob/v2.0.0/src/schemas/zeta-user-info.yaml]
+   */
   data class OpaUserInfo(
       val identifier: String? = null,
       @get:JsonProperty("professionOID") val professionOid: String? = null,
       val commonName: String? = null,
+      val organizationName: String? = null,
+      val birthdate: String? = null,
   )
 }

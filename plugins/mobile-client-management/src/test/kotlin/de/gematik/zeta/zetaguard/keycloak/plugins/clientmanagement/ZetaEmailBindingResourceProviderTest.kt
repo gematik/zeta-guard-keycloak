@@ -26,7 +26,7 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_USER_PENDING_EMAIL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CHALLENGE_TYPE_EMAIL_OTP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
-import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
@@ -90,7 +90,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       val header = authenticate(session, user, clientData)
       mockkObject(EmailOTPService)
       mockkObject(EmailOTPMailer)
-      every { EmailOTPService.issue(session, "mobile-client") } returns "654321"
+      every { EmailOTPService.issue(session, "mobile-client", "alice@example.de") } returns "654321"
       justRun { EmailOTPMailer.send(session, "alice@example.de", "654321") }
 
       val response = ZetaEmailBindingResourceProvider(session).bindEmail(header, "alice@example.de")
@@ -100,8 +100,33 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       verify {
         user.email = "alice@example.de"
         user.isEmailVerified = false
-        EmailOTPService.issue(session, CLIENT_ID)
+        EmailOTPService.issue(session, CLIENT_ID, "alice@example.de")
         EmailOTPMailer.send(session, "alice@example.de", "654321")
+      }
+      clientData.registrationStatus shouldBe ClientRegistrationStatus.OTP_PENDING
+    }
+
+    test("bindEmail rejects an identity that already has a verified email") {
+      val session = mockk<KeycloakSession>(relaxed = true)
+      val user =
+          mockk<UserModel>(relaxed = true) {
+            every { email } returns "alice@example.de"
+            every { isEmailVerified } returns true
+          }
+      val clientData = mobileClientData(ClientRegistrationStatus.OTP_PENDING)
+      val header = authenticate(session, user, clientData)
+      mockkObject(EmailOTPService)
+      mockkObject(EmailOTPMailer)
+
+      val response = ZetaEmailBindingResourceProvider(session).bindEmail(header, "mallory@example.de")
+
+      response.status shouldBe Response.Status.CONFLICT.statusCode
+      response.entityAsMap() shouldContainExactly mapOf("status" to "email_already_bound")
+      verify(exactly = 0) {
+        user.email = any()
+        user.isEmailVerified = any()
+        EmailOTPService.issue(any(), any(), any())
+        EmailOTPMailer.send(any(), any(), any())
       }
       clientData.registrationStatus shouldBe ClientRegistrationStatus.OTP_PENDING
     }
@@ -115,7 +140,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       val header = authenticate(session, cached, clientData)
       mockkObject(EmailOTPService)
       mockkObject(EmailOTPMailer)
-      every { EmailOTPService.issue(session, "mobile-client") } returns "654321"
+      every { EmailOTPService.issue(session, "mobile-client", "alice@example.de") } returns "654321"
       justRun { EmailOTPMailer.send(session, "alice@example.de", "654321") }
 
       ZetaEmailBindingResourceProvider(session).bindEmail(header, "alice@example.de")
@@ -152,7 +177,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       val header = authenticate(session, user, clientData)
       mockkObject(EmailOTPService)
       mockkObject(EmailOTPMailer)
-      every { EmailOTPService.issue(session, "mobile-client") } returns "111222"
+      every { EmailOTPService.issue(session, "mobile-client", "alice@example.de") } returns "111222"
       justRun { EmailOTPMailer.send(session, "alice@example.de", "111222") }
 
       val response = ZetaEmailBindingResourceProvider(session).resend(header, null)
@@ -161,18 +186,19 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       response.entityAsMap() shouldContainExactly
           mapOf("challenge_type" to CHALLENGE_TYPE_EMAIL_OTP, "email_hint" to "a*@e*.de")
       verify {
-        EmailOTPService.issue(session, CLIENT_ID)
+        EmailOTPService.issue(session, CLIENT_ID, "alice@example.de")
         EmailOTPMailer.send(session, "alice@example.de", "111222")
       }
     }
 
     test("verify marks user verified and registration CONFIRMED") {
       val session = mockk<KeycloakSession>(relaxed = true)
-      val user = mockk<UserModel>(relaxed = true)
+      val user = mockk<UserModel>(relaxed = true) { every { email } returns "alice@example.de" }
       val clientData = mobileClientData(ClientRegistrationStatus.OTP_PENDING)
       val header = authenticate(session, user, clientData)
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, "mobile-client", "123456") } returns true
+      // the code has to belong to the address the identity holds right now
+      every { EmailOTPService.verify(session, "mobile-client", "123456", "alice@example.de") } returns true
 
       val response = ZetaEmailBindingResourceProvider(session).verify(header, "123456", CHALLENGE_TYPE_EMAIL_OTP)
 
@@ -187,7 +213,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       val user = mockk<UserModel>(relaxed = true) { every { isEmailVerified } returns false }
       val header = authenticate(session, user, mobileClientData(ClientRegistrationStatus.OTP_PENDING))
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, CLIENT_ID, "123456") } returns true
+      every { EmailOTPService.verify(session, CLIENT_ID, "123456", any()) } returns true
       mockkStatic(ZETA_EVENTS, ZETA_ADMIN_EVENTS)
 
       ZetaEmailBindingResourceProvider(session).verify(header, "123456", CHALLENGE_TYPE_EMAIL_OTP).status shouldBe Response.Status.OK.statusCode
@@ -210,7 +236,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
         every { name } returns "New phone"
       }
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, CLIENT_ID, "123456") } returns true
+      every { EmailOTPService.verify(session, CLIENT_ID, "123456", any()) } returns true
       mockkStatic(ZETA_EVENTS, ZETA_ADMIN_EVENTS)
       justRun { fireZetaEvent(any(), any(), any(), any(), any(), any(), any()) }
       justRun { logZetaAdminEvent(any(), any(), any(), any(), any(), any()) }
@@ -229,7 +255,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       val clientData = mobileClientData(ClientRegistrationStatus.OTP_PENDING)
       val header = authenticate(session, cached, clientData)
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, "mobile-client", "123456") } returns true
+      every { EmailOTPService.verify(session, "mobile-client", "123456", any()) } returns true
 
       ZetaEmailBindingResourceProvider(session).verify(header, "123456", null)
 
@@ -246,7 +272,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       val clientData = mobileClientData(ClientRegistrationStatus.OTP_PENDING)
       val header = authenticate(session, user, clientData)
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, "mobile-client", "000000") } returns false
+      every { EmailOTPService.verify(session, "mobile-client", "000000", any()) } returns false
 
       val response = ZetaEmailBindingResourceProvider(session).verify(header, "000000", null)
 
@@ -257,12 +283,12 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
 
     test("a pending registration ignores a pending email change of the identity and still binds") {
       val session = mockk<KeycloakSession>(relaxed = true)
-      val user = mockk<UserModel>(relaxed = true)
+      val user = mockk<UserModel>(relaxed = true) { every { email } returns "alice@example.de" }
       every { user.getFirstAttribute(ATTRIBUTE_USER_PENDING_EMAIL) } returns "new@example.de"
       val clientData = mobileClientData(ClientRegistrationStatus.OTP_PENDING)
       val header = authenticate(session, user, clientData)
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, "mobile-client", "123456") } returns true
+      every { EmailOTPService.verify(session, "mobile-client", "123456", "alice@example.de") } returns true
 
       val response = ZetaEmailBindingResourceProvider(session).verify(header, "123456", null)
 
@@ -273,12 +299,13 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
 
     test("identity/email/verify completes the pending change of the client named by the PEP header") {
       val session = mockk<KeycloakSession>(relaxed = true)
-      val user = mockk<UserModel>(relaxed = true)
+      val user = mockk<UserModel>(relaxed = true) { every { email } returns "alice@example.de" }
       every { user.getFirstAttribute(ATTRIBUTE_USER_PENDING_EMAIL) } returns "new@example.de"
       val clientData = boundClientData()
       val header = pepCaller(session, "mobile-client", clientData, user)
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, "mobile-client", "123456") } returns true
+      // the code has to belong to the pending address, not to the one still bound
+      every { EmailOTPService.verify(session, "mobile-client", "123456", "new@example.de") } returns true
       mockkConstructor(EmailChangeHandler::class)
       justRun { anyConstructed<EmailChangeHandler>().completeChange(clientData, user, "new@example.de") }
 
@@ -296,13 +323,13 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       every { user.getFirstAttribute(ATTRIBUTE_USER_PENDING_EMAIL) } returns "new@example.de"
       val header = pepCaller(session, "mobile-client", boundClientData(), user)
       mockkObject(EmailOTPService)
-      every { EmailOTPService.verify(session, "mobile-client", "000000") } returns false
+      every { EmailOTPService.verify(session, "mobile-client", "000000", any()) } returns false
       mockkConstructor(EmailChangeHandler::class)
 
       val response = ZetaEmailBindingResourceProvider(session).verifyEmailChange(header, "000000", null)
 
       response.status shouldBe Response.Status.BAD_REQUEST.statusCode
-      response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+      response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
       response.entityAsMap()["code"] shouldBe ProblemCodes.INVALID_CODE
       response.entityAsMap()["status"] shouldBe Response.Status.BAD_REQUEST.statusCode
       verify(exactly = 0) { anyConstructed<EmailChangeHandler>().completeChange(any(), any(), any()) }
@@ -319,7 +346,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
 
       provider.verifyEmailChange(header, "123456", null).status shouldBe Response.Status.CONFLICT.statusCode
       provider.resendEmailChange(header, null).status shouldBe Response.Status.CONFLICT.statusCode
-      verify(exactly = 0) { EmailOTPService.verify(any(), any(), any()) }
+      verify(exactly = 0) { EmailOTPService.verify(any(), any(), any(), any()) }
     }
 
     test("identity/email/verify and /resend reject a request without the PEP header") {
@@ -349,7 +376,7 @@ class ZetaEmailBindingResourceProviderTest : FunSpec() {
       val header = pepCaller(session, "mobile-client", boundClientData(), user)
       mockkObject(EmailOTPService)
       mockkObject(EmailOTPMailer)
-      every { EmailOTPService.issue(session, "mobile-client") } returns "555666"
+      every { EmailOTPService.issue(session, "mobile-client", "new@example.de") } returns "555666"
       justRun { EmailOTPMailer.send(session, "new@example.de", "555666") }
 
       val response = ZetaEmailBindingResourceProvider(session).resendEmailChange(header, CHALLENGE_TYPE_EMAIL_OTP)

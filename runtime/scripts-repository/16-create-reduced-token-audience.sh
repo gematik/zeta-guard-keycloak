@@ -13,6 +13,7 @@ fi
 SCOPE_ID=$(./kcadm.sh get client-scopes -r zeta-guard | jq -r '.[] | select(.name=="zeta:email-verify") | .id')
 
 ./kcadm.sh create "client-scopes/$SCOPE_ID/protocol-mappers/models" -r zeta-guard \
+  -s id=zeta-guard-as-audience-mapper \
   -s name=zeta-guard-as-audience-mapper \
   -s protocol=openid-connect \
   -s protocolMapper=oidc-audience-mapper \
@@ -24,6 +25,7 @@ SCOPE_ID=$(./kcadm.sh get client-scopes -r zeta-guard | jq -r '.[] | select(.nam
 # Same claim mapper as the Terraform scopes carry: the binding token then holds the ZETA claims the PEP needs
 # (common_name, client_id, ip_address, product_*, platform) even without zero:audience.
 ./kcadm.sh create "client-scopes/$SCOPE_ID/protocol-mappers/models" -r zeta-guard \
+  -s id=zeta-guard-mapper-zeta-guard \
   -s name=zeta-guard-mapper \
   -s protocol=openid-connect \
   -s protocolMapper=zeta-guard-accesstoken-mapper \

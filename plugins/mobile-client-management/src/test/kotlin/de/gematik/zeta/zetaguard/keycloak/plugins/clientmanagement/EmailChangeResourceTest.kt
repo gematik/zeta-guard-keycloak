@@ -26,7 +26,7 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
-import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
@@ -93,7 +93,7 @@ class EmailChangeResourceTest :
         val response = EmailChangeResource(session).changeEmail(null, EmailChangeRequest())
 
         response.status shouldBe 401
-        response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+        response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
         response.entityMap()["code"] shouldBe ProblemCodes.UNAUTHORIZED
         verify(exactly = 0) { anyConstructed<EmailChangeHandler>().handle(any(), any()) }
       }

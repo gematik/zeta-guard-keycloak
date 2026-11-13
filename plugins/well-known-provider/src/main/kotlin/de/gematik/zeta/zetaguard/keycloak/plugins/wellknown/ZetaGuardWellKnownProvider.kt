@@ -68,7 +68,8 @@ class ZetaGuardWellKnownProvider(private val session: KeycloakSession) : WellKno
         serviceDocumentation = serviceDocumentationUri(),
         jwksUri = URI.create(wellknown.jwksUri),
         scopesSupported = wellknown.scopesSupported,
-        responseTypesSupported = listOf("code", "token"),
+        // Authorization code flow only, the realm client policy rejects implicit and hybrid requests
+        responseTypesSupported = listOf("code"),
         responseModesSupported = wellknown.responseModesSupported,
         grantTypesSupported = wellknown.grantTypesSupported,
         tokenEndpointAuthMethodsSupported = wellknown.tokenEndpointAuthMethodsSupported,

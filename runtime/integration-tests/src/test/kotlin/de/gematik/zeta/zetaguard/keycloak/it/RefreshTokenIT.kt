@@ -27,7 +27,9 @@ package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
+import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakResponse
 import de.gematik.zeta.zetaguard.keycloak.commons.PROFESSION_OID
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_ZETA_TEST
 import de.gematik.zeta.zetaguard.keycloak.commons.expirationDate
 import de.gematik.zeta.zetaguard.keycloak.commons.issuedAt
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_ID
@@ -43,8 +45,11 @@ import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
+import io.kotest.matchers.string.shouldNotContain
 import java.time.Duration
 import org.apache.commons.io.ThreadUtils.sleep
+import org.keycloak.OAuthErrorException.INVALID_SCOPE
 import org.keycloak.representations.AccessToken
 import org.keycloak.representations.AccessTokenResponse
 import org.keycloak.representations.RefreshToken
@@ -66,13 +71,12 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
               certificateChain = listOf(smcb.leafCertificate),
           )
 
-      accessTokenResponse1 = testExchangeToken(smcbToken1, clientAssertion = jwt1)
+      val triple = testExchangeToken(smcbToken1, clientAssertion = jwt1)
+      val (first, second, third) = triple
+      accessTokenResponse1 = triple.first
 
-      accessTokenResponse1.token.shouldNotBeNull().checkTokenHeader()
-      accessTokenResponse1.refreshToken.shouldNotBeNull().checkTokenHeader()
-
-      accessToken1 = accessTokenResponse1.token.toAccessToken()
-      refreshToken1 = accessTokenResponse1.refreshToken.toRefreshToken()
+      accessToken1 = triple.second
+      refreshToken1 = triple.third
 
       accessToken1.isExpired shouldBe false
       refreshToken1.isExpired shouldBe false
@@ -156,5 +160,36 @@ class RefreshTokenIT : ZetaGuardFunSpecIT() {
       keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt3, dPoPToken3).shouldBeLeft().errorDescription shouldBe
           "Maximum allowed refresh token reuse exceeded"
     }
+
+    // A_29843
+    test("Refresh token requests new scope") {
+      refreshToken1.scope shouldNotContain SCOPE_ZETA_TEST
+
+      val newAccessTokenResponse = refreshWithScope(SCOPE_ZETA_TEST).shouldBeRight().responseObject
+      val newAccessToken = newAccessTokenResponse.token.checkTokenHeader().toAccessToken()
+      val newRefreshToken = newAccessTokenResponse.refreshToken.checkTokenHeader().toRefreshToken()
+
+      newRefreshToken.scope shouldBe refreshToken1.scope + " " + SCOPE_ZETA_TEST
+      newAccessToken.scope shouldContain SCOPE_ZETA_TEST
+    }
+
+    test("Refresh token requests scope not assigned to client") {
+      refreshWithScope("no-such-scope").shouldBeLeft().error shouldBe INVALID_SCOPE
+    }
+  }
+
+  private fun refreshWithScope(scope: String): KeycloakResponse<AccessTokenResponse> {
+    val nonce2 = createNonce()
+    val smcbToken2 =
+        smcb.smcbTokenGenerator.generateSMCBToken(
+            nonceString = nonce2,
+            subject = smcb.telematikId,
+            audiences = smcbTokenAudience,
+            certificateChain = listOf(smcb.leafCertificate),
+        )
+    val jwt2 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce2)
+    val dPoPToken2 = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smcbToken2)
+
+    return keycloakWebClient.refreshToken(accessTokenResponse1.refreshToken, jwt2, dPoPToken2, requestedClientScope = scope)
   }
 }

@@ -23,26 +23,28 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.oidc
 
+import arrow.core.getOrElse
+import arrow.core.raise.either
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.asMap
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toObject
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientRequestRepresentation
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientResponseRepresentation
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.stripURIs
+import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.verify
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_REGISTRATION_DATA
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.registrationState
 import jakarta.ws.rs.Consumes
-import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.OPTIONS
 import jakarta.ws.rs.POST
-import jakarta.ws.rs.PUT
 import jakarta.ws.rs.Path
-import jakarta.ws.rs.PathParam
 import jakarta.ws.rs.Produces
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import org.keycloak.models.KeycloakSession
 import org.keycloak.representations.oidc.OIDCClientRepresentation
+import org.keycloak.services.ErrorResponseException
 import org.keycloak.services.clientregistration.ClientRegistrationProvider
 import org.keycloak.services.clientregistration.oidc.OIDCClientRegistrationProvider
 
@@ -55,9 +57,7 @@ class ZetaGuardOIDCClientRegistrationProvider(
     private val dataService: ZetaGuardDataService,
     private val delegate: OIDCClientRegistrationProvider,
     private val session: KeycloakSession
-) :
-  ClientRegistrationProvider by delegate {
-
+) : ClientRegistrationProvider by delegate {
   @OPTIONS
   fun preflight(): Response = delegate.preflight()
 
@@ -68,27 +68,19 @@ class ZetaGuardOIDCClientRegistrationProvider(
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  fun createOIDC(clientOIDC: ZetaGuardOIDCClientRequestRepresentation): Response {
-    session.setAttribute(ATTRIBUTE_CLIENT_REGISTRATION_DATA, clientOIDC)
+  fun createOIDC(clientOIDC: ZetaGuardOIDCClientRequestRepresentation): Response = either {
+    val client = clientOIDC.verify().bind().stripURIs()
+    session.setAttribute(ATTRIBUTE_CLIENT_REGISTRATION_DATA, client)
 
-    return delegate.createOIDC(clientOIDC).withRegistrationState()
+    delegate.createOIDC(client).withRegistrationState()
+  }.getOrElse {
+    throw ErrorResponseException(it.error, it.errorDescription, it.status)
   }
 
   @GET
   @Path("{clientId}")
   @Produces(MediaType.APPLICATION_JSON)
   fun getOIDC(clientId: String): Response = delegate.getOIDC(clientId).withRegistrationState()
-
-  @PUT
-  @Path("{clientId}")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  fun updateOIDC(clientId: String, clientOIDC: OIDCClientRepresentation): Response =
-      delegate.updateOIDC(clientId, clientOIDC).withRegistrationState()
-
-  @DELETE
-  @Path("{clientId}")
-  fun deleteOIDC(@PathParam("clientId") clientId: String): Response = delegate.deleteOIDC(clientId)
 
   private fun Response.withRegistrationState(): Response = Response.fromResponse(this).entity(addRegistrationState(entity, dataService)).build()
 }

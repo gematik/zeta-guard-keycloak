@@ -30,6 +30,7 @@ import arrow.core.raise.either
 import arrow.core.raise.ensure
 import arrow.core.right
 import com.google.common.cache.CacheBuilder
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
 import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import de.gematik.zeta.zetaguard.keycloak.pkcs12.KeystoreMetaService
@@ -110,8 +111,7 @@ object OcspUtil {
             CertStatus.Good -> it.right()
           }
         }
-      }
-          .onLeft { logger.error("OCSP revocation check failed for ${certificate.subjectX500Principal}") }
+      }.onLeft { logger.error("OCSP revocation check failed for ${certificate.subjectX500Principal}") }
 
   private fun getStatus(
       certificate: X509Certificate,
@@ -234,7 +234,7 @@ object OcspUtil {
                 .build()
         HttpPost(responderURI)
             .apply {
-              setHeader("Content-Type", "application/ocsp-request")
+              setHeader("Content-Type", MediaTypes.OCSP_REQUEST)
               entity = ByteArrayEntity(encodedOCSPReq)
               this.config = requestConfig
             }

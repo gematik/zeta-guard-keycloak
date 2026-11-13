@@ -95,7 +95,7 @@ class EmailChangeHandler(
       return Response.status(Response.Status.ACCEPTED).entity(mapOf("status" to EMAIL_STATUS_VERIFIED)).build()
     }
 
-    val otp = EmailOTPService.issue(session, clientData.id)
+    val otp = EmailOTPService.issue(session, clientData.id, newEmail)
     try {
       EmailOTPMailer.send(session, newEmail, otp)
     } catch (e: EmailException) {

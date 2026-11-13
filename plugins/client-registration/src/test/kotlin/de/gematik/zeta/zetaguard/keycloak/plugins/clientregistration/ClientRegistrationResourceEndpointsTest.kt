@@ -23,49 +23,33 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.oidc.ZetaGuardOIDCClientRegistrationProvider
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
-import io.kotest.matchers.types.shouldBeSameInstanceAs
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
+import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.collections.shouldNotBeEmpty
 import jakarta.ws.rs.DELETE
 import jakarta.ws.rs.GET
 import jakarta.ws.rs.POST
 import jakarta.ws.rs.PUT
-import jakarta.ws.rs.core.Response
-import org.keycloak.representations.oidc.OIDCClientRepresentation
-import org.keycloak.services.clientregistration.oidc.OIDCClientRegistrationProvider
 
 /**
- * ZF-0285 / CVE-2026-15572: the RFC 7592 update/delete resource endpoints are the attack surface
- * (the "Allowed Protocol Mapper Types" policy re-checks a mapper's type only on create, not on
- * update, so an attacker could register an allowed mapper and swap its type via PUT). These wrappers
- * keep create (POST) and read (GET) and drop update (PUT) and delete (DELETE).
+ * The RFC 7592 update/delete resource endpoints are the attack surface of ZF-0285 / CVE-2026-15572 (mapper type swap on update) and of ZF-0277
+ * (a client registered without redirect_uris adds them afterwards while its ZETA client data still says SMC_B): neither PUT nor DELETE may be
+ * exposed, only create (POST) and read (GET).
  */
 class ClientRegistrationResourceEndpointsTest : FunSpec() {
   init {
     test("oidc provider exposes create (POST) + read (GET) but no update (PUT) / delete (DELETE)") {
-      val methods = ZetaGuardOIDCClientRegistrationProvider::class.java.declaredMethods
-      methods.any { it.isAnnotationPresent(POST::class.java) } shouldBe true
-      methods.any { it.isAnnotationPresent(GET::class.java) } shouldBe true
-      methods.any { it.isAnnotationPresent(PUT::class.java) } shouldBe false
-      methods.any { it.isAnnotationPresent(DELETE::class.java) } shouldBe false
-    }
+      // Including superclasses and interfaces: JAX-RS inherits the endpoints of whatever the provider extends or implements
+      val methods = generateSequence(listOf<Class<*>>(ZetaGuardOIDCClientRegistrationProvider::class.java)) { types ->
+        types.flatMap { listOfNotNull(it.superclass) + it.interfaces }.ifEmpty { null }
+      }.flatten().flatMap { it.declaredMethods.asList() }.toList()
 
-    test("oidc provider delegates create and read to the wrapped provider") {
-      val delegate = mockk<OIDCClientRegistrationProvider>()
-      val created = mockk<Response>()
-      val read = mockk<Response>()
-      every { delegate.createOIDC(any()) } returns created
-      every { delegate.getOIDC(any()) } returns read
-
-      val provider = ZetaGuardOIDCClientRegistrationProvider(delegate)
-
-      provider.createOIDC(mockk<OIDCClientRepresentation>()) shouldBeSameInstanceAs created
-      provider.getOIDC("a-client-id") shouldBeSameInstanceAs read
-      verify { delegate.createOIDC(any()) }
-      verify { delegate.getOIDC("a-client-id") }
+      methods.filter { it.isAnnotationPresent(PUT::class.java) }.shouldBeEmpty()
+      methods.filter { it.isAnnotationPresent(DELETE::class.java) }.shouldBeEmpty()
+      // Guards against the check passing vacuously
+      methods.filter { it.isAnnotationPresent(POST::class.java) }.shouldNotBeEmpty()
+      methods.filter { it.isAnnotationPresent(GET::class.java) }.shouldNotBeEmpty()
     }
   }
 }

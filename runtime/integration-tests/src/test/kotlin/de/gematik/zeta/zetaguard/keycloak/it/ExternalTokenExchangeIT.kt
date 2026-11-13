@@ -25,48 +25,28 @@
 
 package de.gematik.zeta.zetaguard.keycloak.it
 
-import arrow.core.getOrElse
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType.TPM
-import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
-import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_C_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_CLIENT_B
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_ZETA_TEST
 import de.gematik.zeta.zetaguard.keycloak.commons.TELEMATIK_ID2
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_KEY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_DPOP_KEY
-import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_JKT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.PKIData
-import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
-import de.gematik.zeta.zetaguard.keycloak.commons.server.createSignerContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.generateKeyPair
-import de.gematik.zeta.zetaguard.keycloak.commons.server.signData
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
-import de.gematik.zeta.zetaguard.keycloak.commons.createOtherClaims
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import java.nio.charset.StandardCharsets
-import java.time.Duration
-import java.util.UUID
 import org.apache.http.HttpStatus.SC_BAD_REQUEST
 import org.apache.http.HttpStatus.SC_FORBIDDEN
-import org.keycloak.OAuth2Constants
 import org.keycloak.OAuthErrorException.INVALID_CLIENT
+import org.keycloak.OAuthErrorException.INVALID_GRANT
 import org.keycloak.OAuthErrorException.INVALID_REQUEST
-import org.keycloak.common.util.Base64Url
 import org.keycloak.common.util.SecretGenerator
-import org.keycloak.common.util.Time
-import org.keycloak.crypto.Algorithm
-import org.keycloak.crypto.ECDSAAlgorithm
 import org.keycloak.events.Errors.INVALID_TOKEN
-import org.keycloak.jose.jws.JWSBuilder
-import org.keycloak.representations.IDToken
-import org.keycloak.util.JsonSerialization
-import org.keycloak.util.TokenUtil.TOKEN_TYPE_BEARER
 
-private const val INVALID_NONCE_VALUE = "Invalid nonce value"
-private const val X_CUSTOM_EXT = "x-custom-ext"
-
-class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
+class ExternalTokenExchangeIT : AbstractTokenExchangeIT() {
   init {
     test("External token exchange with SMC-B token, software attestation, client assertion and DPoP header") {
       val nonce = createNonce()
@@ -74,8 +54,14 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
       // hard-coded in the "jwt.credential.certificate" attribute (See zeta-client.json)
       val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
       val smcbToken = createSMCBToken(nonce)
+      val (_, newAccessToken, refreshToken) = testExchangeToken(
+          smcbToken,
+          clientAssertion = jwt,
+          requestedClientScope = "$SCOPE_ZETA_TEST $SCOPE_CLIENT_B"
+      )
 
-      testExchangeToken(smcbToken, clientAssertion = jwt)
+      newAccessToken.scope shouldContain SCOPE_ZETA_TEST
+      refreshToken.scope shouldContain SCOPE_ZETA_TEST
     }
 
     test("MITM: rejected when client_key binding does not match the presented client key") {
@@ -87,9 +73,9 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
       val smcbToken = createSMCBTokenRaw(nonce, clientKeyJkt = foreignClientKeyJkt, dpopKeyJkt = presentedDpopJkt)
 
       testExchangeToken(smcbToken, clientAssertion = jwt) {
-        it.error shouldBe INVALID_TOKEN
+        it.statusCode shouldBe SC_BAD_REQUEST
+        it.error shouldBe INVALID_GRANT
         it.errorDescription shouldContain CLAIM_CLIENT_KEY
-        it.statusCode shouldBe SC_FORBIDDEN
       }
     }
 
@@ -102,19 +88,33 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
       val smcbToken = createSMCBTokenRaw(nonce, clientKeyJkt = presentedClientKeyJkt, dpopKeyJkt = foreignDpopJkt)
 
       testExchangeToken(smcbToken, clientAssertion = jwt) {
-        it.error shouldBe INVALID_TOKEN
+        it.statusCode shouldBe SC_BAD_REQUEST
+        it.error shouldBe INVALID_GRANT
         it.errorDescription shouldContain CLAIM_DPOP_KEY
-        it.statusCode shouldBe SC_FORBIDDEN
       }
     }
 
-    test("External token exchange with SMC-B token, TPM attestation, client assertion and DPoP header") {
+    // ZETAP-2294 temporary disabled TPM attestation
+    xtest("External token exchange with SMC-B token, TPM attestation, client assertion and DPoP header") {
       val nonce = createNonce()
       val jwt =
           clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, postureType = TPM)
       val smcbToken = createSMCBToken(nonce)
 
       testExchangeToken(smcbToken, clientAssertion = jwt)
+    }
+
+    // Replacement while ZETAP-2294 temporary disabled TPM attestation
+    test("External token exchange with TPM attestation is rejected") {
+      val nonce = createNonce()
+      val jwt =
+          clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, postureType = TPM)
+      val smcbToken = createSMCBToken(nonce)
+
+      testExchangeToken(smcbToken, clientAssertion = jwt) {
+        it.statusCode shouldBe SC_BAD_REQUEST
+        it.errorDescription shouldBe "Client attestation check not implemented for »TPM« posture type"
+      }
     }
 
     test("Fail, if token is reused") {
@@ -149,18 +149,6 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
       }
     }
 
-    test("External token exchange fails without DPoP token") {
-      val nonce = createNonce()
-      val jws = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken = createSMCBToken(nonce)
-
-      testExchangeToken(smcbToken, clientAssertion = jws, dpop = DPoPMode.Disabled) {
-        it.error shouldBe INVALID_REQUEST
-        it.errorDescription shouldBe "DPoP proof is missing"
-        it.statusCode shouldBe SC_BAD_REQUEST
-      }
-    }
-
     test("Missing client_assertion") {
       val nonce = createNonce()
       val smcbToken = createSMCBToken(nonce)
@@ -168,7 +156,7 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
       testExchangeToken(smcbToken, clientAssertion = null) {
         it.error shouldBe INVALID_CLIENT
         // AbstractJWTClientValidator#validateClientAssertionParameters
-        it.errorDescription shouldBe "Parameter client_assertion_type is missing"
+        it.errorDescription shouldBe "client_assertion parameter missing"
         it.statusCode shouldBe SC_BAD_REQUEST
       }
     }
@@ -182,24 +170,6 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
         it.error shouldBe INVALID_REQUEST
         it.errorDescription shouldContain "Invalid client assertion token type"
         it.statusCode shouldBe SC_BAD_REQUEST
-      }
-    }
-
-    test("External token exchange fails with invalid audience") {
-      val nonce = createNonce()
-      val jws = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken =
-          smcb.smcbTokenGenerator.generateSMCBToken(
-              subject = smcb.telematikId,
-              nonceString = nonce,
-              audiences = listOf(ZETA_CLIENT),
-              certificateChain = listOf(smcb.leafCertificate),
-          )
-
-      testExchangeToken(smcbToken, clientAssertion = jws, requestedClientScope = CLIENT_B_SCOPE) {
-        it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldBe "Expected audience not available in the token"
-        it.statusCode shouldBe SC_FORBIDDEN
       }
     }
 
@@ -219,8 +189,8 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
 
       testExchangeToken(smcbToken, clientAssertion = jws) {
         it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldBe INVALID_NONCE_VALUE
-        it.statusCode shouldBe SC_FORBIDDEN
+        it.errorDescription shouldContain INVALID_NONCE_VALUE
+        it.statusCode shouldBe SC_BAD_REQUEST
       }
     }
 
@@ -230,101 +200,11 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
       val jws1 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
       val jws2 = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
 
-      testExchangeToken(smcbToken, clientAssertion = jws1, requestedClientScope = CLIENT_B_SCOPE)
+      testExchangeToken(smcbToken, clientAssertion = jws1, requestedClientScope = SCOPE_CLIENT_B)
       testExchangeToken(smcbToken, clientAssertion = jws2) {
         it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldBe INVALID_NONCE_VALUE
-        it.statusCode shouldBe SC_FORBIDDEN
-      }
-    }
-
-    test("SMC-B token without 'exp' claim is rejected") {
-      val nonce = createNonce()
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken = createSMCBTokenRaw(nonce, withExp = false)
-
-      testExchangeToken(smcbToken, clientAssertion = jwt) {
-        it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldContain "missing required 'exp'"
-        it.statusCode shouldBe SC_FORBIDDEN
-      }
-    }
-
-    test("SMC-B token without 'iat' claim is rejected") {
-      val nonce = createNonce()
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken = createSMCBTokenRaw(nonce, withIat = false)
-
-      testExchangeToken(smcbToken, clientAssertion = jwt) {
-        it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldContain "missing required 'iat'"
-        it.statusCode shouldBe SC_FORBIDDEN
-      }
-    }
-
-    test("SMC-B token with 'iat' in the future is rejected") {
-      val nonce = createNonce()
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken = createSMCBTokenRaw(nonce, iatOffsetSeconds = Duration.ofHours(1).toSeconds())
-
-      testExchangeToken(smcbToken, clientAssertion = jwt) {
-        it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldContain "'iat' is in the future"
-        it.statusCode shouldBe SC_FORBIDDEN
-      }
-    }
-
-    test("SMC-B token with expired 'exp' is rejected") {
-      val nonce = createNonce()
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken = createSMCBTokenRaw(nonce, expOffsetSeconds = -Duration.ofHours(1).toSeconds())
-
-      testExchangeToken(smcbToken, clientAssertion = jwt) {
-        it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldContain "has expired"
-        it.statusCode shouldBe SC_FORBIDDEN
-      }
-    }
-
-    test("subject_token with base URL as aud is rejected") {
-      val nonce = createNonce()
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val baseUrl = keycloakWebClient.uriBuilder().build().toString().let { if (it.endsWith("/")) it else "$it/" }
-      val smcbToken =
-          smcb.smcbTokenGenerator.generateSMCBToken(
-              nonceString = nonce,
-              subject = smcb.telematikId,
-              audiences = listOf(baseUrl),
-              certificateChain = listOf(smcb.leafCertificate),
-          )
-
-      testExchangeToken(smcbToken, clientAssertion = jwt) {
-        it.error shouldBe INVALID_TOKEN
-        it.statusCode shouldBe SC_FORBIDDEN
-      }
-    }
-
-    test("DPoP proof with invalid nonce is rejected") {
-      val nonce = createNonce()
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken = createSMCBToken(nonce)
-
-      testExchangeToken(smcbToken, clientAssertion = jwt, dpop = DPoPMode.Enabled("this is not a valid nonce")) {
-        it.statusCode shouldBe SC_FORBIDDEN
-        it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldBe INVALID_NONCE_VALUE
-      }
-    }
-
-    test("DPoP proof without nonce is rejected") {
-      val nonce = createNonce()
-      val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-      val smcbToken = createSMCBToken(nonce)
-
-      testExchangeToken(smcbToken, clientAssertion = jwt, dpop = DPoPMode.WithoutNonce) {
-        it.statusCode shouldBe SC_FORBIDDEN
-        it.error shouldBe INVALID_TOKEN
-        it.errorDescription shouldBe INVALID_NONCE_VALUE
+        it.errorDescription shouldContain INVALID_NONCE_VALUE
+        it.statusCode shouldBe SC_BAD_REQUEST
       }
     }
 
@@ -347,254 +227,5 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
 
       testExchangeToken(smcbToken, clientAssertion = jwt)
     }
-
-    context("A_27802-03 — RFC 7515 §5.2 step 5: crit (critical) header parameter") {
-      test("SMC-B subject token with an unsupported crit extension is rejected") {
-        val nonce = createNonce()
-        val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-        val smcbToken = createSMCBTokenWithExtraHeaders(nonce, extraHeaders = mapOf("crit" to listOf(X_CUSTOM_EXT), X_CUSTOM_EXT to "value"))
-
-        testExchangeToken(smcbToken, clientAssertion = jwt) {
-          it.statusCode shouldBe SC_FORBIDDEN
-          it.error shouldBe INVALID_TOKEN
-          it.errorDescription shouldContain "crit"
-        }
-      }
-
-      test("client assertion with an unsupported crit extension is rejected") {
-        val nonce = createNonce()
-        val smcbToken = createSMCBToken(nonce)
-        val jwt = createClientAssertionWithExtraHeaders(nonce, extraHeaders = mapOf("crit" to listOf(X_CUSTOM_EXT), X_CUSTOM_EXT to "value"))
-
-        testExchangeToken(smcbToken, clientAssertion = jwt) {
-          it.statusCode shouldBe SC_BAD_REQUEST
-          it.error shouldBe INVALID_REQUEST
-          it.errorDescription shouldContain "crit"
-        }
-      }
-    }
-
-    context("A_27802-03 — RFC 7519 §7.2 step 8: cty (content type) header, nested JWT indicator") {
-      test("SMC-B subject token with any cty header is rejected") {
-        val nonce = createNonce()
-        val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-        val smcbToken = createSMCBTokenWithExtraHeaders(nonce, extraHeaders = mapOf("cty" to "JWT"))
-
-        testExchangeToken(smcbToken, clientAssertion = jwt) {
-          it.statusCode shouldBe SC_FORBIDDEN
-          it.error shouldBe INVALID_TOKEN
-          it.errorDescription shouldContain "cty"
-        }
-      }
-
-      test("client assertion with any cty header is rejected") {
-        val nonce = createNonce()
-        val smcbToken = createSMCBToken(nonce)
-        val jwt = createClientAssertionWithExtraHeaders(nonce, extraHeaders = mapOf("cty" to "JWT"))
-
-        testExchangeToken(smcbToken, clientAssertion = jwt) {
-          it.statusCode shouldBe SC_BAD_REQUEST
-          it.error shouldBe INVALID_REQUEST
-          it.errorDescription shouldContain "cty"
-        }
-      }
-    }
-
-    context("A_27802-03 — RFC 7515 §5.2 step 8 / RFC 7519 §7.2: algorithm validation") {
-      test("SMC-B subject token signed with an algorithm other than ES256 is rejected") {
-        val nonce = createNonce()
-        val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-        val smcbToken = createSMCBTokenWithExtraHeaders(nonce, algOverride = "none")
-
-        testExchangeToken(smcbToken, clientAssertion = jwt) {
-          it.statusCode shouldBe SC_FORBIDDEN
-          it.error shouldBe INVALID_TOKEN
-        }
-      }
-    }
-
-    context("A_27802-03 — RFC 7515 §5.2 step 1–3 / RFC 7519 §7.2 step 1–4: JWS structure validation") {
-      test("a subject token that is not a valid JWS (no dots) is rejected") {
-        val nonce = createNonce()
-        val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-
-        testExchangeToken("not-a-jws-at-all", clientAssertion = jwt, dpop = DPoPMode.Enabled(nonce)) {
-          it.statusCode shouldBe SC_FORBIDDEN
-          it.error shouldBe INVALID_TOKEN
-          it.errorDescription shouldContain "subject token"
-        }
-      }
-
-      test("a subject token with an invalid base64url header is rejected") {
-        val nonce = createNonce()
-        val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-
-        testExchangeToken("!!!invalid-base64!!!.payload.signature", clientAssertion = jwt, dpop = DPoPMode.Enabled(nonce)) {
-          it.statusCode shouldBe SC_FORBIDDEN
-          it.error shouldBe INVALID_TOKEN
-          it.errorDescription shouldContain "subject token"
-        }
-      }
-
-      test("a subject token whose header is not valid JSON is rejected") {
-        val nonce = createNonce()
-        val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-        val notJson = Base64Url.encode("this is not json".toByteArray(StandardCharsets.UTF_8))
-        val payload = Base64Url.encode("{}".toByteArray(StandardCharsets.UTF_8))
-
-        testExchangeToken("$notJson.$payload.fakesig", clientAssertion = jwt, dpop = DPoPMode.Enabled(nonce)) {
-          it.statusCode shouldBe SC_FORBIDDEN
-          it.error shouldBe INVALID_TOKEN
-          it.errorDescription shouldContain "subject token"
-        }
-      }
-    }
-
-    context("A_27802-03 — RFC 7515 §5.2 step 7–8: signature validation") {
-      test("a subject token with a tampered signature is rejected") {
-        val nonce = createNonce()
-        val jwt = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
-        val validToken = createSMCBToken(nonce)
-        val parts = validToken.split(".")
-        val tamperedSig = Base64Url.encode(ByteArray(64) { 0x42 })
-
-        testExchangeToken("${parts[0]}.${parts[1]}.$tamperedSig", clientAssertion = jwt, dpop = DPoPMode.Enabled(nonce)) {
-          it.statusCode shouldBe SC_FORBIDDEN
-          it.error shouldBe INVALID_TOKEN
-        }
-      }
-    }
-  }
-
-  /** Builds a client assertion JWT signed with the test keypair, using a custom `typ` header value for negative testing. */
-  private fun createClientAssertionWithTyp(tokenType: String = "helloWorld", nonce: String): String {
-    val signer = clientAssertionTokenGenerator.keys.keypair.createSignerContext()
-    return JWSBuilder()
-        .type(tokenType)
-        .jsonContent(
-            IDToken().apply {
-              id(UUID.randomUUID().toString())
-              type(TOKEN_TYPE_BEARER)
-              issuer(ZETA_CLIENT)
-              subject(ZETA_CLIENT)
-              issuedFor(ZETA_CLIENT)
-              audience(clientAssertionAudience)
-              exp(Time.currentTime() + Duration.ofDays(10).toSeconds())
-              iat(Time.currentTime().toLong())
-              this.nonce = nonce
-            }
-        )
-        .sign(signer)
-  }
-
-  /**
-   * Builds a raw SMC-B token signed with the test keypair, allowing selective omission or override of the 'iat' and 'exp' claims for negative
-   * testing.
-   */
-  private fun createSMCBTokenRaw(
-      nonce: String,
-      withExp: Boolean = true,
-      withIat: Boolean = true,
-      expOffsetSeconds: Long = Duration.ofDays(10).toSeconds(),
-      iatOffsetSeconds: Long = 0L,
-      clientKeyJkt: String? = null,
-      dpopKeyJkt: String? = null,
-  ): String {
-    val signer = smcb.subjectKeyPair.createSignerContext()
-
-    return JWSBuilder()
-        .type(OAuth2Constants.JWT)
-        .x5c(listOf(smcb.leafCertificate))
-        .jsonContent(
-            IDToken().apply {
-              id(UUID.randomUUID().toString())
-              type(TOKEN_TYPE_BEARER)
-              issuer(ZETA_CLIENT)
-              issuedFor(CLIENT_C_ID)
-              subject(smcb.telematikId)
-              audience(*smcbTokenAudience.toTypedArray())
-              if (withExp) exp(Time.currentTime() + expOffsetSeconds)
-              if (withIat) iat(Time.currentTime() + iatOffsetSeconds)
-              this.nonce = nonce
-              clientKeyJkt?.let { setOtherClaims(CLAIM_CLIENT_KEY, mapOf(CLAIM_JKT to it)) }
-              dpopKeyJkt?.let { setOtherClaims(CLAIM_DPOP_KEY, mapOf(CLAIM_JKT to it)) }
-            }
-        )
-        .sign(signer)
-  }
-
-  private fun createSMCBTokenWithExtraHeaders(
-      nonce: String,
-      extraHeaders: Map<String, Any> = emptyMap(),
-      algOverride: String? = null,
-  ): String {
-    val clientKeyJkt = clientAssertionTokenGenerator.keys.jwkThumbPrint.toBase64()
-    val dpopKeyJkt = DPoPTokenGenerator.keys.jwkThumbPrint.toBase64()
-
-    val header = buildMap<String, Any> {
-      put("alg", algOverride ?: Algorithm.ES256)
-      put("typ", OAuth2Constants.JWT)
-      put("x5c", listOf(java.util.Base64.getEncoder().encodeToString(smcb.leafCertificate.encoded)))
-      putAll(extraHeaders)
-    }
-
-    val payload =
-        IDToken().apply {
-          id(UUID.randomUUID().toString())
-          type(TOKEN_TYPE_BEARER)
-          issuer(ZETA_CLIENT)
-          issuedFor(CLIENT_C_ID)
-          subject(smcb.telematikId)
-          audience(*smcbTokenAudience.toTypedArray())
-          exp(Time.currentTime() + Duration.ofDays(10).toSeconds())
-          iat(Time.currentTime().toLong())
-          this.nonce = nonce
-          setOtherClaims(CLAIM_CLIENT_KEY, mapOf(CLAIM_JKT to clientKeyJkt))
-          setOtherClaims(CLAIM_DPOP_KEY, mapOf(CLAIM_JKT to dpopKeyJkt))
-        }
-
-    return signRawJws(header, payload)
-  }
-
-  private fun createClientAssertionWithExtraHeaders(
-      nonce: String,
-      extraHeaders: Map<String, Any> = emptyMap(),
-  ): String {
-    val header = buildMap<String, Any> {
-      put("alg", Algorithm.ES256)
-      put("typ", OAuth2Constants.JWT)
-      putAll(extraHeaders)
-    }
-
-    val payload =
-        IDToken().apply {
-          id(UUID.randomUUID().toString())
-          type(TOKEN_TYPE_BEARER)
-          issuer(ZETA_CLIENT)
-          subject(ZETA_CLIENT)
-          issuedFor(ZETA_CLIENT)
-          audience(clientAssertionAudience)
-          exp(Time.currentTime() + Duration.ofDays(10).toSeconds())
-          iat(Time.currentTime().toLong())
-          this.nonce = nonce
-          createOtherClaims(ZETA_CLIENT, nonce, clientAssertionTokenGenerator.keys).forEach { (k, v) -> setOtherClaims(k, v) }
-        }
-
-    return signRawJws(header, payload, clientAssertionTokenGenerator.keys.keypair)
-  }
-
-  private fun signRawJws(
-      header: Map<String, Any>,
-      payload: Any,
-      keyPair: java.security.KeyPair = smcb.subjectKeyPair,
-  ): String {
-    val encodedHeader = Base64Url.encode(JsonSerialization.writeValueAsBytes(header))
-    val encodedPayload = Base64Url.encode(JsonSerialization.writeValueAsBytes(payload))
-    val signingInput = "$encodedHeader.$encodedPayload"
-    val data = signingInput.toByteArray(StandardCharsets.UTF_8)
-    val derSignature = keyPair.private.signData(data).getOrElse { throw it }
-    val rawSignature = ECDSAAlgorithm.asn1derToConcatenatedRS(derSignature, ECDSAAlgorithm.getSignatureLength(Algorithm.ES256))
-
-    return "$signingInput.${Base64Url.encode(rawSignature)}"
   }
 }

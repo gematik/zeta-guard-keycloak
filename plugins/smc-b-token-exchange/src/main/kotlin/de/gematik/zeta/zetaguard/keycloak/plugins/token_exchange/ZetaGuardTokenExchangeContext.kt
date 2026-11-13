@@ -59,7 +59,7 @@ class ZetaGuardTokenExchangeContext(val exchangeProvider: ZetaGuardTokenExchange
   lateinit var certificate: X509Certificate
   lateinit var telematikID: String
   lateinit var professionOID: String
-  lateinit var subjectOrganisation: String
+  var subjectOrganisation: String? = null
   lateinit var subjectCommonName: String
   lateinit var clientStatementData: ClientStatementData
 

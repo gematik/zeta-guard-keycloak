@@ -25,7 +25,7 @@ package de.gematik.zeta.zetaguard.keycloak.loadtest
 
 import arrow.core.Either
 import arrow.core.getOrElse
-import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_CLIENT_B
 import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFactory
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
@@ -76,7 +76,7 @@ class LoadTest(index: Int) : AutoCloseable {
         .tokenExchange(
             subjectToken = smbcToken,
             clientId = oidcClientResponse.clientId,
-            requestedClientScope = CLIENT_B_SCOPE,
+            requestedClientScope = SCOPE_CLIENT_B,
             clientAssertionType = CLIENT_ASSERTION_TYPE_JWT,
             clientAssertion = jws,
             dPoPToken = dPoPToken,

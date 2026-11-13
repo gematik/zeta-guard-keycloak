@@ -21,7 +21,7 @@
  * For additional notes and disclaimer from gematik and in case of changes by gematik find details in the "Readme" file.
  * #L%
  */
-package de.gematik.zeta.zetaguard.keycloak.commons.server
+package de.gematik.zeta.zetaguard.keycloak.commons.server.opentelemetry
 
 import io.opentelemetry.api.common.AttributeKey
 

@@ -2,6 +2,72 @@
 
 # Release Notes ZETA PDP
 
+## Release 2.0.2
+
+### added:
+- Refresh token grant (A_29843): the `scope` parameter may request scopes that were not part of the original grant.
+  The new access token carries exactly the requested scopes, provided they are client scopes assigned to the client
+  and the policy engine allows them; the OPA input `scopes` now reflects the requested scopes (falling back to the
+  originally granted ones if `scope` is absent). Session, consent and token-reuse checks are still applied by Keycloak
+
+### fixed:
+- Mobile flow: the authserver issues KVNR tokens only within a request that passed the policy engine decision for that
+  client (or for the reduced e-mail-binding token). Other grants on a SekIDP session no longer yield such tokens
+- Keycloak's standard token exchange is disabled in the image; exchanges the 𝝵-Guard providers decline get HTTP 400
+- The e-mail-binding token exchange requires a DPoP proof of the key its subject token is bound to
+- The well-known configuration announces `response_types_supported` `code` only
+- TPM attestation is disabled until the expected protocol update.
+- Removed the compromised emSign/eMudhra root CAs (CVE-2026-114406 / CVE-2026-91403) from the hardened Keycloak image's 
+  Java truststore (cacerts) and OS trust bundles
+- The entity statement at `.well-known/openid-federation` is served with Content-Type `application/entity-statement+jwt`
+  as OpenID Federation requires, instead of `application/jwt`. Requests with `Accept: application/entity-statement+jwt`
+  no longer fail with 406, so a federation master can fetch it (ANFTI2-1074)
+- Entity statement: optimized the query that loads the `redirect_uris`
+- The client expiration job no longer removes all expired clients in a single transaction. After a load test with
+  hundreds of thousands of clients that transaction exceeded the transaction timeout and was rolled back on every run,
+  while memory grew until the container was killed (`OOMKilled`). A run now removes at most
+  `CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE` (default `500`) entries, oldest first, and leaves the rest to the next
+  run. With a large backlog, shorten `CLIENT_REGISTRATION_SCHEDULER_INTERVAL` or raise the batch size
+- The client expiration job also removes the data of an expired user whose Keycloak user no longer exists (e.g. deleted in
+  the admin console). Before, the removal failed every time
+- The authserver starts again when a deployment sets `KC_FEATURES_DISABLED` itself. The configured features are now
+  added to the hardened set instead of causing a startup failure
+- The release notes of 2.0.1 listed the feature `twitter-broker` as disabled. It was never part of the hardened set, as
+  it only exists in a coming Keycloak version
+- Client Registration: Implemented check that `jwks`, `grant_types`, `client_name` and `token_endpoint_auth_method` are set
+- Client Registration: Strip several URI values to prevent Keycloak making requests to attacker controlled targets
+- Client Registration: Keycloak's native client-registration endpoints (`default`, `install`,
+    `saml2-entity-descriptor`) are disabled, and the RFC 7592 update/delete operations
+    (`PUT`/`DELETE`) are removed from the OIDC registration — only `POST`/`GET` on
+    `/clients-registrations/openid-connect` remain. This closes the mapper type-swap on
+    update (an allowed mapper type could be swapped to a disallowed one such as
+    `oidc-hardcoded-role-mapper` via the update endpoint, injecting privileged roles) and
+    the broad `ClientRepresentation` registration surface it relied on.
+- E-mail binding and e-mail change: a one-time code only confirms the address it was sent to (`400 invalid_code` otherwise).
+  Codes issued before the update are rejected the same way (lifetime 5 minutes); a resend issues a valid one
+
+### changed:
+- SM(C)-B user data according to A_26972-03: commonName and organizationName are taken unchanged from the certificate,
+  without DN escaping of special characters (e.g. `Praxis Dr. Müller, Zahnarzt` instead of `Praxis Dr. Müller\, Zahnarzt`).
+  This applies to the stored user data, the access-token claims `common_name`/`organization_name` and the OPA input
+  `user_info`. organizationName is only taken if present in the certificate; otherwise the claim, the OPA input field
+  and the user attribute are omitted instead of being set to `Unbekannt`
+- Token exchange handles DPoP nonces according to RFC 9449, section 8: a DPoP proof without `nonce` is rejected with
+  `use_dpop_nonce` (HTTP 400) and a fresh nonce in the `DPoP-Nonce` response header
+- The SekIDP mTLS client (PAR and token requests) is provided as a Keycloak `connections-http-client` provider
+  `zeta-sekidp-mtls`. It uses the same SPI configuration as the default HTTP client, plus the SekIDP keystore
+- **BREAKING** Token exchange returns HTTP 400 instead of 403 for malformed or invalid requests (e.g. invalid nonce,
+  grant type, x5c certificate, client attestation or posture)
+- `POST .../zeta/identity/bind-email` answers `409` (`email_already_bound`) if the identity already has a verified e-mail
+  address
+
+### changed
+
+- Logs and traces for security KPI calculation now also
+  carry the attribute `user.roles` indicating a
+  `Versicherter`, `Leistungserbringer` or `Unbekannt`-er
+  user type.
+
 ## Release 2.0.1
 
 ### added:
@@ -135,6 +201,11 @@
   or, with the limit reached, all but one of them were rejected with "Too many clients" instead of evicting the oldest
   client. Binding a new client now locks the user's row in `ZETA_USER_DATA`, so such requests are serialized, and a
   user who already exceeds the limit is brought back to it with the next new client.
+- OPA input `user_info` now follows `zeta-user-info.yaml` of ZETA 2.0.0: it carries every value that is written into the
+  access token. For SMC-B token exchange (and its refresh), `commonName` and the new `organizationName` hold the SMC-B
+  certificate's CN and O, the values of the token claims `common_name` and `organization_name`; before, both were
+  missing. For the SekIDP login (and its refresh), the new fields `organizationName` (`urn:telematik:claims:organization`)
+  and `birthdate` (only with the user's consent) are added. Policies can now base their decision on these values.
 
 ## Release 1.3.2
 

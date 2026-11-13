@@ -49,6 +49,8 @@ class OpaSessionContextTest : FunSpec() {
               userIdentifier = "X110123456",
               userProfessionOid = "1.2.276.0.76.4.49",
               userCommonName = "X110123456",
+              userOrganizationName = "AOK",
+              userBirthdate = "1970-01-31",
               deviceInfo = OpaDeviceInfo(os = "iOS", osVersion = "17.4.1", deviceModel = "iPhone15,2"),
               attestationTimestamp = 1_753_272_000,
           )
@@ -64,6 +66,8 @@ class OpaSessionContextTest : FunSpec() {
       parsed.authenticationContextClassReference shouldBe "abc"
       parsed.scopes shouldBe null
       parsed.audiences shouldBe null
+      parsed.userOrganizationName shouldBe null
+      parsed.userBirthdate shouldBe null
       parsed.deviceInfo shouldBe null
       parsed.attestationTimestamp shouldBe null
     }

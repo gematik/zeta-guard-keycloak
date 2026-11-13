@@ -26,6 +26,7 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration
 import de.gematik.zeta.zetaguard.keycloak.commons.events.ClientRemovalReason
 import de.gematik.zeta.zetaguard.keycloak.commons.events.fireClientRemoved
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.UserRole
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -81,9 +82,9 @@ class ZetaGuardExpirationServiceTest :
       every { anyConstructed<ZetaGuardDataService>().findClientOwner(CLIENT_ID) } returns USER_NAME
       every { anyConstructed<ZetaGuardDataService>().deleteClientDataIfPresent(CLIENT_ID) } returns true
       every { anyConstructed<JpaRealmProvider>().removeClient(realm, "internal-$CLIENT_ID") } returns true
-      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClientRegistrations(any()) } returns emptyList()
-      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any()) } returns emptyList()
-      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredUsers(any()) } returns emptyList()
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClientRegistrations(any(), any()) } returns emptyList()
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), any()) } returns emptyList()
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredUsers(any(), any()) } returns emptyList()
 
       mockkObject(SecurityEventLogger)
       mockkStatic(ZETA_EVENTS)
@@ -106,7 +107,7 @@ class ZetaGuardExpirationServiceTest :
     }
 
     "an expired client notifies its owner with reason expired" {
-      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any()) } returns listOf(CLIENT_ID)
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), any()) } returns listOf(CLIENT_ID)
 
       ZetaGuardExpirationService(session).runExpiration() shouldBe (1 to 0)
 
@@ -116,7 +117,7 @@ class ZetaGuardExpirationServiceTest :
     }
 
     "the ZETA data of a client whose Keycloak client is already gone is still deleted" {
-      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any()) } returns listOf(CLIENT_ID)
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), any()) } returns listOf(CLIENT_ID)
       every { realm.getClientByClientId(CLIENT_ID) } returns null
 
       ZetaGuardExpirationService(session).runExpiration() shouldBe (0 to 0)
@@ -128,7 +129,7 @@ class ZetaGuardExpirationServiceTest :
     }
 
     "a client removed concurrently by someone else notifies nobody" {
-      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any()) } returns listOf(CLIENT_ID)
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), any()) } returns listOf(CLIENT_ID)
       every { anyConstructed<ZetaGuardDataService>().deleteClientDataIfPresent(CLIENT_ID) } returns false
 
       ZetaGuardExpirationService(session).runExpiration() shouldBe (0 to 0)
@@ -138,12 +139,54 @@ class ZetaGuardExpirationServiceTest :
     }
 
     "a client without owner notifies nobody, but its deletion is still a security event" {
-      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any()) } returns listOf(CLIENT_ID)
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), any()) } returns listOf(CLIENT_ID)
       every { anyConstructed<ZetaGuardDataService>().findClientOwner(CLIENT_ID) } returns null
 
       ZetaGuardExpirationService(session).runExpiration() shouldBe (1 to 0)
 
       verify(exactly = 0) { fireClientRemoved(any(), any(), any(), any(), any(), any()) }
       verify { SecurityEventLogger.logClientDeleted(CLIENT_ID, "expired") }
+    }
+
+    "expired registrations use up the batch, leaving less for clients" {
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClientRegistrations(any(), 2) } returns listOf(CLIENT_ID, "other-client")
+      every { realm.getClientByClientId("other-client") } returns null
+
+      ZetaGuardExpirationService(session).runExpiration(batchSize = 2) shouldBe (1 to 0)
+
+      verify(exactly = 0) { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), any()) }
+    }
+
+    "clients only get what the expired registrations left of the batch" {
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClientRegistrations(any(), 3) } returns listOf("registration")
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), 2) } returns listOf(CLIENT_ID)
+      every { realm.getClientByClientId("registration") } returns null
+
+      ZetaGuardExpirationService(session).runExpiration(batchSize = 3)
+
+      // 3 in the batch, 1 taken by the registration, so 2 are left for clients
+      verify { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), 2) }
+    }
+
+    "the data of an expired user whose Keycloak user is gone is removed all the same" {
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredUsers(any(), any()) } returns listOf(USER_NAME)
+      every { anyConstructed<JpaUserProvider>().getUserByUsername(realm, USER_NAME) } returns null
+      justRun { anyConstructed<ZetaGuardDataService>().deleteUserData(USER_NAME) }
+
+      ZetaGuardExpirationService(session).runExpiration() shouldBe (0 to 1)
+
+      verify { anyConstructed<ZetaGuardDataService>().deleteUserData(USER_NAME) }
+      verify(exactly = 0) { anyConstructed<JpaUserProvider>().removeUser(any(), any()) }
+    }
+
+    "the registrations logged as expired are only those found, not the clients added to the batch afterwards" {
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClientRegistrations(any(), any()) } returns listOf("registration")
+      every { anyConstructed<ZetaGuardClientExpirationDao>().findExpiredClients(any(), any()) } returns listOf(CLIENT_ID)
+      every { realm.getClientByClientId("registration") } returns null
+
+      ZetaGuardExpirationService(session).runExpiration()
+
+      verify(exactly = 1) { SecurityEventLogger.logClientRegistrationFail("registration", "registration_expired", UserRole.Unbekannt) }
+      verify(exactly = 0) { SecurityEventLogger.logClientRegistrationFail(CLIENT_ID, any(), UserRole.Unbekannt) }
     }
   })

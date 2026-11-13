@@ -28,11 +28,13 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_STARTUP_DELAY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PROVIDER_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDateTimePeriod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDuration
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialProvider
 import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.NonceProviderFactory
+import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.lookupNonceProviderFactory
 import io.quarkus.arc.Arc
 import java.time.Duration
 import java.time.LocalDateTime
@@ -48,9 +50,9 @@ import org.keycloak.services.resource.RealmResourceProvider
 import org.keycloak.timer.TimerProvider
 import org.keycloak.timer.TimerProviderFactory
 
-private val CLIENT_REGISTRATION_INTERVAL = System.getenv(ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL) ?: "PT5M"
+private val CLIENT_REGISTRATION_INTERVAL = safeGetenv(ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL, "PT5M")
 private val clientExpirationJobInterval = CLIENT_REGISTRATION_INTERVAL.toDateTimePeriod()
-private val CLIENT_REGISTRATION_STARTUP_DELAY = System.getenv(ENV_CLIENT_REGISTRATION_STARTUP_DELAY) ?: "PT20S"
+private val CLIENT_REGISTRATION_STARTUP_DELAY = safeGetenv(ENV_CLIENT_REGISTRATION_STARTUP_DELAY, "PT20S")
 
 /**
  * Setup initial state of newly created clients to "pending".
@@ -65,8 +67,7 @@ class ZetaGuardClientRegistrationPolicyFactory : ClientRegistrationPolicyFactory
   private lateinit var integrityProviderService: IntegrityProviderService
 
   override fun create(session: KeycloakSession, model: ComponentModel): ZetaGuardClientRegistrationPolicy {
-    val nonceProvider = session.keycloakSessionFactory
-        .getProviderFactory(RealmResourceProvider::class.java, NONCE_PROVIDER_ID) as NonceProviderFactory
+    val nonceProvider = session.lookupNonceProviderFactory()
     // Resolved once per policy, so a registration in progress is not affected by a concurrent truststore reload
     val trustMaterial = session.getProvider(TrustMaterialProvider::class.java).trustMaterial()
 

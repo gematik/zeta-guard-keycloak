@@ -37,7 +37,10 @@ import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PLATFORM
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PRODUCT_ID
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PRODUCT_VERSION
 import de.gematik.zeta.zetaguard.keycloak.commons.Platform
+import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.fromBase64
+import jakarta.ws.rs.core.Response.Status.BAD_REQUEST
+import org.keycloak.OAuthErrorException.INVALID_CLIENT_METADATA
 import org.keycloak.jose.jwk.JWK
 import org.keycloak.representations.oidc.OIDCClientRepresentation
 
@@ -133,3 +136,31 @@ val ZetaGuardOIDCClientRequestRepresentation.jwk: Either<Throwable, JWK>
   }
 
 fun ZetaGuardOIDCClientRequestRepresentation.nonce(): ByteArray? = nonce?.fromBase64()
+
+// ZF-0100, ZETAP-2208: remove unused URIs that potentially may cause unwanted HTTP traffic
+fun OIDCClientRepresentation.stripURIs() = apply {
+  sectorIdentifierUri = null
+  jwksUri = null
+  requestUris = emptyList()
+  clientUri = null
+  backchannelLogoutUri = null
+  backchannelClientNotificationEndpoint = null
+  registrationClientUri = null
+  frontChannelLogoutUri = null
+  logoUri = null
+  policyUri = null
+  tosUri = null
+
+  initiateLoginUri = null
+  postLogoutRedirectUris = emptyList()
+  subjectType = null
+}
+
+fun ZetaGuardOIDCClientRequestRepresentation.verify(): Either<KeycloakError, ZetaGuardOIDCClientRequestRepresentation> = either {
+  ensure(jwks != null && !jwks.keys.isNullOrEmpty()) { KeycloakError(INVALID_CLIENT_METADATA, "Invalid JWKS", BAD_REQUEST) }
+  ensure(!tokenEndpointAuthMethod.isNullOrEmpty()) { KeycloakError(INVALID_CLIENT_METADATA, "Invalid auth method", BAD_REQUEST) }
+  ensure(!clientName.isNullOrEmpty()) { KeycloakError(INVALID_CLIENT_METADATA, "Invalid client name", BAD_REQUEST) }
+  ensure(!grantTypes.isNullOrEmpty()) { KeycloakError(INVALID_CLIENT_METADATA, "Invalid grant type", BAD_REQUEST) }
+
+  this@verify
+}

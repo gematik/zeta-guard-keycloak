@@ -36,6 +36,7 @@ import org.keycloak.common.util.Time.currentTime
 import org.keycloak.jose.jws.JWSBuilder
 import org.keycloak.jose.jws.JWSHeader
 import org.keycloak.jose.jws.crypto.HashUtils
+import org.keycloak.representations.IDToken.NONCE
 import org.keycloak.representations.dpop.DPoP
 import org.keycloak.util.DPoPGenerator
 
@@ -51,11 +52,11 @@ object DPoPTokenGenerator : AbstractTokenGenerator() {
     if (nonce != null) {
       val dpop = DPoP().apply {
         id(SecretGenerator.getInstance().generateSecureID())
-        setHttpMethod(HttpMethod.POST)
-        setHttpUri(endpointURL.toString())
+        httpMethod = HttpMethod.POST
+        httpUri = endpointURL.toString()
         iat(currentTime().toLong())
-        setAccessTokenHash(HashUtils.accessTokenHash(DPOP_DEFAULT_ALGORITHM.toString(), accessToken, true))
-        setOtherClaims("nonce", nonce)
+        accessTokenHash = HashUtils.accessTokenHash(DPOP_DEFAULT_ALGORITHM.toString(), accessToken, true)
+        setOtherClaims(NONCE, nonce)
       }
       val signer = keys.keypair.createSignerContext()
       return JWSBuilder().header(jwsRsaHeader).jsonContent(dpop).sign(signer)

@@ -30,6 +30,7 @@ import arrow.core.raise.ensure
 import com.fasterxml.jackson.annotation.JsonProperty
 import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOTPMailer
 import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOTPService
+import de.gematik.zeta.zetaguard.keycloak.commons.email.verifiedEmail
 import de.gematik.zeta.zetaguard.keycloak.commons.events.ClientRemovalReason
 import de.gematik.zeta.zetaguard.keycloak.commons.events.DETAIL_ZETA_TARGET_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.events.DETAIL_ZETA_USER
@@ -330,8 +331,14 @@ class ZetaEmailBindingResourceProvider(
       code: String?,
   ): Either<KeycloakError, Response> = either {
     val (user, clientData, challenge) = authorized.bind()
+    // the address the code is about to confirm
+    val email =
+        when (challenge) {
+          is Challenge.EmailChange -> challenge.newEmail
+          Challenge.Registration -> user.email
+        }
 
-    ensure(EmailOTPService.verify(session, clientData.id, code)) { KeycloakError("invalid_code", "invalid_code", BAD_REQUEST) }
+    ensure(EmailOTPService.verify(session, clientData.id, code, email)) { KeycloakError("invalid_code", "invalid_code", BAD_REQUEST) }
 
     when (challenge) {
       is Challenge.EmailChange -> {
@@ -371,6 +378,9 @@ class ZetaEmailBindingResourceProvider(
     ensure(!email.isNullOrBlank()) { KeycloakError("missing_email", "missing_email", BAD_REQUEST) }
 
     val (user, clientData) = registeringCaller(zetaClientData).bind()
+
+    // a verified address is only changed by a confirmed client via identity/email
+    ensure(user.verifiedEmail() == null) { KeycloakError("email_already_bound", "email_already_bound", CONFLICT) }
 
     user.toWritableUser().apply {
       this.email = email
@@ -414,7 +424,7 @@ class ZetaEmailBindingResourceProvider(
       email: String,
   ): Either<KeycloakError, Unit> =
       Either.catch {
-        val otp = EmailOTPService.issue(session, clientData.id)
+        val otp = EmailOTPService.issue(session, clientData.id, email)
 
         EmailOTPMailer.send(session, email, otp)
       }

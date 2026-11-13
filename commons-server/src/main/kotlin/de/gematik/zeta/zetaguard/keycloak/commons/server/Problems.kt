@@ -25,9 +25,6 @@ package de.gematik.zeta.zetaguard.keycloak.commons.server
 
 import jakarta.ws.rs.core.Response
 
-/** RFC 9457 Problem Details media type, required by the client-management API ([zeta-guard-client-management], Error schema). */
-const val MEDIA_TYPE_PROBLEM_JSON = "application/problem+json"
-
 /**
  * Machine-readable failure codes carried in the `code` member of a problem response.
  *
@@ -57,7 +54,7 @@ object ProblemCodes {
  */
 fun problem(status: Response.Status, code: String, title: String, detail: String? = null): Response =
     Response.status(status)
-        .type(MEDIA_TYPE_PROBLEM_JSON)
+        .type(MediaTypes.PROBLEM_JSON)
         .entity(
             buildMap {
               put("status", status.statusCode)

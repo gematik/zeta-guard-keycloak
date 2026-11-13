@@ -45,31 +45,34 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_KEY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_DPOP_KEY
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_JKT
-import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
-import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PROVIDER_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OCSP_HTTP_CLIENT_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPA_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SMCB_IDENTITY_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SMC_B_VALID_GRANT_TYPES
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.USE_DPOP_NONCE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.admission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstAdmission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfession
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfessionInfo
-import de.gematik.zeta.zetaguard.keycloak.commons.server.httpClient
-import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
+import de.gematik.zeta.zetaguard.keycloak.commons.server.isValidScope
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
+import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAuthenticationBypassAttack
 import de.gematik.zeta.zetaguard.keycloak.commons.server.serverHost
 import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectCommonName
 import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectOrganisationName
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toScopes
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toUserRole
 import de.gematik.zeta.zetaguard.keycloak.commons.server.tracingProvider
 import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateChain
 import de.gematik.zeta.zetaguard.keycloak.commons.server.validateCertificateSignature
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
-import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterial
 import de.gematik.zeta.zetaguard.keycloak.plugins.VALID_POSTURE_TYPES
 import de.gematik.zeta.zetaguard.keycloak.plugins.ZetaGuardTokenManager
 import de.gematik.zeta.zetaguard.keycloak.plugins.checkPostureType
@@ -78,25 +81,25 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDa
 import de.gematik.zeta.zetaguard.keycloak.plugins.convertToJWKS
 import de.gematik.zeta.zetaguard.keycloak.plugins.createToken
 import de.gematik.zeta.zetaguard.keycloak.plugins.createTokenVerifier
-import de.gematik.zeta.zetaguard.keycloak.plugins.exchangeError
 import de.gematik.zeta.zetaguard.keycloak.plugins.extractPublicKey
 import de.gematik.zeta.zetaguard.keycloak.plugins.hasSigningFailureCause
-import de.gematik.zeta.zetaguard.keycloak.plugins.internalError
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidCertificate
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidClientClaim
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidClientPublicKey
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidContext
+import de.gematik.zeta.zetaguard.keycloak.plugins.invalidGrant
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidGrantType
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidNonce
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidPostureType
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidProviderModel
+import de.gematik.zeta.zetaguard.keycloak.plugins.invalidScope
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidSubject
 import de.gematik.zeta.zetaguard.keycloak.plugins.invalidToken
 import de.gematik.zeta.zetaguard.keycloak.plugins.logInvalidAuthorizationCodes
 import de.gematik.zeta.zetaguard.keycloak.plugins.mapToCorsException
 import de.gematik.zeta.zetaguard.keycloak.plugins.missingClientData
 import de.gematik.zeta.zetaguard.keycloak.plugins.missingClientState
-import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.NonceProviderFactory
+import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.lookupNonceProviderFactory
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateEnforcer
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OpaGateInput
@@ -104,16 +107,23 @@ import de.gematik.zeta.zetaguard.keycloak.plugins.parseClaim
 import de.gematik.zeta.zetaguard.keycloak.plugins.readCertificate
 import de.gematik.zeta.zetaguard.keycloak.plugins.resolveAudiences
 import de.gematik.zeta.zetaguard.keycloak.plugins.tokenSigningUnavailable
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterial
+import de.gematik.zeta.zetaguard.keycloak.plugins.unexpectedError
 import io.opentelemetry.semconv.ServerAttributes
 import jakarta.ws.rs.core.Response
+import jakarta.ws.rs.core.Response.Status.BAD_REQUEST
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
 import org.bouncycastle.asn1.isismtt.x509.AdmissionSyntax
 import org.keycloak.OAuth2Constants
+import org.keycloak.OAuth2Constants.DPOP_HTTP_HEADER
+import org.keycloak.OAuth2Constants.DPOP_NONCE_HEADER
 import org.keycloak.OAuth2Constants.JWT
 import org.keycloak.OAuth2Constants.JWT_TOKEN_TYPE
+import org.keycloak.OAuth2Constants.SUBJECT_TOKEN
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
+import org.keycloak.OAuthErrorException.INVALID_REQUEST
 import org.keycloak.OAuthErrorException.SERVER_ERROR
 import org.keycloak.authentication.authenticators.client.JWTClientAuthenticator
 import org.keycloak.broker.provider.BrokeredIdentityContext
@@ -134,18 +144,16 @@ import org.keycloak.protocol.oidc.TokenManager
 import org.keycloak.protocol.oidc.tokenexchange.StandardTokenExchangeProvider
 import org.keycloak.representations.AccessToken
 import org.keycloak.representations.IDToken
+import org.keycloak.representations.IDToken.NONCE
 import org.keycloak.representations.dpop.DPoP
 import org.keycloak.services.managers.AuthenticationManager
 import org.keycloak.services.managers.UserSessionManager
-import org.keycloak.services.resource.RealmResourceProvider
 import org.keycloak.services.resources.IdentityBrokerService.getIdentityProvider
 import org.keycloak.services.util.CertificateInfoHelper
 import org.keycloak.services.util.DPoPUtil
 import org.keycloak.util.JWKSUtils.computeThumbprint
 
-typealias KeycloakValidationError = KeycloakError
-
-typealias KeycloakValidation = Either<KeycloakValidationError, ZetaGuardTokenExchangeContext>
+typealias KeycloakValidation = Either<KeycloakError, ZetaGuardTokenExchangeContext>
 
 private val REFERENCE_DATE = LocalDateTime.of(2025, 12, 1, 0, 0)!!
 
@@ -213,10 +221,19 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
       ok = true
     }
 
-    val subjectTokenType = context.params.subjectTokenType
+    if (!ok) {
+      return false
+    }
 
-    // Either there is another error or the token type is "access token" → Let the standard implementation do the job
-    return ok && JWT_TOKEN_TYPE == subjectTokenType
+    // Keycloak's standard token exchange is disabled in the image, so no other provider takes over. Without a reason,
+    // Keycloak would answer HTTP 500 instead of 400.
+    val subjectTokenType = context.params.subjectTokenType
+    if (JWT_TOKEN_TYPE != subjectTokenType) {
+      context.unsupportedReason = "Subject token type »$subjectTokenType« is not supported"
+      return false
+    }
+
+    return true
   }
 
   /**
@@ -258,7 +275,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
 
         validateCertificateChain(issuerCertificate, listOf(certificate)).mapLeft { invalidToken(it) }.bind()
 
-        val httpClient = session.httpClient
+        val httpClient = session.lookupHttpClient(OCSP_HTTP_CLIENT_ID)
 
         OcspUtil.checkRevoked(
             certificate,
@@ -269,7 +286,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
         ).mapLeft { invalidToken(it) }.bind()
 
         context
-      }.onLeft { session.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP) }
+      }.onLeft { session.reportAuthenticationBypassAttack(cause = it, context.clientIP) }
 
   /**
    * Read and check statement data from client_assertion token.
@@ -285,9 +302,9 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
     ensure(attestationTime.isAfter(REFERENCE_DATE)) { invalidClientClaim("Invalid attestation timestamp »$attestationTime«") }
     ensure(clientStatementData.clientId == client.clientId) { invalidClientClaim("Invalid client id »${clientStatementData.clientId}«") }
 
-    checkPostureType(clientStatementData, context, trustMaterial.tpm).onLeft {
-      session.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP)
-    }.bind()
+    checkPostureType(clientStatementData, context, trustMaterial.tpm)
+        .onLeft { session.reportAuthenticationBypassAttack(cause = it, context.clientIP, context.professionOID.toUserRole()) }
+        .bind()
 
     context.clientStatementData = clientStatementData
 
@@ -321,7 +338,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
   private fun checkIntegrityProvider(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
     if (integrityProviderService.isIntegrityProviderEnabled()) {
       ensure(integrityProviderService.isIntegrityProviderRunning()) {
-        KeycloakValidationError(SERVER_ERROR, "Integrity provider is not (yet) running", Response.Status.SERVICE_UNAVAILABLE)
+        KeycloakError(SERVER_ERROR, "Integrity provider is not (yet) running", Response.Status.SERVICE_UNAVAILABLE)
       }
     }
 
@@ -364,34 +381,28 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
   }
 
   private fun checkNonce(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
-    val nonceFactory =
-        Either.catch {
-          val nonceProvider =
-              session.keycloakSessionFactory.getProviderFactory(RealmResourceProvider::class.java, NONCE_PROVIDER_ID) as NonceProviderFactory
-
-          nonceProvider.nonceFactory
-        }
-            .mapLeft { internalError(it) }
-            .bind()
-    val retrievedNonce = nonceFactory.retrieveNonce(context.token.nonce)
-
-    ensure(retrievedNonce != null) {
-      invalidNonce().also {
-        session.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP)
-      }
-    }
-
     val dPoP = session.getAttribute(DPoPUtil.DPOP_SESSION_ATTRIBUTE, DPoP::class.java)
-      ?: raise(invalidToken("DPoP proof is missing"))
-    val dPoPNonce = dPoP.otherClaims["nonce"] as? String
+      ?: raise(KeycloakError(INVALID_REQUEST, "DPoP proof is missing", BAD_REQUEST))
+    val nonce = context.token.nonce
+      ?: raise(invalidNonce(SUBJECT_TOKEN).report(context))
+    val nonceFactory = session.lookupNonceProviderFactory().nonceFactory
+    val dPoPNonce = dPoP.otherClaims[NONCE] as? String
+      ?: raise(
+          KeycloakError( // https://www.rfc-editor.org/rfc/rfc9449.html#section-8
+              USE_DPOP_NONCE, "Authorization server requires nonce in DPoP proof", BAD_REQUEST,
+              mapOf(DPOP_NONCE_HEADER to nonceFactory.createNonce().nonceValue)
+          )
+      )
+    val retrievedNonce = nonceFactory.retrieveNonce(dPoPNonce)
+      ?: raise(invalidNonce(DPOP_HTTP_HEADER).report(context))
 
-    ensure(dPoPNonce == retrievedNonce.nonceValue) {
-      invalidNonce().also {
-        session.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP)
-      }
-    }
+    ensure(nonce == retrievedNonce.nonceValue) { invalidNonce(SUBJECT_TOKEN).report(context) }
 
     context
+  }
+
+  private fun KeycloakError.report(context: ZetaGuardTokenExchangeContext) = also {
+    session.reportAuthenticationBypassAttack(it, context.clientIP)
   }
 
   private fun checkSubject(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
@@ -406,8 +417,10 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
    * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25653 https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25661
    */
   private fun checkOPAPolicies(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
-    val httpClient = session.httpClient
-    val input = populateContextAndBuildGateInput(context).mapLeft { internalError(it) }.bind()
+    ensure(formParams.getFirst(OAuth2Constants.SCOPE).isValidScope()) { invalidScope() } // A_25661-01
+
+    val httpClient = session.lookupHttpClient(OPA_HTTP_CLIENT_ID)
+    val input = populateContextAndBuildGateInput(context).mapLeft { unexpectedError(it, "opa") }.bind()
 
     session.tracingProvider.trace(ZetaGuardTokenExchangeProvider::class.java, OPA_TRACER) {
       it.setAttribute("zeta.client.ip", context.clientIP)
@@ -440,7 +453,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
   private fun populateContextAndBuildGateInput(context: ZetaGuardTokenExchangeContext): Either<Throwable, OpaGateInput> =
       Either.catch {
         val grantType = formParams.getFirst(OAuth2Constants.GRANT_TYPE)
-        val scopes = formParams.getFirst(OAuth2Constants.SCOPE)?.split(' ')?.filter { it.isNotBlank() } ?: emptyList()
+        val scopes = formParams.getFirst(OAuth2Constants.SCOPE).toScopes().toList()
         val audiences = resolveAudiences(formParams)
 
         context.opaAudiences = audiences
@@ -482,6 +495,9 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
             postureType = context.postureType,
             userIdentifier = userIdentifier,
             userProfessionOid = userProfessionOid,
+            // Same certificate values as the access-token claims common_name and organization_name
+            userCommonName = context.subjectCommonName,
+            userOrganizationName = context.subjectOrganisation,
             deviceInfo = context.clientStatementData.posture.toOpaDeviceInfo(),
             attestationTimestamp = context.clientStatementData.attestationTimestamp,
         )
@@ -515,7 +531,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
    *
    * Handle and categorize exceptions explicitely, since otherwise the stack traces are "lost".
    */
-  private fun exchangeExternalToken(context: ZetaGuardTokenExchangeContext): Either<KeycloakValidationError, Response> = either {
+  private fun exchangeExternalToken(context: ZetaGuardTokenExchangeContext): Either<KeycloakError, Response> = either {
     val accessToken = context.subjectToken.toAccessToken()
     val provider = getProvider()
     val model = session.identityProviders().getByAlias(SMCB_IDENTITY_PROVIDER_ID) ?: raise(invalidProviderModel())
@@ -603,42 +619,39 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
    * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#5.12.2.5.1
    */
   private fun checkSubjectTokenKeyBindings(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
-    // invalid_token: the violated binding is the SMC-B-signed thumbprint
+    // invalid_grant: the violated binding is the SMC-B-signed thumbprint
     val attestedClientKey = context.token.jktBinding(CLAIM_CLIENT_KEY) ?: raise(invalidToken("Missing »$CLAIM_CLIENT_KEY« binding in subject token"))
-    ensure(attestedClientKey == computeThumbprint(context.clientJWK)) { invalidToken("Client key does not match »$CLAIM_CLIENT_KEY« binding") }
+    ensure(attestedClientKey == computeThumbprint(context.clientJWK)) { invalidGrant("Client key does not match »$CLAIM_CLIENT_KEY« binding") }
 
     val dPoP = session.getAttribute(DPoPUtil.DPOP_SESSION_ATTRIBUTE, DPoP::class.java) ?: raise(invalidToken("DPoP proof is missing"))
     val attestedDpopKey = context.token.jktBinding(CLAIM_DPOP_KEY) ?: raise(invalidToken("Missing »$CLAIM_DPOP_KEY« binding in subject token"))
-    ensure(attestedDpopKey == dPoP.thumbprint) { invalidToken("DPoP key does not match »$CLAIM_DPOP_KEY« binding") }
+    ensure(attestedDpopKey == dPoP.thumbprint) { invalidGrant("DPoP key does not match »$CLAIM_DPOP_KEY« binding") }
 
     context
   }
 
   @Suppress("DEPRECATION")
-  private fun Raise<KeycloakValidationError>.getClientPublicKeyWrapper() =
+  private fun Raise<KeycloakError>.getClientPublicKeyWrapper() =
       Either.catch { PublicKeyStorageManager.getClientPublicKeyWrapper(session, client, JWK.Use.SIG, "ES256") }
           .mapLeft { invalidClientPublicKey("Cannot parse JWKS attribute »$JWKS_STRING«") }
           .bind()
 
-  private fun Raise<KeycloakValidationError>.getProvider(): ExchangeExternalToken =
-      Either.catch { getIdentityProvider(session, SMCB_IDENTITY_PROVIDER_ID) }.mapLeft { exchangeError(it, "identity_provider") }.bind()
-          as ExchangeExternalToken
+  private fun Raise<KeycloakError>.getProvider(): ExchangeExternalToken =
+      Either.catch { getIdentityProvider(session, SMCB_IDENTITY_PROVIDER_ID) }
+          .mapLeft { unexpectedError(it, "identity_provider") }.bind() as ExchangeExternalToken
 
-  private fun Raise<KeycloakValidationError>.exchangeClientToClient(user: UserModel, userSession: UserSessionModel, accessToken: AccessToken) =
+  private fun Raise<KeycloakError>.exchangeClientToClient(user: UserModel, userSession: UserSessionModel, accessToken: AccessToken) =
       Either.catch { //
         exchangeClientToClient(user, userSession, accessToken, false)
-      }
-          .mapLeft { if (hasSigningFailureCause(it)) tokenSigningUnavailable(it) else exchangeError(it, "exchange_client") }
+      }.mapLeft { if (hasSigningFailureCause(it)) tokenSigningUnavailable(it) else unexpectedError(it, "exchange_client") }
           .bind()
 
-  private fun Raise<KeycloakValidationError>.importUser(context: BrokeredIdentityContext): UserModel =
+  private fun Raise<KeycloakError>.importUser(context: BrokeredIdentityContext): UserModel =
       Either.catch { //
         importUserFromExternalIdentity(context)
-      }
-          .mapLeft { exchangeError(it, "user_model") }
-          .bind()
+      }.mapLeft { unexpectedError(it, "user_model") }.bind()
 
-  private fun Raise<KeycloakValidationError>.clientAssertionClaims(context: ZetaGuardTokenExchangeContext): Map<String, Any> =
+  private fun Raise<KeycloakError>.clientAssertionClaims(context: ZetaGuardTokenExchangeContext): Map<String, Any> =
       context.clientAssertion.otherClaims ?: raise(invalidClientClaim("No claims found in JWT token"))
 
   private fun tagRequestSpan() {

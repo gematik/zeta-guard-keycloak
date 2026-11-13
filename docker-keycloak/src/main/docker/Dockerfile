@@ -1,4 +1,8 @@
+# Single source of the hardened feature set, see docs/internal/Erklärungen/Keycloak_hardening.md
+ARG HARDENED_FEATURES_DISABLED=account,account-api,ciba,device-flow,jwt-authorization-grant,authorization,admin-fine-grained-authz,impersonation,workflows,identity-brokering-api
+
 FROM ${docker.keycloak.image}:${keycloak.version} AS builder
+ARG HARDENED_FEATURES_DISABLED
 
 # Keycloak build options, see https://www.keycloak.org/server/all-config?f=build
 ENV KC_DB=postgres
@@ -11,7 +15,9 @@ ENV KC_SPI_CLIENT_REGISTRATION__DEFAULT__ENABLED=false
 ENV KC_SPI_CLIENT_REGISTRATION__INSTALL__ENABLED=false
 ENV KC_SPI_CLIENT_REGISTRATION__SAML2_ENTITY_DESCRIPTOR__ENABLED=false
 ENV KC_SPI_WELL_KNOWN__UMA2_CONFIGURATION__ENABLED=false
-ENV KC_FEATURES_DISABLED=account,account-api,ciba,device-flow,jwt-authorization-grant,authorization,admin-fine-grained-authz,impersonation,workflows,identity-brokering-api
+# Keycloak's standard token exchange would serve every exchange the 𝝵-Guard providers decline, bypassing their checks
+ENV KC_SPI_OAUTH2_TOKEN_EXCHANGE__STANDARD__ENABLED=false
+ENV KC_FEATURES_DISABLED=$HARDENED_FEATURES_DISABLED
 
 WORKDIR /opt/keycloak
 
@@ -36,6 +42,9 @@ RUN /opt/keycloak/bin/kc.sh build
 
 # Keycloak runtime
 FROM ${docker.keycloak.image}:${keycloak.version}
+# ENV of the builder stage does not carry over, startup.sh needs the hardened set at runtime
+ARG HARDENED_FEATURES_DISABLED
+ENV KC_HARDENED_FEATURES_DISABLED=$HARDENED_FEATURES_DISABLED
 COPY --from=builder --chown=1000:1000 /opt/keycloak/ /opt/keycloak/
 
 USER root

@@ -20,6 +20,7 @@ fi
 create_scope() {
   local name="$1" description="$2"
   ./kcadm.sh create client-scopes -r zeta-guard \
+    -s "id=$name" \
     -s "name=$name" \
     -s protocol=openid-connect \
     -s "description=$description" \
@@ -27,5 +28,9 @@ create_scope() {
     -s 'attributes."display.on.consent.screen"=false'
 }
 
-create_scope "zeta:email-binding" "ZETA reduced scope for registering a new user email (I3)"
-create_scope "zeta:email-verify" "ZETA reduced scope for resending/verifying the email OTP (I3)"
+create_scope "zeta:email-binding" "𝛇-Guard reduced scope for registering a new user email (I3)"
+create_scope "zeta:email-verify" "𝛇-Guard reduced scope for resending/verifying the email OTP (I3)"
+
+# A_29843
+create_scope "zeta:test" "𝛇-Guard testing scope, to be requested by refresh token"
+./kcadm.sh update "realms/zeta-guard/default-optional-client-scopes/zeta:test" -b "{}"

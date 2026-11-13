@@ -34,9 +34,6 @@ import org.keycloak.models.KeycloakSession
 import org.keycloak.quarkus.runtime.tracing.OTelTracingProviderFactory
 import org.keycloak.tracing.TracingProvider
 
-val KeycloakSession.httpClient: CloseableHttpClient
-  get() = getProvider(HttpClientProvider::class.java)?.httpClient ?: throw IllegalStateException("HTTP client not available")
-
 val KeycloakSession.tracingProvider: TracingProvider
   get() = getProvider(TracingProvider::class.java, OTelTracingProviderFactory.PROVIDER_ID)
 
@@ -49,6 +46,24 @@ fun rememberLastClientIp(session: KeycloakSession, client: ClientModel) {
   session.clientIP?.let { client.setAttribute(ATTRIBUTE_LAST_CLIENT_IP, it) }
 }
 
+/**
+ * Allow the access token mapper to issue KVNR claims to [client] within the current request.
+ *
+ * Only the mobile PDP gate (or the reduced email-binding issuance) grants this permit. It lives on the
+ * [KeycloakSession], i.e. it ends with the request, and is bound to a single client: any other grant reaching a
+ * SekIDP user session (device code, standard token exchange, ...) can't mint a KVNR token.
+ */
+fun KeycloakSession.permitMobileIssuance(client: ClientModel) = setAttribute(ATTRIBUTE_MOBILE_ISSUANCE_PERMIT, client.id)
+
+fun KeycloakSession.isMobileIssuancePermitted(client: ClientModel): Boolean =
+    getAttribute(ATTRIBUTE_MOBILE_ISSUANCE_PERMIT, String::class.java) == client.id
+
+// Request-scoped session attribute: internal id of the client that may receive KVNR claims within the current request.
+// Private on purpose: the permit is only set and read through the two functions above.
+private const val ATTRIBUTE_MOBILE_ISSUANCE_PERMIT = "zetaguard.mobile.issuance_permit"
+
 fun Response.isSuccessStatus() = statusInfo.family == Response.Status.Family.SUCCESSFUL
 
 fun KeycloakSession.getTracer(name: String): Tracer = tracingProvider.getTracer(name)
+
+fun KeycloakSession.lookupHttpClient(providerName: String): CloseableHttpClient = getProvider(HttpClientProvider::class.java, providerName).httpClient

@@ -7,6 +7,8 @@
     "erezept",
     "vsdservice",
     "openid",
-    "zeta:client-management"
+    "zeta:client-management",
+    "zeta:test",
+    "zeta-guard-scope"
   ]
 }

@@ -68,7 +68,7 @@ object SecurityEventLogger {
      *
      * @see [https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25484-03]
      */
-    fun logClientRegistrationFail(clientId: String, reason: String) =
+    fun logClientRegistrationFail(clientId: String, reason: String, userRole: UserRole) =
         logger.info(
             message = "authn_client_registration_fail:$clientId",
             attributes =
@@ -76,6 +76,7 @@ object SecurityEventLogger {
                     CLIENT_ID to clientId,
                     EVENT_TYPE to "authn_client_registration_fail",
                     REASON to reason,
+                    USER_ROLES to userRole.toLoggableString(),
                 ),
         )
 

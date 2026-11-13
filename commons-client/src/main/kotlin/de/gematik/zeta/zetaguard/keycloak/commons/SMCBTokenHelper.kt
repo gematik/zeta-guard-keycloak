@@ -35,7 +35,7 @@ import kotlin.random.nextInt
  * certificate validation.
  */
 @Suppress("unused")
-class SMCBTokenHelper(index: Int = Random.nextInt(0..5000)) {
+class SMCBTokenHelper(index: Int = Random.nextInt(1..5000)) { // the leaf certificates are numbered from 1
   val telematikId = TELEMATIK_ID + index.toLeafSuffix()
   val clientCertificateService = ClientCertificateService("smcb-certificates-client.zip")
   val leafCertificate = clientCertificateService.getCertificate(index)

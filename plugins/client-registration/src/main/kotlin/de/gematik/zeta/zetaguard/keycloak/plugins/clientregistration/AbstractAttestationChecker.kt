@@ -29,13 +29,12 @@ import arrow.core.raise.ensure
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientRequestRepresentation
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.jwk
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.nonce
-import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.clientIP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.fromBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.message
-import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
+import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAuthenticationBypassAttack
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toClientHashData
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
 import de.gematik.zeta.zetaguard.keycloak.commons.server.verifySignature
@@ -71,7 +70,7 @@ abstract class AbstractAttestationChecker(private val session: KeycloakSession, 
 
         ensure(retrievedNonce != null) {
           keycloakError("Invalid nonce value").also {
-            session.reportAttack(it, AUTHENTICATION_BYPASS, session.clientIP ?: "Unknown")
+            session.reportAuthenticationBypassAttack(cause = it, session.clientIP ?: "Unknown")
           }
         }
       }

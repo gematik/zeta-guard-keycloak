@@ -25,19 +25,19 @@
 
 package de.gematik.zeta.zetaguard.keycloak.it
 
-import de.gematik.zeta.zetaguard.keycloak.client_assertion.PROPERTY_PLATFORM_DISCRIMINATOR
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
-import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_B_SCOPE
 import de.gematik.zeta.zetaguard.keycloak.commons.CLIENT_C_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.PRODUCT_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_CLIENT_B
 import de.gematik.zeta.zetaguard.keycloak.commons.SMCBTokenHelper
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
 import de.gematik.zeta.zetaguard.keycloak.commons.createOtherClaims
 import de.gematik.zeta.zetaguard.keycloak.commons.platformProductId
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_CLIENT_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PLATFORM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PRODUCT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
@@ -50,18 +50,20 @@ import de.gematik.zeta.zetaguard.keycloak.commons.toRefreshToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.matchers.collections.shouldContain
-import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
-import io.kotest.matchers.string.shouldContainOnlyOnce
 import org.keycloak.OAuth2Constants.CLIENT_ASSERTION_TYPE_JWT
-import org.keycloak.common.util.Base64Url
 import org.keycloak.jose.jws.Algorithm
+import org.keycloak.representations.AccessToken
 import org.keycloak.representations.AccessTokenResponse
+import org.keycloak.representations.RefreshToken
+import org.keycloak.representations.IDToken.NONCE
 import org.keycloak.util.TokenUtil.TOKEN_TYPE_BEARER
 import org.keycloak.util.TokenUtil.TOKEN_TYPE_DPOP
 
 typealias ErrorHandler = (KeycloakError) -> Unit
+
+private val EMPTY = Triple(AccessTokenResponse(), AccessToken(), RefreshToken(AccessToken()))
 
 sealed interface DPoPMode {
   data object Disabled : DPoPMode
@@ -112,21 +114,21 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
       subjectToken: String,
       clientId: String = ZETA_CLIENT,
       clientAssertion: String?,
-      requestedClientScope: String? = CLIENT_B_SCOPE,
+      requestedClientScope: String = SCOPE_CLIENT_B,
       dpop: DPoPMode = DPoPMode.Enabled(),
       audience: String? = "http://localhost:18080",
       expectedError: ErrorHandler? = null,
-  ): AccessTokenResponse {
-    val dPoPToken =
-        when (dpop) {
-          is DPoPMode.Enabled -> {
-            @Suppress("kotlin:S6530")
-            val nonce = dpop.nonce ?: subjectToken.toJsonWebToken().otherClaims["nonce"] as? String
-            generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = subjectToken, nonce = nonce)
-          }
-          is DPoPMode.WithoutNonce -> generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = subjectToken)
-          is DPoPMode.Disabled -> null
-        }
+  ): Triple<AccessTokenResponse, AccessToken, RefreshToken> {
+    val dPoPToken = when (dpop) {
+      is DPoPMode.Enabled -> {
+        @Suppress("kotlin:S6530")
+        val nonce = dpop.nonce ?: subjectToken.toJsonWebToken().otherClaims[NONCE] as? String
+        generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = subjectToken, nonce = nonce)
+      }
+
+      is DPoPMode.WithoutNonce -> generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = subjectToken)
+      is DPoPMode.Disabled -> null
+    }
 
     val either =
         keycloakWebClient.tokenExchange(
@@ -143,13 +145,11 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
       either.isLeft() shouldBe true
       either.onLeft { expectedError(it) }
 
-      AccessTokenResponse()
+      EMPTY
     } else {
       val newAccessTokenResponse = either.shouldBeRight().responseObject
-      val newAccessToken = newAccessTokenResponse.token.toAccessToken()
-      val newRefreshToken = newAccessTokenResponse.refreshToken.toRefreshToken()
-
-      checkJSON(newAccessTokenResponse)
+      val newAccessToken = newAccessTokenResponse.token.checkTokenHeader().toAccessToken()
+      val newRefreshToken = newAccessTokenResponse.refreshToken.checkTokenHeader().toRefreshToken()
 
       if (dpop is DPoPMode.Enabled) {
         newAccessTokenResponse.tokenType shouldBe TOKEN_TYPE_DPOP
@@ -160,37 +160,27 @@ abstract class ZetaGuardFunSpecIT : ZetaGuardFunSpec() {
 
       newAccessToken.issuer shouldContain ZETA_REALM
       newAccessToken.issuedFor shouldBe clientId
-
       newAccessToken.subject shouldBe smcb.telematikId
 
-      val clientId1 = newAccessToken.otherClaims[CLAIM_CLIENT_ID].shouldNotBeNull() as String
-      val productId = newAccessToken.otherClaims[CLAIM_PRODUCT_ID].shouldNotBeNull() as String
+      newAccessToken.otherClaims[CLAIM_PLATFORM] shouldBe platformProductId.productPlatform.value
+      newAccessToken.otherClaims[CLAIM_CLIENT_ID] shouldBe clientId
+      newAccessToken.otherClaims[CLAIM_PRODUCT_ID] shouldBe PRODUCT_ID
 
-      clientId1 shouldBe clientId
-      productId shouldBe PRODUCT_ID
-
-      if (requestedClientScope == CLIENT_B_SCOPE) {
+      if (requestedClientScope == SCOPE_CLIENT_B) {
         newAccessToken.audience shouldContain CLIENT_C_ID
       }
 
       newRefreshToken.subject shouldBe smcb.telematikId
 
-      newAccessTokenResponse
+      Triple(newAccessTokenResponse, newAccessToken, newRefreshToken)
     }
   }
 }
 
-private fun checkJSON(newAccessTokenResponse: AccessTokenResponse) {
-  val tokenString = newAccessTokenResponse.token
-  val split = tokenString.split(".").also { it.size shouldBe 3 }
-  val body = split[1]
-  val json = Base64Url.decode(body).toString(Charsets.UTF_8)
-
-  json shouldContainOnlyOnce "\"$PROPERTY_PLATFORM_DISCRIMINATOR\":\"${platformProductId.productPlatform.value}\""
-}
-
-fun String.checkTokenHeader() {
+fun String.checkTokenHeader(): String {
   val (_, header) = toIDTokenInfo()
   header.type shouldBe "JWT"
   header.algorithm shouldBe Algorithm.ES256
+
+  return this
 }

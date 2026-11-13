@@ -68,6 +68,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotBeBlank
+import io.kotest.matchers.string.shouldNotContain
 import java.sql.DriverManager
 import java.util.UUID
 import kotlin.time.Duration.Companion.seconds
@@ -185,6 +186,20 @@ class SekIdpBrokerFlowIT : ZetaGuardFunSpecIT() {
             binding.otherClaims[CLAIM_CLIENT_ID].shouldNotBeNull()
           }
 
+          // Still without a verified address, so every unbound client may submit one: a code only confirms the address it was sent to.
+          test("collect_email: a code sent to an overwritten address does not verify the identity's email") {
+            val first = loginAndGetTokens(registerClient()).response.token
+            nonce = keycloakWebClient.getNonce().shouldBeRight().responseObject.fromBase64()
+            val second = loginAndGetTokens(registerClient()).response.token
+
+            flowClient.bindEmail(first, otherEmail).statusCode shouldBe SC_ACCEPTED
+            val codeToOther = mailpit.latestOtp(otherEmail)
+            flowClient.bindEmail(second, email).statusCode shouldBe SC_ACCEPTED
+
+            flowClient.verifyEmailOtp(first, codeToOther).statusCode shouldBe SC_BAD_REQUEST
+            flowClient.userInfoEmail(kvnr, ResourceServerPki.trustedResourceServer).statusCode shouldBe SC_NOT_FOUND
+          }
+
           // Runs after the first-login test: the same user (kvnr) ends up with a verified email.
           test("collect_email: user submits an email and verifies the OTP, the client becomes bound") {
             val client = registerClient()
@@ -234,6 +249,29 @@ class SekIdpBrokerFlowIT : ZetaGuardFunSpecIT() {
             }
 
             flowClient.verifyEmailOtp(tokens.response.token, mailpit.latestOtp(email)).statusCode shouldBe SC_OK
+          }
+
+          // A_<tas>003: only a bound client may change the identity's address, via identity/email.
+          test("collect_email is rejected for a new client of a verified user, the identity's email stays") {
+            val tokens = loginAndGetTokens(registerClient()).response
+            tokens.otherClaims[RESPONSE_MEMBER_BINDING_MODE] shouldBe BINDING_MODE_VERIFY_OTP
+            val mailsToOther = mailpit.plainBodies(otherEmail).size
+            val changed = notifications(email, N5_EMAIL_CHANGED)
+
+            val rejected = flowClient.bindEmail(tokens.token, otherEmail)
+
+            rejected.statusCode shouldBe SC_CONFLICT
+            rejected.body shouldContain "email_already_bound"
+            // still verified and unchanged: no code to the submitted address, no N5 to the bound one
+            flowClient.userInfoEmail(kvnr, ResourceServerPki.trustedResourceServer).also {
+              it.statusCode shouldBe SC_OK
+              it.body shouldNotContain otherEmail
+            }
+            mailpit.plainBodies(otherEmail).size shouldBe mailsToOther
+            notifications(email, N5_EMAIL_CHANGED) shouldBe changed
+
+            // the code sent to the bound address at login still completes the registration
+            flowClient.verifyEmailOtp(tokens.token, mailpit.latestOtp(email)).statusCode shouldBe SC_OK
           }
 
           test("bound client gets full tokens with refresh token and without email-binding scopes") {
@@ -318,6 +356,25 @@ class SekIdpBrokerFlowIT : ZetaGuardFunSpecIT() {
 
             flowClient.changeEmail(full.token, email).statusCode shouldBe SC_ACCEPTED
             flowClient.verifyEmailChangeOtp(full.token, mailpit.latestOtp(email)).statusCode shouldBe SC_OK
+          }
+
+          test("email change: a code sent to an overwritten address does not confirm the pending one") {
+            val (_, phone) = boundClientWithTokens()
+            nonce = keycloakWebClient.getNonce().shouldBeRight().responseObject.fromBase64()
+            val (_, tablet) = boundClientWithTokens()
+            val thirdEmail = "third-$email"
+
+            flowClient.changeEmail(phone.token, otherEmail).statusCode shouldBe SC_ACCEPTED
+            val codeToOther = mailpit.latestOtp(otherEmail)
+            flowClient.changeEmail(tablet.token, thirdEmail).statusCode shouldBe SC_ACCEPTED
+
+            flowClient.verifyEmailChangeOtp(phone.token, codeToOther).statusCode shouldBe SC_BAD_REQUEST
+            flowClient.userInfoEmail(kvnr, ResourceServerPki.trustedResourceServer).body shouldNotContain thirdEmail
+
+            // the pending change is confirmed with its own code, then the identity goes back to email for the following tests
+            flowClient.verifyEmailChangeOtp(tablet.token, mailpit.latestOtp(thirdEmail)).statusCode shouldBe SC_OK
+            flowClient.changeEmail(tablet.token, email).statusCode shouldBe SC_ACCEPTED
+            flowClient.verifyEmailChangeOtp(tablet.token, mailpit.latestOtp(email)).statusCode shouldBe SC_OK
           }
 
           test("deleting a lost device revokes its sessions, the identity's other devices stay logged in") {

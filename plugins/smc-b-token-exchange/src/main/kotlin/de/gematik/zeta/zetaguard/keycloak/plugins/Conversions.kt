@@ -31,14 +31,14 @@ import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakUriBuilder
 import de.gematik.zeta.zetaguard.keycloak.commons.expirationDate
 import de.gematik.zeta.zetaguard.keycloak.commons.issuedAt
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CapecAttackMechanics.AUTHENTICATION_BYPASS
+import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
-import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
+import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAuthenticationBypassAttack
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toJWKS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
 import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
-import de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange.KeycloakValidationError
 import de.gematik.zeta.zetaguard.keycloak.plugins.token_exchange.ZetaGuardTokenExchangeContext
 import jakarta.ws.rs.core.MultivaluedMap
 import java.security.PublicKey
@@ -56,32 +56,32 @@ import org.keycloak.protocol.oidc.TokenManager.TokenRevocationCheck
 import org.keycloak.representations.IDToken
 import org.keycloak.representations.JsonWebToken
 
-internal fun JWK.extractPublicKey(): Either<KeycloakValidationError, PublicKey> =
+internal fun JWK.extractPublicKey(): Either<KeycloakError, PublicKey> =
     catch { this@extractPublicKey.toPublicKey() }.mapLeft { invalidClientPublicKey("Cannot convert JWK to public key") }
 
-internal fun String.convertToJWKS(): Either<KeycloakValidationError, JSONWebKeySet> =
+internal fun String.convertToJWKS(): Either<KeycloakError, JSONWebKeySet> =
     catch { this@convertToJWKS.toJWKS() }.mapLeft { invalidClientPublicKey("Cannot parse JWKS attribute »$JWKS_STRING«") }
 
-internal inline fun <reified T> parseClaim(json: Map<String, Any>, claim: String): Either<KeycloakValidationError, T> =
+internal inline fun <reified T> parseClaim(json: Map<String, Any>, claim: String): Either<KeycloakError, T> =
     catch { json.toObject<T>() }
         .mapLeft {
           logger.warn("⚠️ Failed to read $claim", it)
           invalidClientClaim(it.message ?: "Failed to read $claim")
         }
 
-internal fun readCertificate(context: ZetaGuardTokenExchangeContext): Either<KeycloakValidationError, X509Certificate> =
+internal fun readCertificate(context: ZetaGuardTokenExchangeContext): Either<KeycloakError, X509Certificate> =
     catch {
           // leaf certificate is first in chain
           context.tokenHeader.x5c[0].toCertificate()
         }
         .mapLeft { invalidToken(it.message ?: "Invalid certificate") }
 
-internal fun KeycloakSession.createToken(verifier: TokenVerifier<IDToken>, context: ZetaGuardTokenExchangeContext): Either<KeycloakValidationError, IDToken> =
+internal fun KeycloakSession.createToken(verifier: TokenVerifier<IDToken>, context: ZetaGuardTokenExchangeContext): Either<KeycloakError, IDToken> =
     catch { verifier.verify().getToken() }
         .mapLeft {
           logger.warn("⚠️ Failed to verify identity token", it)
-          this@createToken.reportAttack(it, AUTHENTICATION_BYPASS, context.clientIP)
-          invalidToken(it.message ?: "Token validation failed")
+          this@createToken.reportAuthenticationBypassAttack(cause = it, context.clientIP)
+          invalidGrant(it.message ?: "Token validation failed")
         }
 
 internal val REQUIRES_IAT: TokenVerifier.Predicate<JsonWebToken> =
@@ -100,7 +100,7 @@ internal val REQUIRES_EXP: TokenVerifier.Predicate<JsonWebToken> =
       true
     }
 
-internal fun createTokenVerifier(context: ZetaGuardTokenExchangeContext): Either<KeycloakValidationError, TokenVerifier<IDToken>> = either {
+internal fun createTokenVerifier(context: ZetaGuardTokenExchangeContext): Either<KeycloakError, TokenVerifier<IDToken>> = either {
   val session = context.context.session
   val expectedAudiences = KeycloakUriBuilder(session.context.uri).tokenUrl(session.context.realm.name).toString()
   val actualAudiences = context.subjectToken.toAccessToken().audience.toList()

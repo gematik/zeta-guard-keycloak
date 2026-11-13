@@ -68,7 +68,7 @@ const val FIND_EXPIRED_CLIENT_DATA = "ZetaGuardClientData.findExpiredClientData"
 const val FIND_OLDEST_CLIENTS = "ZetaGuardClientData.findOldestClients"
 const val COUNT_CLIENTS = "ZetaGuardClientData.countClients"
 
-const val FIND_SEKIDP_CLIENT_IDS = "ZetaGuardClientData.findSekIdpClientIds"
+const val FIND_SEKIDP_REDIRECT_URIS = "ZetaGuardClientData.findSekIdpRedirectUris"
 
 /**
  * Query to find the owner of a [ZetaGuardClientData] record without loading it.
@@ -140,8 +140,12 @@ private const val SESSION_DATA_MAX_LENGTH = 65_535
           ),
           NamedQuery(name = DELETE_CLIENT_DATA, query = """DELETE FROM ZetaGuardClientData c WHERE c.id = :clientId"""),
           NamedQuery(
-              name = FIND_SEKIDP_CLIENT_IDS,
-              query = """SELECT c.id FROM ZetaGuardClientData c WHERE c.clientAuthMethod = :authMethod""",
+              name = FIND_SEKIDP_REDIRECT_URIS,
+              query = """SELECT DISTINCT uris FROM ZetaGuardClientData c
+                         INNER JOIN ClientEntity client ON c.id = client.clientId
+                         INNER JOIN client.redirectUris uris
+                         WHERE c.clientAuthMethod = :authMethod
+                         AND client.realmId = :realmId""",
               resultClass = String::class,
           ),
           NamedQuery(

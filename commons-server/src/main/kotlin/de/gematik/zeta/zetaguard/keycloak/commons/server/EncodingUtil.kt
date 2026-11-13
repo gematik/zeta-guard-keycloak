@@ -78,4 +78,13 @@ fun ByteArray.toHash() = toHash(this)
 
 fun safeGetenv(name: String) = getenv(name) ?: error("Missing environment variable »$name«")
 
+fun safeGetenv(name: String, default: String) = getenv(name) ?: default
+
+/** The positive number in the environment variable [name], or [default] (with a warning if there is one that is no positive number). */
+fun positiveIntFromEnv(name: String, default: Int): Int {
+  val value = getenv(name) ?: return default
+
+  return value.toIntOrNull()?.takeIf { it > 0 } ?: default.also { logger.warn("⚠️ Ignoring invalid value »$value« of »$name«, using »$it«") }
+}
+
 fun KeycloakUriInfo.baseUrl(): String = this.baseUri.toString().let { if (it.endsWith("/")) it else "$it/" }

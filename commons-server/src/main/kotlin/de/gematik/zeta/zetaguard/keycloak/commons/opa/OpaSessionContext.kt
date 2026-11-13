@@ -46,6 +46,8 @@ data class OpaSessionContext
     "userIdentifier",
     "userProfessionOid",
     "userCommonName",
+    "userOrganizationName",
+    "userBirthdate",
     "deviceInfo",
     "attestationTimestamp",
 )
@@ -65,6 +67,8 @@ constructor(
     val userIdentifier: String? = null,
     val userProfessionOid: String? = null,
     val userCommonName: String? = null,
+    val userOrganizationName: String? = null,
+    val userBirthdate: String? = null,
     val deviceInfo: OpaDeviceInfo? = null,
     val attestationTimestamp: Long? = null,
 )

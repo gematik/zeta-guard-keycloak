@@ -22,6 +22,7 @@ FLOW="zeta-mobile"
 
 # 1) Create top-level browser flow (empty)
 ./kcadm.sh create authentication/flows -r "$REALM" \
+  -s id="$FLOW" \
   -s alias="$FLOW" \
   -s providerId=basic-flow \
   -s topLevel=true \

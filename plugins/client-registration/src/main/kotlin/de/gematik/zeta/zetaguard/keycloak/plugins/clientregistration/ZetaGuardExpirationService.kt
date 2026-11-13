@@ -29,11 +29,15 @@ import arrow.core.getOrElse
 import de.gematik.zeta.zetaguard.keycloak.commons.events.ClientRemovalReason
 import de.gematik.zeta.zetaguard.keycloak.commons.events.fireClientRemoved
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_REALM_CLIENT_JOB_DISABLED
+import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_CLIENT_REGISTRATION_TTL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_IDLE_CLIENT_TTL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_IDLE_USER_TTL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.UserRole
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
+import de.gematik.zeta.zetaguard.keycloak.commons.server.positiveIntFromEnv
+import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDateTimePeriod
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.jpa.realmProvider
@@ -47,21 +51,31 @@ import org.keycloak.models.RealmModel
  *
  * It is specified in ISO-8601 format and defaults to "PT5M" (5 minutes).
  */
-private val CLIENT_REGISTRATION_TTL = System.getenv(ENV_CLIENT_REGISTRATION_TTL) ?: "PT5M"
+private val CLIENT_REGISTRATION_TTL = safeGetenv(ENV_CLIENT_REGISTRATION_TTL, "PT5M")
 
 /**
  * Configurable "Time-to-live" (TTL) of active clients before they are considered idle/expired.
  *
  * It is specified in ISO-8601 format and defaults to "P1Y" (1 year).
  */
-private val IDLE_CLIENT_TTL = System.getenv(ENV_IDLE_CLIENT_TTL) ?: "P1Y"
+private val IDLE_CLIENT_TTL = safeGetenv(ENV_IDLE_CLIENT_TTL, "P1Y")
 
 /**
  * Configurable "Time-to-live" (TTL) of users before they are considered idle/expired.
  *
  * It is specified in ISO-8601 format and defaults to "P1Y" (1 year).
  */
-private val IDLE_USER_TTL = System.getenv(ENV_IDLE_USER_TTL) ?: "P1Y"
+private val IDLE_USER_TTL = safeGetenv(ENV_IDLE_USER_TTL, "P1Y")
+
+/** Default of [EXPIRATION_BATCH_SIZE]. */
+private const val DEFAULT_EXPIRATION_BATCH_SIZE = 500
+
+/**
+ * Maximum number of expired client registrations, clients and users removed per batch, i.e. per transaction of the expiration job.
+ *
+ * Defaults to [DEFAULT_EXPIRATION_BATCH_SIZE]. Bounds the memory and the duration of a transaction, however large the backlog of expired clients is.
+ */
+private val EXPIRATION_BATCH_SIZE = positiveIntFromEnv(ENV_CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE, DEFAULT_EXPIRATION_BATCH_SIZE)
 
 private val clientTTL = IDLE_CLIENT_TTL.toDateTimePeriod()
 
@@ -111,14 +125,18 @@ class ZetaGuardExpirationService(private val session: KeycloakSession) {
   }
 
   /**
-   * Executes the expiration check and deletion logic for both clients and users.
+   * Executes the expiration check and deletion logic for both clients and users, for at most [batchSize] clients and [batchSize] users.
+   *
+   * What is left over is removed by the next run. Everything a run loads stays in its session until the transaction ends, so the batch size
+   * bounds the memory and the duration of the transaction, however large the backlog of expired clients is.
    *
    * The job is skipped if the target realm [ZETA_REALM] is not found, or if it is temporarily disabled via the realm attribute
    * [ATTRIBUTE_REALM_CLIENT_JOB_DISABLED].
    *
+   * @param batchSize The maximum number of expired clients and of expired users to remove.
    * @return The number of expired clients and users successfully removed.
    */
-  fun runExpiration(): Pair<Int, Int> {
+  fun runExpiration(batchSize: Int = EXPIRATION_BATCH_SIZE): Pair<Int, Int> {
     logger.info("⏳ Checking for idle client registrations (TTL: $clientRegistrationTTL), clients (TTL: $clientTTL) and users (TTL: $userTTL)")
 
     val realm = session.realms().getRealmByName(ZETA_REALM)
@@ -131,9 +149,17 @@ class ZetaGuardExpirationService(private val session: KeycloakSession) {
         logger.info("⏳ Client expiration job is disabled for realm »$ZETA_REALM«, skipping checks")
       } else {
         val expiredClientsIds =
-            findAndAddAllExpiredClientRegistrations(mutableSetOf())
-                .onRight { it.forEach { SecurityEventLogger.logClientRegistrationFail(clientId = it, "registration_expired") } }
-                .flatMap { findAndAddAllExpiredClients(it) }
+            findExpiredClientRegistrations(batchSize)
+                .onRight { clientIds ->
+                  clientIds.forEach {
+                    SecurityEventLogger.logClientRegistrationFail(
+                        clientId = it,
+                        reason = "registration_expired",
+                        userRole = UserRole.Unbekannt,
+                    )
+                  }
+                }
+                .flatMap { findExpiredClients(it, batchSize) }
                 .flatMap { deleteAndRemoveAllExpiredClients(session, realm, it) }
                 .getOrElse {
                   logger.error("⚠️ Failed to expire clients", it)
@@ -141,7 +167,7 @@ class ZetaGuardExpirationService(private val session: KeycloakSession) {
                 }
 
         val expiredUserIds =
-            findExpiredUsers()
+            findExpiredUsers(batchSize)
                 .flatMap { removeExpiredUsers(session, realm, it) }
                 .getOrElse {
                   logger.error("⚠️ Failed to expire users", it)
@@ -171,9 +197,9 @@ class ZetaGuardExpirationService(private val session: KeycloakSession) {
 
         userNames.forEach {
           logger.info("🗑️ Removing expired user with id »$it«")
-          val userModel = userProvider.getUserByUsername(realm, it)
-
-          userProvider.removeUser(realm, userModel)
+          // The Keycloak user may be gone already, e.g. removed in the admin console. Its data is removed all the same, otherwise the
+          // expired entry could never be removed and would fail every time.
+          userProvider.getUserByUsername(realm, it)?.let { userModel -> userProvider.removeUser(realm, userModel) }
           dataService.deleteUserData(it)
         }
 
@@ -223,27 +249,32 @@ class ZetaGuardExpirationService(private val session: KeycloakSession) {
   }
 
   /**
-   * Identifies client registrations in the pending state that have exceeded the TTL limit and adds them to [expiredClientIds].
+   * Identifies client registrations in the pending state that have exceeded the TTL limit.
    *
-   * @param expiredClientIds The mutable set to append expired client IDs to.
-   * @return An [Either] wrapping the mutable set of expired client IDs.
+   * @param batchSize The maximum number of client IDs to find.
+   * @return An [Either] wrapping the set of expired client IDs.
    */
-  private fun findAndAddAllExpiredClientRegistrations(expiredClientIds: MutableSet<String>) =
-      Either.catch { expiredClientIds.also { it.addAll(expirationService.findExpiredClientRegistrations(clientRegistrationTTL)) } }
+  private fun findExpiredClientRegistrations(batchSize: Int) =
+      Either.catch { expirationService.findExpiredClientRegistrations(clientRegistrationTTL, batchSize).toSet() }
 
   /**
    * Identifies active clients that have been idle/expired beyond the client TTL limit and adds them to [expiredClientIds].
    *
-   * @param expiredClientIds The mutable set to append expired client IDs to.
-   * @return An [Either] wrapping the mutable set of expired client IDs.
+   * @param expiredClientIds The expired client IDs found so far.
+   * @param batchSize The maximum number of client IDs the result may hold.
+   * @return An [Either] wrapping [expiredClientIds] plus the expired clients found.
    */
-  private fun findAndAddAllExpiredClients(expiredClientIds: MutableSet<String>) =
-      Either.catch { expiredClientIds.also { it.addAll(expirationService.findExpiredClients(clientTTL)) } }
+  private fun findExpiredClients(expiredClientIds: Set<String>, batchSize: Int) =
+      Either.catch {
+        val remaining = batchSize - expiredClientIds.size
+        if (remaining > 0) expiredClientIds + expirationService.findExpiredClients(clientTTL, remaining) else expiredClientIds
+      }
 
   /**
    * Identifies users that have been idle/expired beyond the user TTL limit.
    *
+   * @param batchSize The maximum number of user names to find.
    * @return An [Either] wrapping the list of expired user names.
    */
-  private fun findExpiredUsers() = Either.catch { expirationService.findExpiredUsers(userTTL) }
+  private fun findExpiredUsers(batchSize: Int) = Either.catch { expirationService.findExpiredUsers(userTTL, batchSize) }
 }

@@ -81,10 +81,13 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
     val smcbContext = context.getSMCBContext()
 
     userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_NAME, smcbContext.subjectCommonName)
-    userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_ORGANISATION, smcbContext.subjectOrganisation)
+    smcbContext.subjectOrganisation?.let { userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_ORGANISATION, it) }
+        ?: userModel.removeAttribute(ATTRIBUTE_SMCBUSER_ORGANISATION)
     userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_TELEMATIK_ID, smcbContext.telematikID)
     userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_PROFESSION_OID, smcbContext.professionOID)
   }
+
+  override fun professionOid(context: BrokeredIdentityContext): String = context.getSMCBContext().professionOID
 
   /**
    * See [preprocessFederatedIdentity]

@@ -51,7 +51,7 @@ class WellKnownEndpointIT : ZetaGuardFunSpecIT() {
       wellknown.nonceEndpoint.toString() shouldBe "$kcHostname/realms/$ZETA_REALM/$NONCE_PROVIDER_ID"
       wellknown.serviceDocumentation.toString() shouldContain "https://gemspec.gematik.de/"
 
-      wellknown.responseTypesSupported.shouldContainExactlyInAnyOrder("code", "token")
+      wellknown.responseTypesSupported.shouldContainExactlyInAnyOrder("code")
     }
 
     test("Well-known announces PAR, redirection, revocation and api versions") {

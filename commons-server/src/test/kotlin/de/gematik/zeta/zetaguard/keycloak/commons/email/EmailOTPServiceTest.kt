@@ -36,36 +36,47 @@ import org.keycloak.models.SingleUseObjectProvider
 class EmailOTPServiceTest : FunSpec() {
   init {
     test("issue stores a numeric OTP and verify consumes it once") {
-      val store = linkedMapOf<String, MutableMap<String, String>>()
-      val singleUse = mockk<SingleUseObjectProvider>()
-      every { singleUse.put(any(), any(), any()) } answers
-          {
-            store[firstArg()] = (thirdArg() as Map<String, String>).toMutableMap()
-          }
-      every { singleUse[any()] } answers { store[firstArg()] }
-      every { singleUse.remove(any()) } answers { store.remove(firstArg()) }
+      val (session, singleUse) = sessionWithStore()
 
-      val session = mockk<KeycloakSession>()
-      every { session.singleUseObjects() } returns singleUse
-
-      val otp = EmailOTPService.issue(session, "mobile-client")
+      val otp = EmailOTPService.issue(session, "mobile-client", "alice@example.de")
       otp.shouldHaveLength(6)
       otp shouldMatch Regex("\\d{6}")
-      verify { singleUse.put("zeta-email-otp:mobile-client", 300L, mapOf("otp" to otp)) }
+      // the address itself is not stored
+      verify { singleUse.put("zeta-email-otp:mobile-client", 300L, match { it["otp"] == otp && it["email"] != "alice@example.de" }) }
 
-      EmailOTPService.verify(session, "mobile-client", otp) shouldBe true
-      EmailOTPService.verify(session, "mobile-client", otp) shouldBe false
+      EmailOTPService.verify(session, "mobile-client", otp, "alice@example.de") shouldBe true
+      EmailOTPService.verify(session, "mobile-client", otp, "alice@example.de") shouldBe false
+    }
+
+    test("verify accepts the code only for the address it was issued for") {
+      val (session) = sessionWithStore()
+      val otp = EmailOTPService.issue(session, "mobile-client", "alice@example.de")
+
+      EmailOTPService.verify(session, "mobile-client", otp, "mallory@example.de") shouldBe false
+      EmailOTPService.verify(session, "mobile-client", otp, null) shouldBe false
+      // the challenge stays open, spelling of the address does not matter
+      EmailOTPService.verify(session, "mobile-client", otp, " Alice@Example.de ") shouldBe true
     }
 
     test("verify rejects blank and wrong codes") {
-      val singleUse = mockk<SingleUseObjectProvider>()
-      every { singleUse[any()] } returns mapOf("otp" to "123456")
-      val session = mockk<KeycloakSession>()
-      every { session.singleUseObjects() } returns singleUse
+      val (session) = sessionWithStore()
+      EmailOTPService.issue(session, "mobile-client", "alice@example.de")
 
-      EmailOTPService.verify(session, "mobile-client", null) shouldBe false
-      EmailOTPService.verify(session, "mobile-client", " ") shouldBe false
-      EmailOTPService.verify(session, "mobile-client", "000000") shouldBe false
+      EmailOTPService.verify(session, "mobile-client", null, "alice@example.de") shouldBe false
+      EmailOTPService.verify(session, "mobile-client", " ", "alice@example.de") shouldBe false
+      EmailOTPService.verify(session, "mobile-client", "abcdef", "alice@example.de") shouldBe false
     }
+  }
+
+  private fun sessionWithStore(): Pair<KeycloakSession, SingleUseObjectProvider> {
+    val store = linkedMapOf<String, Map<String, String>>()
+    val singleUse = mockk<SingleUseObjectProvider>()
+    every { singleUse.put(any(), any(), any()) } answers { store[firstArg()] = thirdArg() }
+    every { singleUse[any()] } answers { store[firstArg()] }
+    every { singleUse.remove(any()) } answers { store.remove(firstArg()) }
+    val session = mockk<KeycloakSession>()
+    every { session.singleUseObjects() } returns singleUse
+
+    return session to singleUse
   }
 }

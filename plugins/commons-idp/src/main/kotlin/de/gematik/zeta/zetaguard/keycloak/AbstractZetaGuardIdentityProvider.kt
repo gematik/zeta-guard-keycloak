@@ -27,8 +27,10 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_USER_CREATED_
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_USER_LAST_ACCESS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_MAX_CLIENTS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.UserRole
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toISO8601
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toUserRole
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardExpirationService
@@ -78,7 +80,11 @@ abstract class AbstractZetaGuardIdentityProvider(session: KeycloakSession, confi
     val now = currentTime()
 
     if (clientIds.add(clientId)) {
-      dataService.evictOldClientsIfNecessary(userModel.username, clientId)
+      dataService.evictOldClientsIfNecessary(
+          userName = userModel.username,
+          clientId = clientId,
+          userRole = professionOid(context)?.toUserRole() ?: UserRole.Unbekannt,
+      )
 
       userData.clients.add(clientData)
       clientData.userData = userData
@@ -91,7 +97,7 @@ abstract class AbstractZetaGuardIdentityProvider(session: KeycloakSession, confi
     clientData.lastAccess = now
   }
 
-  private fun ZetaGuardDataService.evictOldClientsIfNecessary(userName: String, clientId: String) {
+  private fun ZetaGuardDataService.evictOldClientsIfNecessary(userName: String, clientId: String, userRole: UserRole) {
     val clientExpirationService = ZetaGuardExpirationService(session)
 
     // A_25748-02
@@ -103,13 +109,19 @@ abstract class AbstractZetaGuardIdentityProvider(session: KeycloakSession, confi
     while (countClients(userName, clientId) >= maxClients) {
       if (!clientExpirationService.removeOldestClient(userName)) {
         throw ClientRegistrationException("Too many clients for user »${userName}«").also {
-          SecurityEventLogger.logClientRegistrationFail(clientId = clientId, reason = "too_many_clients_registered")
+          SecurityEventLogger.logClientRegistrationFail(clientId, reason = "too_many_clients_registered", userRole)
         }
       }
     }
   }
 
   protected abstract fun updateUserModel(context: BrokeredIdentityContext, userModel: UserModel)
+
+  /**
+   * Profession OID of the user authenticated in the current login, used to determine the [UserRole] for security events.
+   * Read from [context] rather than the user model, because user attributes may not (yet) be stored at this point.
+   */
+  protected abstract fun professionOid(context: BrokeredIdentityContext): String?
 }
 
 // Gather data for expiration, https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_28808

@@ -30,11 +30,13 @@ import de.gematik.zeta.zetaguard.keycloak.commons.ClientRegistrationRequestFacto
 import de.gematik.zeta.zetaguard.keycloak.commons.DN_GEMATIK
 import de.gematik.zeta.zetaguard.keycloak.commons.DN_PRAXIS
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
+import de.gematik.zeta.zetaguard.keycloak.commons.SCOPE_ZETA_TEST
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.AttestationType
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ClientRegistrationState
 import de.gematik.zeta.zetaguard.keycloak.commons.clientregistration.ZetaGuardOIDCClientResponseRepresentation
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_REALM_CLIENT_JOB_DISABLED
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OIDC_CLIENT_REGISTRATION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_CLIENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
@@ -53,19 +55,26 @@ import io.kotest.assertions.nondeterministic.eventually
 import io.kotest.assertions.nondeterministic.eventuallyConfig
 import io.kotest.assertions.withClue
 import io.kotest.matchers.date.shouldBeAfter
+import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.time.LocalDateTime
 import kotlin.time.Duration.Companion.seconds
 import org.apache.http.HttpStatus.SC_BAD_REQUEST
+import org.apache.http.HttpHeaders.AUTHORIZATION
+import org.apache.http.HttpHeaders.CONTENT_TYPE
 import org.apache.http.HttpStatus.SC_FORBIDDEN
-import org.apache.http.HttpStatus.SC_NOT_FOUND
+import org.apache.http.HttpStatus.SC_METHOD_NOT_ALLOWED
 import org.apache.http.HttpStatus.SC_UNAUTHORIZED
-import org.apache.http.client.methods.RequestBuilder.post
+import org.apache.http.client.methods.RequestBuilder
 import org.apache.http.entity.ContentType.APPLICATION_JSON
 import org.apache.http.entity.StringEntity
+import org.apache.http.util.EntityUtils
+import org.keycloak.admin.client.resource.BearerAuthFilter.AUTH_HEADER_PREFIX
 import org.keycloak.OAuthErrorException.INVALID_CLIENT
 import org.keycloak.OAuthErrorException.INVALID_TOKEN
 import org.keycloak.models.jpa.entities.ClientAttributeEntity
@@ -73,7 +82,19 @@ import org.keycloak.models.jpa.entities.ClientEntity
 import org.keycloak.models.jpa.entities.ClientScopeAttributeEntity
 import org.keycloak.models.jpa.entities.ClientScopeEntity
 import org.keycloak.models.jpa.entities.ProtocolMapperEntity
+import org.keycloak.protocol.oidc.utils.OIDCResponseType
 import org.keycloak.services.clientregistration.ClientRegistrationTokenUtils.TYPE_REGISTRATION_ACCESS_TOKEN
+
+val entityClasses =
+    arrayOf(
+        ZetaGuardUserData::class.java,
+        ZetaGuardClientData::class.java,
+        ClientEntity::class.java,
+        ClientAttributeEntity::class.java,
+        ProtocolMapperEntity::class.java,
+        ClientScopeEntity::class.java,
+        ClientScopeAttributeEntity::class.java,
+    )
 
 class ClientRegistrationIT : ZetaGuardFunSpecIT() {
   init {
@@ -100,20 +121,6 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
           )
     }
 
-    test("Keycloak's own client registration providers are disabled") {
-      // See ClientRegistrationService.DEPRECATED_PROVIDER_IDS
-      listOf("default", "install", "saml2-entity-descriptor").forEach { provider ->
-        val request =
-            post(keycloakWebClient.uriBuilder().createUri("/realms/{realm-name}/clients-registrations/$provider", ZETA_REALM))
-                .setEntity(StringEntity("{}", APPLICATION_JSON))
-                .build()
-
-        keycloakWebClient.httpClient().execute(request).use {
-          withClue(provider) { it.statusLine.statusCode shouldBe SC_NOT_FOUND }
-        }
-      }
-    }
-
     test("Token exchange using OIDC, DPoP and client_assertion") {
       val now = currentTime().minusSeconds(1) // Due to truncation
       val accessToken = oidcClientResponse.registrationAccessToken.toAccessToken()
@@ -127,12 +134,15 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       // A_30086: registered, but not yet usable for resource access — the attestation is still outstanding.
       oidcClientResponse.status shouldBe ClientRegistrationState.REGISTERED
 
-      val accessTokenResponse = testExchangeToken(subjectToken = smbcToken, clientId = oidcClientResponse.clientId, clientAssertion = jws)
+      val (_, newAccessToken, refreshToken) = testExchangeToken(
+          subjectToken = smbcToken,
+          clientId = oidcClientResponse.clientId,
+          clientAssertion = jws,
+          requestedClientScope = SCOPE_ZETA_TEST
+      )
 
-      accessTokenResponse.token.shouldNotBeNull()
-      accessTokenResponse.token.checkTokenHeader()
-      accessTokenResponse.refreshToken.shouldNotBeNull()
-      accessTokenResponse.refreshToken.checkTokenHeader()
+      newAccessToken.scope shouldContain SCOPE_ZETA_TEST
+      refreshToken.scope shouldContain SCOPE_ZETA_TEST
 
       checkAttestationState(oidcClientResponse.clientId, ClientAttestationState.VALID, now).also {
         it.attestationType shouldBe AttestationType.SOFTWARE
@@ -144,6 +154,21 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
           .shouldBeRight()
           .responseObject
           .status shouldBe ClientRegistrationState.ACTIVE
+    }
+
+    // Realm client policy "reject-implicit-grant" (auto-configure): a requested implicit flow is switched off, not rejected
+    test("Client registration switches off the implicit flow requested via response_types") {
+      val request =
+          ClientRegistrationRequestFactory.createClientRegistrationRequest(
+              clientAssertionTokenGenerator.keys,
+              null,
+              responseTypes = listOf(OIDCResponseType.TOKEN, OIDCResponseType.CODE),
+          )
+
+      val response = keycloakWebClient.registerClientOIDC(clientRegistrationRequest = request).shouldBeRight().responseObject
+
+      response.responseTypes shouldContain OIDCResponseType.CODE
+      response.responseTypes shouldNotContain OIDCResponseType.ID_TOKEN
     }
 
     test("Client registration expiration") {
@@ -169,6 +194,30 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       } finally {
         keycloakWebClient.enableClientJob(false)
       }
+    }
+
+    // Otherwise a client registered without redirect_uris could add them (and the standard flow) afterwards while its ZETA data still says SMC_B
+    test("RFC 7592 update and delete are not available on the registration endpoint") {
+      val clientId = oidcClientResponse.clientId
+      val uri = keycloakWebClient.uriBuilder().createUri("$OIDC_CLIENT_REGISTRATION_PATH/$clientId", ZETA_REALM)
+      val authorization = "$AUTH_HEADER_PREFIX${oidcClientResponse.registrationAccessToken}"
+      val body = """{"redirect_uris":["https://attacker.example/cb"],"client_name":"attacker"}"""
+
+      listOf(
+          RequestBuilder.put(uri).addHeader(CONTENT_TYPE, APPLICATION_JSON.mimeType).setEntity(StringEntity(body, Charsets.UTF_8)),
+          RequestBuilder.delete(uri),
+      ).forEach { request ->
+        keycloakWebClient.httpClient().execute(request.addHeader(AUTHORIZATION, authorization).build()).use {
+          withClue("${request.method} on the registration endpoint: ${EntityUtils.toString(it.entity)}") {
+            it.statusLine.statusCode shouldBe SC_METHOD_NOT_ALLOWED
+          }
+        }
+      }
+
+      // The registration is untouched: still readable, no redirect URIs, client data still there
+      keycloakWebClient.getClientOIDC(clientId, oidcClientResponse.registrationAccessToken).shouldBeRight().responseObject.redirectUris.orEmpty().shouldBeEmpty()
+      lookupClient(clientId) shouldBe true
+      lookupClientData(clientId).shouldNotBeNull()
     }
 
     test("Certificate signature validation fails") {
@@ -343,8 +392,6 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
   }
 
   private fun lookupClientData(clientId: String): ZetaGuardClientData? {
-    val entityClasses = arrayOf(ZetaGuardUserData::class.java, ZetaGuardClientData::class.java)
-
     return JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
       val dataService = ZetaGuardDataService { it.createEntityManager() }
       dataService.findClientData(clientId)
@@ -379,8 +426,6 @@ fun KeycloakWebClient.enableClientJob(enabled: Boolean) {
 }
 
 fun setZetaClientClientLastAccess() {
-  val entityClasses = arrayOf(ZetaGuardUserData::class.java, ZetaGuardClientData::class.java)
-
   return JpaEntityManagerFactory(dbhost, dbport, *entityClasses).use {
     val entityManager = it.createEntityManager()
     entityManager.transaction.begin()

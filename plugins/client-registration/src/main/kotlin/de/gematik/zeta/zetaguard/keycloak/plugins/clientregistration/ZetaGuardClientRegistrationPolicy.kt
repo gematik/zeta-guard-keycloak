@@ -42,6 +42,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_CLIENT_MANAGEMENT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_EMAIL_BINDING
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.UserRole
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_MOBILE_BROWSER_FLOW
 import de.gematik.zeta.zetaguard.keycloak.commons.server.tracingProvider
 import de.gematik.zeta.zetaguard.keycloak.plugins.nonce.NonceFactory
@@ -100,7 +101,13 @@ class ZetaGuardClientRegistrationPolicy(
           SERVER_ERROR,
           "Integrity provider is not (yet) running",
           Response.Status.SERVICE_UNAVAILABLE
-      ).also { SecurityEventLogger.logClientRegistrationFail(clientId = context.client.clientId, reason = "integrity_provider_unavailable") }
+      ).also {
+        SecurityEventLogger.logClientRegistrationFail(
+            clientId = context.client.clientId,
+            reason = "integrity_provider_unavailable",
+            userRole = UserRole.Unbekannt,
+        )
+      }
     }
 
     if (detectAuthMethod(context.client.redirectUris) == ClientAuthMethod.SEK_IDP) {

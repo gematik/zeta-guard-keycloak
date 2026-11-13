@@ -27,9 +27,15 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_TRUSTSTORE_RELOAD_E
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ENV_TRUSTSTORE_RELOAD_INTERVAL
 import de.gematik.zeta.zetaguard.keycloak.commons.server.TRUSTSTORE_RELOAD_TASK_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.logger
+import de.gematik.zeta.zetaguard.keycloak.commons.server.safeGetenv
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDateTimePeriod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toDuration
-import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialType.*
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialType.APPLE
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialType.GOOGLE
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialType.GOOGLE_STATUS
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialType.OCSP
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialType.SMCB
+import de.gematik.zeta.zetaguard.keycloak.plugins.trust.TrustMaterialType.TPM
 import java.time.Duration
 import org.keycloak.models.KeycloakSessionFactory
 import org.keycloak.models.utils.KeycloakModelUtils
@@ -37,7 +43,7 @@ import org.keycloak.timer.TimerProvider
 import org.keycloak.timer.TimerProviderFactory
 
 private val TRUSTSTORE_RELOAD_ENABLED = System.getenv(ENV_TRUSTSTORE_RELOAD_ENABLED)?.toBooleanStrictOrNull() ?: true
-private val TRUSTSTORE_RELOAD_INTERVAL = System.getenv(ENV_TRUSTSTORE_RELOAD_INTERVAL) ?: "PT1H"
+private val TRUSTSTORE_RELOAD_INTERVAL = safeGetenv(ENV_TRUSTSTORE_RELOAD_INTERVAL, "PT1H")
 private val truststoreReloadInterval = TRUSTSTORE_RELOAD_INTERVAL.toDateTimePeriod()
 
 /** How long to wait before confirming a detected change. Generous next to the millisecond window it guards against. */
@@ -154,13 +160,13 @@ private fun <T> attempt(block: () -> T): T? =
 /** Which CAs appeared and disappeared — a security-relevant change, so it belongs in the log in readable form. */
 private fun describeAliasChanges(previous: TrustMaterial, candidate: TrustMaterial): String =
     listOf(
-            SMCB to (previous.smcb.aliases() to candidate.smcb.aliases()),
-            TPM to (previous.tpm.aliases() to candidate.tpm.aliases()),
-            OCSP to ((previous.ocsp?.aliases() ?: emptySet()) to (candidate.ocsp?.aliases() ?: emptySet())),
-            APPLE to (previous.apple.aliases() to candidate.apple.aliases()),
-            GOOGLE to (previous.google.aliases() to candidate.google.aliases()),
-            GOOGLE_STATUS to (previous.googleCertificateStatusService.revokedCertificates() to candidate.googleCertificateStatusService.revokedCertificates()),
-        )
+        SMCB to (previous.smcb.aliases() to candidate.smcb.aliases()),
+        TPM to (previous.tpm.aliases() to candidate.tpm.aliases()),
+        OCSP to ((previous.ocsp?.aliases() ?: emptySet()) to (candidate.ocsp?.aliases() ?: emptySet())),
+        APPLE to (previous.apple.aliases() to candidate.apple.aliases()),
+        GOOGLE to (previous.google.aliases() to candidate.google.aliases()),
+        GOOGLE_STATUS to (previous.googleCertificateStatusService.revokedCertificates() to candidate.googleCertificateStatusService.revokedCertificates()),
+    )
         .mapNotNull { (name, aliases) ->
           val (before, after) = aliases
           val added = after - before

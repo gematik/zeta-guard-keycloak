@@ -26,7 +26,6 @@
 package de.gematik.zeta.zetaguard.keycloak.it
 
 import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPoPToken
-import de.gematik.zeta.zetaguard.keycloak.commons.toAccessToken
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
 import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
@@ -63,15 +62,17 @@ class RefreshTokenOpaIT : ZetaGuardFunSpecIT() {
 
   init {
     test("refresh succeeds when OPA allows") {
-      val accessTokenResponse1 = exchange()
-      val refreshed = refresh(accessTokenResponse1.refreshToken).shouldBeRight().responseObject
+      val accessTokenResponse = exchange()
+      val refreshed = refresh(accessTokenResponse.first.refreshToken).shouldBeRight().responseObject
+
       refreshed.refreshToken.shouldNotBeNull().checkTokenHeader()
     }
 
     test("refresh is denied when OPA denies (proves OPA is consulted on refresh path)") {
-      val accessTokenResponse1 = exchange()
+      val accessTokenResponse = exchange()
+
       withOpaValue(professionPath, "[]") {
-        refresh(accessTokenResponse1.refreshToken).shouldBeLeft().also {
+        refresh(accessTokenResponse.first.refreshToken).shouldBeLeft().also {
           it.statusCode shouldBe 403
           it.error shouldBe Errors.ACCESS_DENIED
           it.errorDescription shouldBe "policy_denied"
@@ -81,21 +82,21 @@ class RefreshTokenOpaIT : ZetaGuardFunSpecIT() {
 
     // A_29848: admin revokes token, so its refresh token must no longer work.
     test("refresh is rejected when the session has been terminated") {
-      val accessTokenResponse1 = exchange()
-      val sessionId = accessTokenResponse1.token.toAccessToken().sessionId.shouldNotBeNull()
+      val accessTokenResponse = exchange()
+      val sessionId = accessTokenResponse.second.sessionId.shouldNotBeNull()
 
       keycloakWebClient.adminRevokeSession(sessionId).shouldBeRight()
 
-      refresh(accessTokenResponse1.refreshToken).shouldBeLeft().also {
+      refresh(accessTokenResponse.first.refreshToken).shouldBeLeft().also {
         it.statusCode shouldBe 400
         it.error shouldBe OAuthErrorException.INVALID_GRANT
       }
     }
 
     test("refresh-token rotation (reuse=0) still enforced on top of OPA") {
-      val accessTokenResponse1 = exchange()
-      refresh(accessTokenResponse1.refreshToken).shouldBeRight()
-      refresh(accessTokenResponse1.refreshToken).shouldBeLeft().errorDescription shouldBe "Maximum allowed refresh token reuse exceeded"
+      val accessTokenResponse = exchange()
+      refresh(accessTokenResponse.first.refreshToken).shouldBeRight()
+      refresh(accessTokenResponse.first.refreshToken).shouldBeLeft().errorDescription shouldBe "Maximum allowed refresh token reuse exceeded"
     }
   }
 

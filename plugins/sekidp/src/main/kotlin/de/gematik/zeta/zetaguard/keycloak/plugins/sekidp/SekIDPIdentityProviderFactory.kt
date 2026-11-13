@@ -26,45 +26,53 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_IDENTITY_PROVIDER_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_MTLS_HTTP_CLIENT_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
 import io.quarkus.arc.Arc
-import java.security.cert.X509Certificate
 import org.keycloak.Config
 import org.keycloak.broker.oidc.OIDCIdentityProviderConfig
 import org.keycloak.broker.oidc.OIDCIdentityProviderFactoryWrapper
 import org.keycloak.broker.provider.AbstractIdentityProviderFactory
+import org.keycloak.http.simple.SimpleHttp
 import org.keycloak.models.IdentityProviderModel
 import org.keycloak.models.KeycloakSession
 import org.keycloak.models.KeycloakSessionFactory
 
 class SekIDPIdentityProviderFactory : AbstractIdentityProviderFactory<SekIDPIdentityProvider>() {
-
-  /** Built once from SPI config in [init] — shared across all SekIDP provider instances. */
-  private lateinit var sekIdpHttpClient: SekIdpHttpClient
-
+  /** Built once from SPI config in [init] — shared across all provider instances. */
+  private var mtlsConfig: MTLSClientConfig? = null
   private lateinit var integrityProviderService: IntegrityProviderService
-
-  /** Published in the Guard's entity statement so the SekIDP can match the presented certificate. Null when mTLS is disabled. */
-  internal val mtlsClientCertificate: X509Certificate?
-    get() = if (::sekIdpHttpClient.isInitialized) sekIdpHttpClient.clientCertificate else null
 
   override fun getName() = "ZETA SekIDP (GesundheitsID)"
 
   override fun getId() = SEKIDP_IDENTITY_PROVIDER_ID
 
   override fun init(config: Config.Scope) {
-    sekIdpHttpClient = SekIdpHttpClient(resolveMtlsConfig(config))
+    mtlsConfig = resolveMtlsConfig(config)
   }
 
   override fun postInit(factory: KeycloakSessionFactory) {
     integrityProviderService = Arc.container().instance(IntegrityProviderService::class.java).get()
   }
 
-  override fun create(session: KeycloakSession, model: IdentityProviderModel): SekIDPIdentityProvider? =
-      if (OidcFlowSettings.isEnabled()) {
-        SekIDPIdentityProvider(session, createOIDCIdentityProviderConfig(model), sekIdpHttpClient, integrityProviderService, federationMasterConfig.fedmasterUrl)
-      } else {
-        null
-      }
+  fun mtlsConfig(): MTLSClientConfig? = mtlsConfig
+
+  override fun create(session: KeycloakSession, model: IdentityProviderModel): SekIDPIdentityProvider? {
+    return if (OidcFlowSettings.isEnabled()) {
+      // With mTLS enabled, PAR and token requests present the client certificate (A_23183), see SekIDPHttpClientFactory
+      val httpClient = SimpleHttp.create(session.lookupHttpClient(SEKIDP_MTLS_HTTP_CLIENT_ID))
+
+      SekIDPIdentityProvider(
+          session,
+          createOIDCIdentityProviderConfig(model),
+          httpClient,
+          integrityProviderService,
+          federationMasterConfig.fedmasterUrl
+      )
+    } else {
+      null
+    }
+  }
 
   override fun parseConfig(session: KeycloakSession, config: String): MutableMap<String, String?> =
       OIDCIdentityProviderFactoryWrapper.parseConfig(session, config)
@@ -72,9 +80,6 @@ class SekIDPIdentityProviderFactory : AbstractIdentityProviderFactory<SekIDPIden
   override fun createConfig(): OIDCIdentityProviderConfig = createOIDCIdentityProviderConfig()
 
   override fun close() {
-    if (::sekIdpHttpClient.isInitialized) {
-      sekIdpHttpClient.close()
-    }
   }
 
   private fun createOIDCIdentityProviderConfig(model: IdentityProviderModel? = null) =
@@ -88,9 +93,9 @@ class SekIDPIdentityProviderFactory : AbstractIdentityProviderFactory<SekIDPIden
     const val CONFIG_MTLS_KEYSTORE_PASSWORD = "mtlsKeystorePassword"
 
     /** Null when mTLS is switched off; a switched-on but incomplete keystore fails here, at start-up, instead of downgrading. */
-    private fun resolveMtlsConfig(config: Config.Scope): MtlsClientConfig? =
+    internal fun resolveMtlsConfig(config: Config.Scope): MTLSClientConfig? =
         if (config.getBoolean(CONFIG_MTLS_ENABLED, false)) {
-          MtlsClientConfig(
+          MTLSClientConfig(
               keystoreLocation = requireNotNull(config[CONFIG_MTLS_KEYSTORE_LOCATION]) { "»$CONFIG_MTLS_KEYSTORE_LOCATION« must be set when mTLS is enabled" },
               keystorePassword = requireNotNull(config[CONFIG_MTLS_KEYSTORE_PASSWORD]) { "»$CONFIG_MTLS_KEYSTORE_PASSWORD« must be set when mTLS is enabled" },
           )

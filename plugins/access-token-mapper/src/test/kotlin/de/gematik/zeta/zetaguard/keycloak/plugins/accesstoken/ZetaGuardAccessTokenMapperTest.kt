@@ -25,10 +25,10 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.accesstoken
 
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.LinuxProductId
-import de.gematik.zeta.zetaguard.keycloak.commons.Platform
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.SoftwarePosture
 import de.gematik.zeta.zetaguard.keycloak.commons.JsonUtil.toJSON
+import de.gematik.zeta.zetaguard.keycloak.commons.Platform
 import de.gematik.zeta.zetaguard.keycloak.commons.opa.OpaSessionContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_CLIENT_STATEMENT_DATA
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_BIRTHDATE
@@ -45,9 +45,12 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PRODUCT_VERSION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.commons.server.isMobileIssuancePermitted
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
+import io.kotest.matchers.throwable.shouldHaveMessage
+import io.kotest.matchers.maps.shouldContain
 import io.kotest.matchers.maps.shouldNotContainKey
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -75,10 +78,12 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
     beforeEach {
       mockkObject(OidcFlowSettings)
       every { OidcFlowSettings.isEnabled() } returns true
+      mockkStatic(SESSION_UTIL)
     }
     afterEach {
       unmockkObject(OidcFlowSettings)
       unmockkStatic("de.gematik.zeta.zetaguard.keycloak.commons.server.EncodingUtilKt")
+      unmockkStatic(SESSION_UTIL)
     }
 
     test("setClaim applies mobile OPA access-token TTL") {
@@ -187,6 +192,45 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
       token.otherClaims[CLAIM_PLATFORM] shouldBe "linux"
       token.exp shouldBe LocalDateTime.of(2026, 1, 1, 0, 1, 0).atZone(ZoneId.systemDefault()).toEpochSecond()
     }
+
+    // A_26972-03: organizationName is only taken if present in the SM(C)-B certificate
+    test("setClaim omits organization_name when the SM(C)-B certificate has none") {
+      every { OidcFlowSettings.isEnabled() } returns false
+
+      val token = AccessToken().apply { exp(1L) }
+      invokeSetClaim(token, smcbSession(smcbData().copy(subjectOrganisation = null)))
+
+      token.subject shouldBe "1-SMC-B-test"
+      token.otherClaims shouldContain (CLAIM_COMMON_NAME to "cn")
+      token.otherClaims shouldContain (CLAIM_PROFESSION_OID to "1.2.276.0.76.4.49")
+      token.otherClaims shouldNotContainKey CLAIM_ORGANIZATION_NAME
+    }
+
+    // A grant that did not run the mobile PDP gate (device code, standard token exchange, ...) must not mint KVNR tokens
+    // The binding of the permit to a single client is covered by MobileIssuancePermitTest (commons-server)
+    test("setClaim fails closed when the request carries no mobile issuance permit") {
+      val ex = shouldThrow<IllegalStateException> { invokeSetClaim(AccessToken(), mobileOpaSession(), permitted = false) }
+      ex shouldHaveMessage "Mobile token issuance not permitted for client »mobile-client«"
+    }
+
+    test("transformRefreshToken fails closed without mobile issuance permit") {
+      val ctx = tokenContext(mobileOpaSession(), permitted = false)
+
+      val ex =
+          shouldThrow<IllegalStateException> {
+            ZetaGuardAccessTokenMapper().transformRefreshToken(RefreshToken(AccessToken()), mockk(), ctx.session, ctx.userSession, ctx.clientSessionCtx)
+          }
+      ex shouldHaveMessage "Mobile token issuance not permitted for client »mobile-client«"
+    }
+
+    test("setClaim maps SMC-B claims without mobile issuance permit") {
+      every { OidcFlowSettings.isEnabled() } returns false
+
+      val token = AccessToken().apply { exp(1L) }
+      invokeSetClaim(token, smcbSession(), permitted = false)
+
+      token.subject shouldBe "1-SMC-B-test"
+    }
   }
 
   private fun mobileOpaSession(): UserSessionModel {
@@ -195,12 +239,16 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
     every { userSession.getNote(ATTRIBUTE_MOBILEUSER_KVNR) } returns "X110123456"
     every { userSession.getNote(ATTRIBUTE_MOBILEUSER_DISPLAY_NAME) } returns "Dr. Max Mustermann"
     every { userSession.getNote(ATTRIBUTE_MOBILE_OPA_CONTEXT) } returns
-        OpaSessionContext(accessTokenTTL = Duration.ofSeconds(111), refreshTokenTTL = Duration.ofSeconds(600), authenticationContextClassReference = "abc").toJSON()
+        OpaSessionContext(
+            accessTokenTTL = Duration.ofSeconds(111),
+            refreshTokenTTL = Duration.ofSeconds(600),
+            authenticationContextClassReference = "abc"
+        ).toJSON()
     return userSession
   }
 
-  private fun invokeSetClaim(token: IDToken, userSession: UserSessionModel) {
-    val ctx = tokenContext(userSession)
+  private fun invokeSetClaim(token: IDToken, userSession: UserSessionModel, permitted: Boolean = true) {
+    val ctx = tokenContext(userSession, permitted)
     val method =
         ZetaGuardAccessTokenMapper::class.java.getDeclaredMethod(
             "setClaim",
@@ -218,10 +266,10 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
     }
   }
 
-  private fun smcbSession(): UserSessionModel {
+  private fun smcbSession(data: ZetaGuardTokenExchangeData = smcbData()): UserSessionModel {
     val userSession = mockk<UserSessionModel>(relaxed = true)
     every { userSession.getNote(any()) } returns null
-    every { userSession.getNote(ATTRIBUTE_SMCB_CONTEXT) } returns smcbData().toJSON()
+    every { userSession.getNote(ATTRIBUTE_SMCB_CONTEXT) } returns data.toJSON()
     every { userSession.getNote(ATTRIBUTE_CLIENT_STATEMENT_DATA) } returns clientStatement().toJSON()
     return userSession
   }
@@ -253,14 +301,20 @@ class ZetaGuardAccessTokenMapperTest : FunSpec() {
           4711L,
       )
 
-  private fun tokenContext(userSession: UserSessionModel): TokenCtx {
+  /** [permitted]: whether the mobile PDP gate (or the reduced email-binding issuance) ran in this request */
+  private fun tokenContext(userSession: UserSessionModel, permitted: Boolean = true): TokenCtx {
     val client = mockk<ClientModel>(relaxed = true)
     every { client.clientId } returns "mobile-client"
     val clientSessionCtx = mockk<ClientSessionContext>(relaxed = true)
     every { clientSessionCtx.clientSession.client } returns client
     val session = mockk<KeycloakSession>(relaxed = true)
     every { session.getAttribute(any(), DPoP::class.java) } returns null
+    every { session.isMobileIssuancePermitted(client) } returns permitted
     return TokenCtx(session, userSession, clientSessionCtx)
+  }
+
+  private companion object {
+    const val SESSION_UTIL = "de.gematik.zeta.zetaguard.keycloak.commons.server.SessionUtilKt"
   }
 
   private data class TokenCtx(

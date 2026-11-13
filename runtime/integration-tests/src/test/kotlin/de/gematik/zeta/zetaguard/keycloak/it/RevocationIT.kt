@@ -119,6 +119,6 @@ class RevocationIT : ZetaGuardFunSpecIT() {
     val clientAssertion = clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce)
     val accessTokenResponse = testExchangeToken(createSMCBToken(nonce), clientAssertion = clientAssertion)
 
-    return accessTokenResponse.token to accessTokenResponse.token.toAccessToken()
+    return accessTokenResponse.first.token to accessTokenResponse.second
   }
 }

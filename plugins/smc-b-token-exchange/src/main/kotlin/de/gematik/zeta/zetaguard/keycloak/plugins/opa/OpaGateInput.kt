@@ -41,7 +41,10 @@ data class OpaGateInput(
     val clientProductVersion: String?,
     val userIdentifier: String?,
     val userProfessionOid: String?,
-    val userCommonName: String? = null, // insured persons only (SekIDP); left null for SMC-B
+    // zeta-user-info.yaml: the values written into the access-token claims common_name, organization_name and birthdate
+    val userCommonName: String? = null,
+    val userOrganizationName: String? = null,
+    val userBirthdate: String? = null, // insured persons only (SekIDP), consent-dependent
     val deviceInfo: OpaDeviceInfo? = null,
     val attestationTimestamp: Long? = null,
 )
