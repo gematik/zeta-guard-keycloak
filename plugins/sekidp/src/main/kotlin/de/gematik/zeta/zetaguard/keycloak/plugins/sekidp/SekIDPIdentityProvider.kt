@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
+import com.fasterxml.jackson.databind.JsonNode
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_ACR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_AMR
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_CREATED_AT
@@ -37,9 +38,9 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
 import de.gematik.zeta.zetaguard.keycloak.jpa.DefaultEMCreator
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardDataService
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.ZetaGuardExpirationService
-import com.fasterxml.jackson.databind.JsonNode
 import jakarta.ws.rs.core.UriBuilder
 import java.nio.charset.StandardCharsets
+import java.security.Signature
 import java.util.concurrent.ConcurrentHashMap
 import org.keycloak.OAuth2Constants
 import org.keycloak.broker.oidc.OIDCIdentityProvider
@@ -69,13 +70,12 @@ import org.keycloak.protocol.oidc.OIDCLoginProtocol
 import org.keycloak.protocol.oidc.endpoints.AuthorizationEndpoint
 import org.keycloak.protocol.oidc.utils.PkceUtils
 import org.keycloak.protocol.oidc.utils.RedirectUtils
-import org.keycloak.sessions.AuthenticationSessionModel
 import org.keycloak.representations.AccessTokenResponse
 import org.keycloak.representations.IDToken
 import org.keycloak.representations.JsonWebToken
 import org.keycloak.services.clientregistration.ClientRegistrationException
+import org.keycloak.sessions.AuthenticationSessionModel
 import org.keycloak.util.JsonSerialization
-import java.security.Signature
 
 private val maxClients = (System.getenv(ENV_MAX_CLIENTS) ?: "256").toInt()
 
@@ -87,7 +87,7 @@ private const val CLAIM_TELEMATIK_PROFESSION = "urn:telematik:claims:profession"
 private const val CLAIM_TELEMATIK_ORGANIZATION = "urn:telematik:claims:organization"
 
 private const val SEKIDP_CONFIG_ACR_VALUES = "acrValues"
-private const val SEKIDP_DEFAULT_ACR = "gematik-ehealth-loa-high"
+const val SEKIDP_DEFAULT_ACR = "gematik-ehealth-loa-high"
 
 private const val NOTE_BROKER_CODE_CHALLENGE = "BROKER_CODE_CHALLENGE"
 private const val NOTE_BROKER_CODE_CHALLENGE_METHOD = "BROKER_CODE_CHALLENGE_METHOD"
@@ -116,7 +116,7 @@ private const val SEKIDP_CONFIG_ISSUER = "issuer"
 class SekIDPIdentityProvider(
     session: KeycloakSession,
     config: OIDCIdentityProviderConfig,
-    private val sekIdpHttpClient: SekIdpHttpClient,
+    private val sekIdpHttpClient: SimpleHttp,
 ) : OIDCIdentityProvider(session, config) {
 
   /** A set of signing keys (by `kid`) trusted for something, cached until [validUntil]. */
@@ -139,8 +139,9 @@ class SekIDPIdentityProvider(
         authSession.getClientNote(AuthorizationEndpoint.LOGIN_SESSION_NOTE_ADDITIONAL_REQ_PARAMS_PREFIX + SEKIDP_PARAM_OIDC_REDIRECT_URI)
             ?.trim()
             ?.takeIf { it.isNotBlank() }
-            ?: throw IdentityBrokerException(
-                "Missing $SEKIDP_PARAM_OIDC_REDIRECT_URI in the authorization request — the client has to name its /oidc callback")
+          ?: throw IdentityBrokerException(
+              "Missing $SEKIDP_PARAM_OIDC_REDIRECT_URI in the authorization request — the client has to name its /oidc callback"
+          )
 
     val client = authSession.client
     return RedirectUtils.verifyRedirectUri(session, oidcRedirectUri, client) ?: throw IdentityBrokerException(
@@ -155,13 +156,13 @@ class SekIDPIdentityProvider(
             ?.trim()
             ?.trimEnd('/')
             ?.takeIf { it.isNotBlank() }
-            ?: throw IdentityBrokerException("Missing $SEKIDP_PARAM_IDP_ISS in the authorization request — the client has to name the sectoral IDP")
+          ?: throw IdentityBrokerException("Missing $SEKIDP_PARAM_IDP_ISS in the authorization request — the client has to name the sectoral IDP")
     return requested
   }
 
   private fun fedmasterUrl(): String =
       providerConfig.config[SEKIDP_CONFIG_FEDMASTER_URL]?.trimEnd('/')
-          ?: throw IdentityBrokerException("$SEKIDP_CONFIG_FEDMASTER_URL is not configured on the identity provider")
+        ?: throw IdentityBrokerException("$SEKIDP_CONFIG_FEDMASTER_URL is not configured on the identity provider")
 
   /** Turns a JWKS JSON node (`{"keys": [...]}`) into a lookup map by `kid`, skipping keys without one. */
   private fun parseJwks(jwks: JsonNode): Map<String, JWK> =
@@ -204,7 +205,7 @@ class SekIDPIdentityProvider(
         return it.body
       }
 
-      val statement = SimpleHttp.create(session).doGet("$fedmasterUrl/.well-known/openid-federation").asString()
+      val statement = sekIdpHttpClient.doGet("$fedmasterUrl/.well-known/openid-federation").asString()
       val parts = statement.split(".")
       if (parts.size != 3) {
         throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« is not a JWS")
@@ -225,7 +226,7 @@ class SekIDPIdentityProvider(
     return keysByKid
   }
 
- // The Federation Master publishes its fetch endpoint as an absolute URL and it is used exactly as published.
+  // The Federation Master publishes its fetch endpoint as an absolute URL and it is used exactly as published.
   private fun fedmasterFetchEndpoint(fedmasterUrl: String): String =
       fedmasterStatement(fedmasterUrl)
           .path("metadata")
@@ -233,7 +234,7 @@ class SekIDPIdentityProvider(
           .path("federation_fetch_endpoint")
           .takeIf { it.isTextual }
           ?.asText()
-          ?: throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« has no metadata.federation_entity.federation_fetch_endpoint")
+        ?: throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« has no metadata.federation_entity.federation_fetch_endpoint")
 
   private fun trustedIdpKeys(fedmasterUrl: String, issuer: String): Map<String, JWK> {
     trustedIdpKeyCache[issuer]?.takeIf { it.validUntil > Time.currentTime() }?.let {
@@ -247,13 +248,11 @@ class SekIDPIdentityProvider(
 
       val fedmasterIssuer =
           fedmasterStatement(fedmasterUrl).path("iss").takeIf { it.isTextual }?.asText()
-              ?: throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« has no iss")
-      val statement =
-          SimpleHttp.create(session)
-              .doGet(fedmasterFetchEndpoint(fedmasterUrl))
-              .param("iss", fedmasterIssuer)
-              .param("sub", issuer)
-              .asString()
+            ?: throw IdentityBrokerException("Federation Master entity statement of »$fedmasterUrl« has no iss")
+      val statement = sekIdpHttpClient.doGet(fedmasterFetchEndpoint(fedmasterUrl))
+          .param("iss", fedmasterIssuer)
+          .param("sub", issuer)
+          .asString()
       val body = verifyAndDecode(statement, fedmasterSigningKeys(fedmasterUrl), "Federation Master's statement about »$issuer«")
       val keysByKid = parseJwks(body.path("jwks"))
       if (keysByKid.isEmpty()) {
@@ -277,13 +276,13 @@ class SekIDPIdentityProvider(
         return it
       }
 
-      val statement = SimpleHttp.create(session).doGet("$issuer/.well-known/openid-federation").asString()
+      val statement = sekIdpHttpClient.doGet("$issuer/.well-known/openid-federation").asString()
       val trustedKeys = trustedIdpKeys(fedmasterUrl(), issuer)
       val body = verifyAndDecode(statement, trustedKeys, "SekIDP entity statement of »$issuer«")
       val openidProvider = body.path("metadata").path("openid_provider")
       fun endpoint(name: String): String =
           openidProvider.path(name).takeIf { it.isTextual }?.asText()
-              ?: throw IdentityBrokerException("SekIDP entity statement of »$issuer« has no metadata.openid_provider.$name")
+            ?: throw IdentityBrokerException("SekIDP entity statement of »$issuer« has no metadata.openid_provider.$name")
 
       val expiresAt = body.path("exp").asLong(0)
       val endpoints =
@@ -321,7 +320,7 @@ class SekIDPIdentityProvider(
       }
 
       val what = "SekIDP signed JWK set of »$issuer«"
-      val signedJwks = SimpleHttp.create(session).doGet(discoverEndpoints(issuer).signedJwksUri).asString()
+      val signedJwks = sekIdpHttpClient.doGet(discoverEndpoints(issuer).signedJwksUri).asString()
       val body = verifyAndDecode(signedJwks, trustedIdpKeys(fedmasterUrl(), issuer), what)
 
       // The entity statement names the URL; the document itself has to say whose keys these are.
@@ -373,7 +372,7 @@ class SekIDPIdentityProvider(
 
     val requestUri =
         sekIdpHttpClient
-            .doPost(session, endpoints.pushedAuthorizationRequestEndpoint)
+            .doPost(endpoints.pushedAuthorizationRequestEndpoint)
             .param(OAUTH2_PARAMETER_CLIENT_ID, providerConfig.clientId)
             .param(OAUTH2_PARAMETER_STATE, request.state.encoded)
             .param(OAUTH2_PARAMETER_REDIRECT_URI, oidcRedirectUri)
@@ -391,7 +390,7 @@ class SekIDPIdentityProvider(
                 throw IdentityBrokerException("SekIDP PAR failed with HTTP ${response.status}")
               }
               JsonSerialization.mapper.readTree(parBody).path("request_uri").takeIf { it.isTextual }?.asText()
-                  ?: throw IdentityBrokerException("SekIDP PAR response contains no request_uri")
+                ?: throw IdentityBrokerException("SekIDP PAR response contains no request_uri")
             }
 
     logger.infof("SekIDP PAR accepted, request_uri=%s", requestUri)
@@ -412,10 +411,10 @@ class SekIDPIdentityProvider(
     val identity = super.extractIdentity(tokenResponse, accessToken, idToken)
     val kvnr =
         idToken.otherClaims[CLAIM_TELEMATIK_KVNR] as? String
-            ?: throw IdentityBrokerException("SekIDP ID token contains no $CLAIM_TELEMATIK_KVNR claim — was scope urn:telematik:versicherter requested?")
+          ?: throw IdentityBrokerException("SekIDP ID token contains no $CLAIM_TELEMATIK_KVNR claim — was scope urn:telematik:versicherter requested?")
     val acr =
         (idToken.otherClaims[IDToken.ACR] as? String)?.takeIf { it.isNotBlank() }
-            ?: throw IdentityBrokerException("SekIDP ID token contains no »${IDToken.ACR}« claim — the attested authentication level is unknown")
+          ?: throw IdentityBrokerException("SekIDP ID token contains no »${IDToken.ACR}« claim — the attested authentication level is unknown")
     val username = kvnr.toSpicyHash()
     identity.username = username
     identity.modelUsername = username
@@ -434,12 +433,12 @@ class SekIDPIdentityProvider(
   override fun authenticationFinished(authSession: AuthenticationSessionModel, context: BrokeredIdentityContext) {
     super.authenticationFinished(authSession, context)
     listOf(
-            ATTRIBUTE_MOBILEUSER_KVNR,
-            ATTRIBUTE_MOBILEUSER_ACR,
-            ATTRIBUTE_MOBILEUSER_AMR,
-            ATTRIBUTE_MOBILEUSER_PROFESSION_OID,
-            ATTRIBUTE_MOBILEUSER_ORGANIZATION,
-        )
+        ATTRIBUTE_MOBILEUSER_KVNR,
+        ATTRIBUTE_MOBILEUSER_ACR,
+        ATTRIBUTE_MOBILEUSER_AMR,
+        ATTRIBUTE_MOBILEUSER_PROFESSION_OID,
+        ATTRIBUTE_MOBILEUSER_ORGANIZATION,
+    )
         .forEach { note -> (context.contextData[note] as? String)?.let { authSession.setUserSessionNote(note, it) } }
   }
 
@@ -461,13 +460,10 @@ class SekIDPIdentityProvider(
         dataService.findUserData(userModel.username) ?: throw ClientRegistrationException("Could not find user data for »${userModel.username}«")
     val clientData = dataService.findClientData(clientId) ?: throw ClientRegistrationException("Could not find client data for »${clientId}«")
     val clientIds = userData.clients.map { it.id }.toMutableSet()
-    val clientExpirationService = ZetaGuardExpirationService(session)
     val now = currentTime()
 
-    if (clientIds.add(clientId)) { // A_25748-02
-      if (clientIds.size > maxClients && !clientExpirationService.removeOldestClient(userModel.username)) {
-        throw ClientRegistrationException("Too many clients for user »${userModel.username}«")
-      }
+    if (clientIds.add(clientId)) {
+      dataService.evictOldClientsIfNecessary(userModel.username, clientId)
 
       userData.clients.add(clientData)
       clientData.userData = userData
@@ -478,6 +474,22 @@ class SekIDPIdentityProvider(
     userModel.setSingleAttribute(ATTRIBUTE_MOBILEUSER_LAST_ACCESS, now.toISO8601())
     userData.lastAccess = now
     clientData.lastAccess = now
+  }
+
+  private fun ZetaGuardDataService.evictOldClientsIfNecessary(userName: String, clientId: String) {
+    val clientExpirationService = ZetaGuardExpirationService(session)
+
+    // A_25748-02
+    // Without the lock, concurrent requests of the same user all see the same count and try to evict the same oldest
+    // client, so the limit is exceeded or all but one request fail. The lock is held until the request's transaction
+    // ends, so count and eviction below see what a preceding request has committed.
+    lockUserData(userName) ?: throw ClientRegistrationException("Could not lock user data for »${userName}«")
+
+    while (countClients(userName, clientId) >= maxClients) {
+      if (!clientExpirationService.removeOldestClient(userName)) {
+        throw ClientRegistrationException("Too many clients for user »${userName}«")
+      }
+    }
   }
 
   /**
@@ -500,7 +512,7 @@ class SekIDPIdentityProvider(
             ?.trim()
             ?.trimEnd('/')
             ?.takeIf { it.isNotBlank() }
-            ?: return base
+          ?: return base
 
     return OIDCIdentityProviderConfig(IdentityProviderModel(base)).apply {
       config[SEKIDP_CONFIG_ISSUER] = resolved
@@ -533,12 +545,13 @@ class SekIDPIdentityProvider(
       val authSession = kcSession.context?.authenticationSession
       val redirectUri =
           authSession?.getClientNote(NOTE_OIDC_REDIRECT_URI)?.takeIf { it.isNotBlank() }
-              ?: throw IdentityBrokerException(
-                  "No $SEKIDP_PARAM_OIDC_REDIRECT_URI on the authentication session — cannot build the token request")
+            ?: throw IdentityBrokerException(
+                "No $SEKIDP_PARAM_OIDC_REDIRECT_URI on the authentication session — cannot build the token request"
+            )
 
       val tokenRequest =
           sekProvider.sekIdpHttpClient
-              .doPost(kcSession, sekProvider.effectiveTokenUrl())
+              .doPost(sekProvider.effectiveTokenUrl())
               .param(OAUTH2_PARAMETER_CODE, authorizationCode)
               .param(OAUTH2_PARAMETER_REDIRECT_URI, redirectUri)
               .param(OAUTH2_PARAMETER_GRANT_TYPE, OAUTH2_GRANT_TYPE_AUTHORIZATION_CODE)

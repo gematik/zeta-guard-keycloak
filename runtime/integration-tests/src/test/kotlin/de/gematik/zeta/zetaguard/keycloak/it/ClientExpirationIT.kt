@@ -31,15 +31,29 @@ import de.gematik.zeta.zetaguard.keycloak.commons.DPoPTokenGenerator.generateDPo
 import de.gematik.zeta.zetaguard.keycloak.commons.KeycloakWebClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ZETA_REALM
+import de.gematik.zeta.zetaguard.keycloak.commons.server.toSpicyHash
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
+import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbhost
+import de.gematik.zeta.zetaguard.keycloak.it.Docker.dbport
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardUserData
 import io.kotest.assertions.arrow.core.shouldBeRight
+import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.comparables.shouldBeGreaterThanOrEqualTo
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import org.keycloak.OAuth2Constants.CLIENT_ASSERTION_TYPE_JWT
 import org.keycloak.OAuth2Constants.JWT_TOKEN_TYPE
 import org.keycloak.representations.idm.ClientRepresentation
+
+private const val MAX_CLIENTS = 20 // SMCB_USER_MAX_CLIENTS in docker-compose-it.yml
+private const val CONCURRENT_CLIENTS = 10
 
 class ClientExpirationIT : ZetaGuardFunSpecIT() {
   init {
@@ -55,6 +69,28 @@ class ClientExpirationIT : ZetaGuardFunSpecIT() {
       clients2.size shouldBe 20
       clients2.map { it.clientId } shouldNotContain clientId
     }
+
+    test("ANFTI2-1031: Concurrent token exchanges of new clients keep the maximum number of clients") {
+      createManyClients().shouldBeNull() // Make sure the limit is reached, so every new client has to evict one
+
+      // Prepared one after another, so only the token exchanges themselves run concurrently
+      val exchanges = (1..CONCURRENT_CLIENTS).map { prepareTokenExchange() }
+      val results = coroutineScope {
+        exchanges
+            .map { exchange ->
+              // KeycloakWebClient keeps the last response body, so each request uses its own instance
+              async(Dispatchers.IO) { KeycloakWebClient.instance().use { exchange.execute(it) } }
+            }
+            .awaitAll()
+      }
+
+      results.forEach { it.shouldBeRight() }
+
+      val userClientIds = lookupUserClientIds(smcb.telematikId.toSpicyHash().lowercase())
+
+      userClientIds shouldHaveSize MAX_CLIENTS
+      userClientIds shouldContainAll exchanges.map { it.clientId }
+    }
   }
 
   private fun createManyClients(): KeycloakError? {
@@ -67,7 +103,10 @@ class ClientExpirationIT : ZetaGuardFunSpecIT() {
     return null
   }
 
-  private fun createClient(): Either<KeycloakError, String> = either {
+  private fun createClient(): Either<KeycloakError, String> = prepareTokenExchange().execute(keycloakWebClient)
+
+  /** Registers a new client and creates the tokens for its first token exchange, which binds it to the SMC-B user. */
+  private fun prepareTokenExchange(): PreparedTokenExchange {
     val oidcClientResponse1 = keycloakWebClient.createClientOIDC(clientAssertionTokenGenerator.keys.jwks).shouldBeRight().reponseObject
     val nonce = createNonce()
     val smbcToken =
@@ -82,21 +121,36 @@ class ClientExpirationIT : ZetaGuardFunSpecIT() {
     val jws = clientAssertionTokenGenerator.generateClientAssertion(oidcClientResponse1, nonce)
     val dPoPToken = generateDPoPToken(endpointURL = keycloakWebClient.uriBuilder().tokenUrl(), accessToken = smbcToken)
 
-    keycloakWebClient
+    return PreparedTokenExchange(oidcClientResponse1.clientId, smbcToken, jws, dPoPToken)
+  }
+}
+
+private class PreparedTokenExchange(val clientId: String, val subjectToken: String, val clientAssertion: String, val dPoPToken: String) {
+  fun execute(webClient: KeycloakWebClient): Either<KeycloakError, String> = either {
+    webClient
         .tokenExchange(
-            clientId = oidcClientResponse1.clientId,
-            subjectToken = smbcToken,
+            clientId = clientId,
+            subjectToken = subjectToken,
             subjectTokenType = JWT_TOKEN_TYPE,
             requestedClientScope = CLIENT_B_SCOPE,
             clientAssertionType = CLIENT_ASSERTION_TYPE_JWT,
-            clientAssertion = jws,
+            clientAssertion = clientAssertion,
             dPoPToken = dPoPToken,
             audience = "http://localhost:18080",
         )
-        .map { oidcClientResponse1.clientId }
+        .map { clientId }
         .bind()
   }
 }
+
+/** Ids of the clients bound to the user, as stored in `ZETA_CLIENT_DATA`. */
+private fun lookupUserClientIds(userName: String): List<String> =
+    JpaEntityManagerFactory(dbhost, dbport, ZetaGuardUserData::class.java, ZetaGuardClientData::class.java).use {
+      it.createEntityManager()
+          .createQuery("SELECT c.id FROM ZetaGuardClientData c WHERE c.userData.id = :userName", String::class.java)
+          .setParameter("userName", userName)
+          .resultList
+    }
 
 fun KeycloakWebClient.clients(): List<ClientRepresentation> =
     withKeycloak(clientId = ADMIN_CLIENT) {

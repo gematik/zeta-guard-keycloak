@@ -46,6 +46,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PRODUCT_VERSION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import de.gematik.zeta.zetaguard.keycloak.commons.server.clientIP
+import de.gematik.zeta.zetaguard.keycloak.commons.server.isMobileIssuancePermitted
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
 import java.time.Duration
 import org.jboss.logging.Logger
@@ -166,6 +167,12 @@ class ZetaGuardAccessTokenMapper :
 
     if (!OidcFlowSettings.isEnabled()) {
       error("SMC-B context not found")
+    }
+
+    // Every grant that reaches a SekIDP user session lands here, the PDP gate only runs in some of them.
+    // Hence issue KVNR claims only within a request that passed the gate for this very client.
+    if (!session.isMobileIssuancePermitted(client)) {
+      error("Mobile token issuance not permitted for client »${client.clientId}«")
     }
 
     val kvnr = userSession.getNote(ATTRIBUTE_MOBILEUSER_KVNR) ?: error("Mobile user KVNR not found")

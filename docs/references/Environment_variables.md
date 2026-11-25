@@ -9,16 +9,29 @@ In addition to Keycloak's standard environment variables, the following environm
 
 ## Optional environment variables
 
-| Name                         | Default value | Description                                                                                                                          |
-|------------------------------|---------------|--------------------------------------------------------------------------------------------------------------------------------------|
-| `GENESIS_HASH`               | random        | The seed used instead of a previous hash to calculate the first hash in the admin event log. A random string of up to 64 characters. |
-| `TRUSTSTORE_RELOAD_ENABLED`  | `true`        | Whether the SMC-B, TPM and OCSP truststores are reloaded while the server runs. `false` reads them only at startup.                  |
-| `TRUSTSTORE_RELOAD_INTERVAL` | `PT1H`        | How often the truststores are checked for changes, as an ISO-8601 duration of hours or less.                                         |
+| Name                                        | Default value       | Description                                                                                                                                                                                                                        |
+|---------------------------------------------|---------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `GENESIS_HASH`                              | random              | The seed used instead of a previous hash to calculate the first hash in the admin event log. A random string of up to 64 characters.                                                                                               |
+| `TRUSTSTORE_RELOAD_ENABLED`                 | `true`              | Whether the SMC-B, TPM and OCSP truststores are reloaded while the server runs. `false` reads them only at startup.                                                                                                                |
+| `TRUSTSTORE_RELOAD_INTERVAL`                | `PT1H`              | How often the truststores are checked for changes, as an ISO-8601 duration of hours or less.                                                                                                                                       |
+| `CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE` | `500`               | Maximum number of expired client registrations, clients and users the expiration job removes per run (each run is one transaction). A larger backlog (e.g. after a load test) is worked off over several runs, see the note below. |
+| `ENTITY_STATEMENT_CLIENT_NAME`              | `zeta-guard`        | Name of the ZETA Guard in the OpenID-Federation entity statement: `metadata.openid_relying_party.client_name` and `metadata.federation_entity.name`.                                                                               |
+| `ENTITY_STATEMENT_ORGANIZATION_NAME`        | `zeta-guard`        | Operating organization in the entity statement: `organization_name` in `metadata.openid_relying_party` and `metadata.federation_entity`.                                                                                           |
+| `ENTITY_STATEMENT_CONTACT_EMAIL`            | `noreply@localhost` | Contact address in `metadata.openid_relying_party.contacts` of the entity statement.                                                                                                                                               |
+| `ENTITY_STATEMENT_ID_TOKEN_VERSION`         | `1.0.0`             | ID token version announced in `metadata.openid_relying_party.ti_features_supported.id_token_version_supported`.                                                                                                                    |
+| `ENTITY_STATEMENT_REDIRECT_URIS`            | unset               | Comma-separated list published as `metadata.openid_relying_party.redirect_uris` in the entity statement. Unset or blank, the redirect URIs of all clients in the realm are published.                                              |
 
 > **Note:** Both `TRUSTSTORE_RELOAD_*` variables exist for test setups, where waiting an hour for a reload is not
 > practical. Their defaults are the production setting — leave them alone there. Turning the reload off means new trust
 > anchors only take effect on the next restart and a short interval has the server re-read several megabytes of trust
 > material that often.
+
+> **Note:** The client expiration job removes at most `CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE` entries per run, oldest first, so that the
+> memory and the duration of its transaction stay bounded however many expired clients there are. What is left is removed by the next run, every
+> `CLIENT_REGISTRATION_SCHEDULER_INTERVAL` (default `PT5M`), i.e. 500 clients and 500 users per 5 minutes by default. After a load test that leaves
+> a large backlog, shorten the interval (e.g. `PT1M`) or raise the batch size, temporarily if need be, until the backlog is gone. A run takes
+> roughly 15 seconds for 500 entries, so keep the interval well above that: the job runs on Keycloak's timer thread, which also runs other
+> scheduled tasks, e.g. the keepalive of the revocation stream (every 20 s).
 
 ## Reloading the truststores
 

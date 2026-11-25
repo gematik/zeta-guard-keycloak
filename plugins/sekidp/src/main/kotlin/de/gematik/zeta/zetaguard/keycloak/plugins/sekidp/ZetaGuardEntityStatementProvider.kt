@@ -24,6 +24,7 @@
 package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SEKIDP_IDENTITY_PROVIDER_ID
+import de.spree.keycloak.commons.getEnvironment
 import jakarta.ws.rs.NotFoundException
 import org.keycloak.broker.provider.IdentityProvider
 import org.keycloak.common.util.KeyUtils
@@ -45,6 +46,12 @@ private const val ENTITY_STATEMENT_TTL_SECONDS = 3600L
 
 // internal: also read by SekIDPIdentityProvider for the trust-chain fetch.
 internal const val SEKIDP_CONFIG_FEDMASTER_URL = "fedmasterUrl"
+
+private const val ENV_ENTITY_STATEMENT_ID_TOKEN_VERSION = "ENTITY_STATEMENT_ID_TOKEN_VERSION"
+private const val ENV_ENTITY_STATEMENT_CLIENT_NAME = "ENTITY_STATEMENT_CLIENT_NAME"
+private const val ENV_ENTITY_STATEMENT_ORGANIZATION_NAME = "ENTITY_STATEMENT_ORGANIZATION_NAME"
+private const val ENV_ENTITY_STATEMENT_CONTACT_EMAIL = "ENTITY_STATEMENT_CONTACT_EMAIL"
+private const val ENV_ENTITY_STATEMENT_REDIRECT_URIS = "ENTITY_STATEMENT_REDIRECT_URIS"
 
 /**
  * Serves the ZETA Guard's own OpenID-Federation entity statement (A_23034-02) under
@@ -97,8 +104,11 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
     // RP protocol keys: the ECDH-ES key the SekIDP encrypts the ID token with, plus — when mTLS is
     // enabled — the self-signed TLS client certificate the SekIDP matches at PAR/token (A_23183).
     val mtlsCertificate =
-        (session.keycloakSessionFactory.getProviderFactory(IdentityProvider::class.java, SEKIDP_IDENTITY_PROVIDER_ID) as? SekIDPIdentityProviderFactory)
-            ?.mtlsClientCertificate
+        (session.keycloakSessionFactory.getProviderFactory(
+            IdentityProvider::class.java,
+            SEKIDP_IDENTITY_PROVIDER_ID
+        ) as? SekIDPIdentityProviderFactory)
+            ?.let { it.mtlsConfig()?.clientCertificate }
     val relyingPartyJwks =
         mapOf(
             "keys" to
@@ -107,11 +117,21 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
                   mtlsCertificate?.let { add(JWKBuilder.create().kid(KeyUtils.createKeyId(it.publicKey)).ec(it.publicKey, listOf(it), KeyUse.SIG)) }
                 })
 
+    val clientName = getEnvironment(ENV_ENTITY_STATEMENT_CLIENT_NAME, "zeta-guard")
+    val organizationName = getEnvironment(ENV_ENTITY_STATEMENT_ORGANIZATION_NAME, "zeta-guard")
+
+    // gemSpec_IDP_Sek, Tab. 28: the entity statement of a Fachdienst carries a federation_entity block.
+    val federationEntity =
+        mapOf(
+            "name" to clientName,
+            "organization_name" to organizationName,
+        )
+
     // Field set per A_23034-02 — everything below is REQUIRED,
     // including `scope`: the SekIDP validates the PAR scopes against this list A_29660.
     val openidRelyingParty =
         mapOf(
-            "redirect_uris" to clientRedirectUris(realm),
+            "redirect_uris" to redirectUris(realm),
             "response_types" to listOf("code"),
             "grant_types" to listOf("authorization_code"),
             "client_registration_types" to listOf("automatic"),
@@ -122,6 +142,19 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
             "id_token_encrypted_response_enc" to "A256GCM",
             "scope" to idp.config["defaultScope"],
             "jwks" to relyingPartyJwks,
+            "ti_features_supported" to mapOf(
+                "id_token_version_supported" to listOf(getEnvironment(ENV_ENTITY_STATEMENT_ID_TOKEN_VERSION, "1.0.0"))
+            ),
+            "client_name" to clientName,
+            "organization_name" to organizationName,
+            "keywords" to listOf(
+                "product_type_version:1.3",
+                "product_type:ZETA Guard",
+            ),
+            "contacts" to listOf(
+                getEnvironment(ENV_ENTITY_STATEMENT_CONTACT_EMAIL, "noreply@localhost")
+            ),
+            "default_acr_values" to listOf(SEKIDP_DEFAULT_ACR),
         )
 
     val now = Time.currentTime().toLong()
@@ -134,14 +167,22 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
             "jwks" to federationJwks,
             // with A_29737 fedmaster url will be available in the provisioned image
             "authority_hints" to listOf(idp.config[SEKIDP_CONFIG_FEDMASTER_URL]),
-            "metadata" to mapOf("openid_relying_party" to openidRelyingParty),
+            "metadata" to
+                mapOf(
+                    "federation_entity" to federationEntity,
+                    "openid_relying_party" to openidRelyingParty,
+                ),
         )
 
     val signer = session.getProvider(SignatureProvider::class.java, sigKey.algorithmOrDefault).signer(sigKey)
     return JWSBuilder().type("entity-statement+jwt").kid(sigKey.kid).jsonContent(body).sign(signer)
   }
 
-  // A_25656: the redirect URLs of all permitted clients.
+  // A_25656: the redirect URLs of all permitted clients. Configured statically as a comma-separated
+  // list; only when that is unset are they derived from the realm's clients.
+  private fun redirectUris(realm: RealmModel): List<String> =
+      parseRedirectUris(getEnvironment(ENV_ENTITY_STATEMENT_REDIRECT_URIS, "")).ifEmpty { clientRedirectUris(realm) }
+
   private fun clientRedirectUris(realm: RealmModel): List<String> =
       session
           .clients()
@@ -154,3 +195,5 @@ class ZetaGuardEntityStatementProvider(private val session: KeycloakSession) : W
     // No-op
   }
 }
+
+internal fun parseRedirectUris(value: String): List<String> = value.split(",").map { it.trim() }.filter { it.isNotEmpty() }.distinct()

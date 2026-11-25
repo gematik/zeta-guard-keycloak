@@ -36,11 +36,13 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.BINDING_MODE_VERIFY_OTP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPA_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.RESPONSE_MEMBER_BINDING_MODE
 import de.gematik.zeta.zetaguard.keycloak.commons.server.RESPONSE_MEMBER_EMAIL_HINT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SCOPE_EMAIL_BINDING
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
+import de.gematik.zeta.zetaguard.keycloak.commons.server.permitMobileIssuance
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.MOCK_MOBILE_CLIENT_STATEMENT
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
 import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailOtpMailer
@@ -71,6 +73,7 @@ import java.time.Duration
 import org.keycloak.OAuth2Constants
 import org.keycloak.OAuthErrorException.UNSUPPORTED_GRANT_TYPE
 import org.keycloak.common.util.Time
+import org.keycloak.connections.httpclient.HttpClientProvider
 import org.keycloak.representations.idm.OAuth2ErrorRepresentation
 import org.keycloak.connections.jpa.JpaConnectionProvider
 import org.keycloak.events.EventBuilder
@@ -96,8 +99,11 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
     beforeEach {
       mockkObject(OidcFlowSettings)
       every { OidcFlowSettings.isEnabled() } returns true
+      // Records permitMobileIssuance calls; unstubbed SessionUtil functions keep their real behaviour
+      mockkStatic(SESSION_UTIL)
     }
     afterEach {
+      unmockkStatic(SESSION_UTIL)
       unmockkObject(OidcFlowSettings)
       unmockkObject(EmailOtpService)
       unmockkObject(EmailOtpMailer)
@@ -201,8 +207,8 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       every { sourceCtx.withTokenScopesReducedTo(any(), capture(scopeSlot)) } returns reducedCtx
 
       val accessToken = AccessToken()
-      val builder = prepareBuilder(grant, accessToken, expectedCtx = reducedCtx)
 
+      prepareBuilder(grant, accessToken, expectedCtx = reducedCtx)
       invokeCreateTokenResponseBuilder(grant, user, userSession, sourceCtx)
 
       scopeSlot.captured shouldBe setOf(SCOPE_EMAIL_BINDING, SCOPE_COMPLETE_REGISTRATION_BY_EMAIL_VERIFICATION)
@@ -303,6 +309,27 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       )
 
       shouldThrow<WebApplicationException> { invokeCreateTokenResponseBuilder(grant, user, userSession, sourceCtx) }
+
+      val session = getField<KeycloakSession>(grant, OAuth2GrantTypeBase::class.java, "session")
+      verify(exactly = 0) { session.permitMobileIssuance(any()) }
+    }
+
+    test("OPA allow permits KVNR issuance for the requesting client only") {
+      val grant = ZetaGuardAuthorizationCodeGrantType()
+      setIssuance(grant, fullIssuance())
+
+      val user = mockk<UserModel>(relaxed = true)
+      val userSession = mockk<UserSessionModel>(relaxed = true)
+      val sourceCtx = mockk<ClientSessionContext>(relaxed = true)
+
+      prepareBuilder(grant, AccessToken(), expectedCtx = sourceCtx, useRefreshToken = true)
+      stubOpaAllow(grant, userSession, sourceCtx)
+
+      invokeCreateTokenResponseBuilder(grant, user, userSession, sourceCtx)
+
+      val session = getField<KeycloakSession>(grant, OAuth2GrantTypeBase::class.java, "session")
+      val client = getField<ClientModel>(grant, OAuth2GrantTypeBase::class.java, "client")
+      verify { session.permitMobileIssuance(client) }
     }
 
     test("OPA allow stores access and refresh TTLs on the user session") {
@@ -375,6 +402,10 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
       invokeCreateTokenResponseBuilder(grant, user, userSession, sourceCtx)
 
       verify(exactly = 0) { OpaGateEnforcer.enforce(any(), any(), any()) }
+      // The reduced token carries KVNR claims, but lacks the audience scope and thus is not PEP-valid
+      val session = getField<KeycloakSession>(grant, OAuth2GrantTypeBase::class.java, "session")
+      val client = getField<ClientModel>(grant, OAuth2GrantTypeBase::class.java, "client")
+      verify { session.permitMobileIssuance(client) }
     }
 
     test("stores requested audience on the client session when email confirmation is required") {
@@ -423,6 +454,8 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
 
       val ex = shouldThrow<WebApplicationException> { invokeCreateTokenResponseBuilder(grant, user, userSession, sourceCtx) }
       ex.response.status shouldBe Response.Status.BAD_REQUEST.statusCode
+      val session = getField<KeycloakSession>(grant, OAuth2GrantTypeBase::class.java, "session")
+      verify(exactly = 0) { session.permitMobileIssuance(any()) }
       val error = ex.response.entity as OAuth2ErrorRepresentation
       error.error shouldBe UNSUPPORTED_GRANT_TYPE
       error.errorDescription shouldBe "Unsupported grant type"
@@ -529,9 +562,9 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
     val session = getField<KeycloakSession>(grant, OAuth2GrantTypeBase::class.java, "session")
     val client = getField<ClientModel>(grant, OAuth2GrantTypeBase::class.java, "client")
 
-    val httpClientProvider = mockk<org.keycloak.connections.httpclient.HttpClientProvider>()
+    val httpClientProvider = mockk<HttpClientProvider>()
     every { httpClientProvider.httpClient } returns mockk(relaxed = true)
-    every { session.getProvider(org.keycloak.connections.httpclient.HttpClientProvider::class.java) } returns httpClientProvider
+    every { session.getProvider(HttpClientProvider::class.java, OPA_HTTP_CLIENT_ID) } returns httpClientProvider
 
     every { client.id } returns "client-internal-id"
     every { client.clientId } returns "mobile-client"
@@ -688,5 +721,9 @@ class ZetaGuardAuthorizationCodeGrantTypeTest : FunSpec() {
     val field = type.getDeclaredField(name)
     field.isAccessible = true
     field.set(target, value)
+  }
+
+  private companion object {
+    const val SESSION_UTIL = "de.gematik.zeta.zetaguard.keycloak.commons.server.SessionUtilKt"
   }
 }

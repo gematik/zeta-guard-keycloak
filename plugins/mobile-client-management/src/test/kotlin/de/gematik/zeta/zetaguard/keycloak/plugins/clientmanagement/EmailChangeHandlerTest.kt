@@ -27,7 +27,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.email.EMAIL_OTP_STORE_PREFIX
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
-import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.commons.email.EmailChangeNotifier
@@ -128,7 +128,7 @@ class EmailChangeHandlerTest :
         val response = handler().handle(callerModel, null)
 
         response.status shouldBe 400
-        response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+        response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
         response.entityMap()["code"] shouldBe ProblemCodes.INVALID_REQUEST
       }
 

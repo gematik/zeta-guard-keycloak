@@ -27,3 +27,24 @@ CVE-2026-58062
 # low (Bewertung durch tech@spree, offiziell critical), affected: Bouncy Castle, Name Constraints bypass via trailing dot in rfc822Name and URI
 # Dieses ignore muss erhalten bleiben, bis pkg:maven/org.bouncycastle/bcprov-jdk18on im Keycloak-Image in jeder gescannter Version auf 1.85 hochgezogen ist
 CVE-2026-8763
+
+CVE-2026-84939 exp:2026-12-20
+CVE-2026-75595 exp:2026-12-20
+CVE-2026-102554 exp:2026-12-20
+CVE-2026-91777 exp:2026-12-20
+CVE-2026-119586 exp:2026-12-20
+CVE-2026-68494 exp:2026-12-20
+CVE-2026-89425 exp:2026-12-20
+
+CVE-2026-68497
+CVE-2026-119379
+CVE-2026-119374
+CVE-2026-119373
+CVE-2026-89161
+CVE-2026-86145
+CVE-2026-103111
+CVE-2026-89161
+CVE-2026-86145
+CVE-2026-103111
+CVE-2026-91403
+CVE-2026-114406

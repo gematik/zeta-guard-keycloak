@@ -7,8 +7,8 @@
   "refreshTokenMaxReuse": 0,
   "accessTokenLifespan": 300,
   "accessTokenLifespanForImplicitFlow": 900,
-  "ssoSessionIdleTimeout": 1800,
-  "ssoSessionMaxLifespan": 36000,
+  "ssoSessionIdleTimeout": 86400,
+  "ssoSessionMaxLifespan": 86400,
   "ssoSessionIdleTimeoutRememberMe": 0,
   "ssoSessionMaxLifespanRememberMe": 0,
   "offlineSessionIdleTimeout": 2592000,
@@ -1779,9 +1779,37 @@
   "verifiableCredentialsEnabled": false,
   "adminPermissionsEnabled": false,
   "clientProfiles": {
-    "profiles": []
+    "profiles": [
+      {
+        "name": "zeta-reject-implicit",
+        "description": "Authorization code flow only: implicit and hybrid flows are rejected, registration switches them off.",
+        "executors": [
+          {
+            "executor": "reject-implicit-grant",
+            "configuration": {
+              "auto-configure": "true"
+            }
+          }
+        ]
+      }
+    ]
   },
   "clientPolicies": {
-    "policies": []
+    "policies": [
+      {
+        "name": "zeta-reject-implicit",
+        "description": "Applies to any client.",
+        "enabled": true,
+        "conditions": [
+          {
+            "condition": "any-client",
+            "configuration": {}
+          }
+        ],
+        "profiles": [
+          "zeta-reject-implicit"
+        ]
+      }
+    ]
   }
 }

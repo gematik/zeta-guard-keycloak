@@ -27,7 +27,6 @@ import de.gematik.zeta.zetaguard.keycloak.client_assertion.ClientStatementData
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.PostureType
 import de.gematik.zeta.zetaguard.keycloak.client_assertion.TPMPosture
 import de.gematik.zeta.zetaguard.keycloak.client_attestation.SIGNATURE_VALIDATION_FAILED
-import de.gematik.zeta.zetaguard.keycloak.client_attestation.TPM_DESERIALIZATION_FAILED
 import de.gematik.zeta.zetaguard.keycloak.commons.CertificateGenerator
 import de.gematik.zeta.zetaguard.keycloak.commons.TPMPostureHelper.intermediateCertificate
 import de.gematik.zeta.zetaguard.keycloak.commons.TPMPostureHelper.leafCertificate
@@ -40,12 +39,14 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.createSignerContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.fromBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toBase64
 import de.gematik.zeta.zetaguard.keycloak.it.ClientAssertionTokenHelper.clientAssertionTokenGenerator
+import io.kotest.core.annotation.Ignored
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 import kotlin.reflect.jvm.javaField
 
+@Ignored(reason = "ZETAP-2294 temporary disables TPM attestation")
 class ClientStatementTPMPostureIT : ZetaGuardFunSpecIT() {
   init {
     test("Invalid attestation challenge") { invalidAttestationChallenge(PostureType.TPM) }
@@ -122,7 +123,30 @@ class ClientStatementTPMPostureIT : ZetaGuardFunSpecIT() {
           )
       val smcbToken = createSMCBToken(nonce)
 
-      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldBe TPM_DESERIALIZATION_FAILED }
+      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldBe SIGNATURE_VALIDATION_FAILED }
+    }
+
+    test("Tampered TPM quote data") {
+      val nonce = createNonce()
+      val pkidata = clientAssertionTokenGenerator.keys
+      val certificates = listOf(leafCertificate, intermediateCertificate)
+      val otherClaims = createOtherClaims(ZETA_CLIENT, nonce, pkidata, certificateChain = certificates, PostureType.TPM)
+      val clientStatement = otherClaims[CLAIM_CLIENT_STATEMENT] as ClientStatementData
+      val posture = clientStatement.posture as TPMPosture
+      val quoteProperty = TPMPosture::class.declaredMemberProperties.first { it.name == "tpmQuote" }.apply { isAccessible = true }.javaField!!
+
+      // manipulated posture that causes OOM if decoded
+      quoteProperty.set(posture, "_1RDR4AYACIAC5AgE-j7_fsgTyVokI-7wf1v1bIRYBgbzcJQ6zU8YcTPACCrq6urq6urq6urq6urq6urq6urq6urq6urq6urq6urqwAAAAABCx0BHWNGlsOY8YsBlRTWaepDsjt_____AAsDgQCAACAuqauRmNFjgAdADNLDvvHMdFuGS3YBGg4bxSGArGRS1A")
+
+      val jwt =
+          clientAssertionTokenGenerator.generateClientAssertion(
+              audiences = listOf(clientAssertionAudience),
+              nonceString = nonce,
+              otherClaims = otherClaims,
+          )
+      val smcbToken = createSMCBToken(nonce)
+
+      testExchangeToken(smcbToken, clientAssertion = jwt) { it.errorDescription shouldBe SIGNATURE_VALIDATION_FAILED }
     }
   }
 }

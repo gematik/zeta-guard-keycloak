@@ -121,15 +121,10 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
         dataService.findUserData(userModel.username) ?: throw ClientRegistrationException("Could not find user data for »${userModel.username}«")
     val clientData = dataService.findClientData(clientId) ?: throw ClientRegistrationException("Could not find client data for »${clientId}«")
     val clientIds = userData.clients.map { it.id }.toMutableSet()
-    val clientExpirationService = ZetaGuardExpirationService(session)
     val now = currentTime()
 
-    if (clientIds.add(clientId)) { // A_25748-02
-      if (clientIds.size > maxClients && !clientExpirationService.removeOldestClient(userModel.username)) {
-        throw ClientRegistrationException("Too many clients for user »${userModel.username}«").also {
-          SecurityEventLogger.logClientRegistrationFail(clientId = clientId, reason = "too_many_clients_registered")
-        }
-      }
+    if (clientIds.add(clientId)) {
+      dataService.evictOldClientsIfNecessary(userModel.username, clientId)
 
       userData.clients.add(clientData)
       clientData.userData = userData
@@ -146,6 +141,24 @@ open class SMCBIdentityProvider(session: KeycloakSession, config: OIDCIdentityPr
     userModel.setSingleAttribute(ATTRIBUTE_SMCBUSER_LAST_ACCESS, now.toISO8601())
     userData.lastAccess = now
     clientData.lastAccess = now
+  }
+
+  private fun ZetaGuardDataService.evictOldClientsIfNecessary(userName: String, clientId: String) {
+    val clientExpirationService = ZetaGuardExpirationService(session)
+
+    // A_25748-02
+    // Without the lock, concurrent requests of the same user all see the same count and try to evict the same oldest
+    // client, so the limit is exceeded or all but one request fail. The lock is held until the request's transaction
+    // ends, so count and eviction below see what a preceding request has committed.
+    lockUserData(userName) ?: throw ClientRegistrationException("Could not lock user data for »${userName}«")
+
+    while (countClients(userName, clientId) >= maxClients) {
+      if (!clientExpirationService.removeOldestClient(userName)) {
+        throw ClientRegistrationException("Too many clients for user »${userName}«").also {
+          SecurityEventLogger.logClientRegistrationFail(clientId = clientId, reason = "too_many_clients_registered")
+        }
+      }
+    }
   }
 
   /**

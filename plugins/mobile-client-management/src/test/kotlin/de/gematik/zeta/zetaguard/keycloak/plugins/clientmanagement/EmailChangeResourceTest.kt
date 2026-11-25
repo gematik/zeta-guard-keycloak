@@ -23,7 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.clientmanagement
 
-import de.gematik.zeta.zetaguard.keycloak.commons.server.MEDIA_TYPE_PROBLEM_JSON
+import de.gematik.zeta.zetaguard.keycloak.commons.server.MediaTypes
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ProblemCodes
 import io.kotest.core.spec.style.StringSpec
 import io.kotest.matchers.shouldBe
@@ -68,7 +68,7 @@ class EmailChangeResourceTest :
         val response = EmailChangeResource(mockk<KeycloakSession>()).changeEmail(null, EmailChangeRequest())
 
         response.status shouldBe 401
-        response.mediaType.toString() shouldBe MEDIA_TYPE_PROBLEM_JSON
+        response.mediaType.toString() shouldBe MediaTypes.PROBLEM_JSON
         response.entityMap()["code"] shouldBe ProblemCodes.POP_REQUIRED
       }
 

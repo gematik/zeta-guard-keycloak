@@ -59,21 +59,22 @@ internal fun checkTPMPosture(
     posture: TPMPosture,
 ): Either<KeycloakValidationError, Unit> = either {
   val tpmQuoteBytes = posture.tpmQuote.fromBase64()
-  val tpmQuote = tpmQuoteBytes.deserializeQuote().mapLeft { invalidTPMQuote(it) }.bind()
   val tpmPublicKey = posture.tpmAttestationKey.toPublicKey().mapLeft { invalidClientAttestation(it) }.bind()
   val quoteSignature = posture.tpmQuoteSignature.fromBase64()
   val certificateChain = posture.tpmEkCertificateChain.map { it.toCertificate() }
-  val expectedAttestationChallenge = context.attestationChallenge.fromBase64()
 
   ensure(certificateChain.isNotEmpty()) { invalidClientAttestation("TPM certificate chain is empty") }
 
   // TODO: missing attribute attestationChain in specification
   // https://ey-fp-dev.atlassian.net/browse/ZETAP-905
   //  ensure(certificateChain[0].publicKey == tpmPublicKey) { invalidClientAttestation("Public keys from attestation and certificate do not match") }
-  ensure(expectedAttestationChallenge.contentEquals(tpmQuote.extraData)) { invalidClientAttestation(ATTESTATION_CHALLENGE_DOES_NOT_MATCH) }
 
   tpmQuoteBytes.validateQuoteSignature(quoteSignature, tpmPublicKey).mapLeft { invalidTPMQuote(it) }.bind()
   validateCertificateChain(keystoreService, certificateChain).mapLeft { invalidTpmCertificate(it) }.bind()
+
+  val tpmQuote = tpmQuoteBytes.deserializeQuote().mapLeft { invalidTPMQuote(it) }.bind()
+  val expectedAttestationChallenge = context.attestationChallenge.fromBase64()
+  ensure(expectedAttestationChallenge.contentEquals(tpmQuote.extraData)) { invalidClientAttestation(ATTESTATION_CHALLENGE_DOES_NOT_MATCH) }
 }
 
 internal fun checkPostureTypeMatchesPlatform(clientStatementData: ClientStatementData): Either<KeycloakValidationError, Unit> = either {
@@ -90,7 +91,7 @@ internal fun checkPostureType(clientStatementData: ClientStatementData, context:
     either {
       when (clientStatementData.postureType) {
         PostureType.SOFTWARE -> checkSoftwarePosture(context, clientStatementData.posture as SoftwarePosture).bind()
-        PostureType.TPM -> checkTPMPosture(context, tpmKeystoreService, clientStatementData.posture as TPMPosture).bind()
+        // ZETAP-2294 temporary disabled: PostureType.TPM -> checkTPMPosture(context, tpmKeystoreService, clientStatementData.posture as TPMPosture).bind()
         else -> raise(invalidClientAttestation("Client attestation check not implemented for »${clientStatementData.postureType}« posture type"))
       }
     }

@@ -37,8 +37,10 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_KV
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILEUSER_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILE_OPA_CONTEXT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPA_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.clientIP
-import de.gematik.zeta.zetaguard.keycloak.commons.server.httpClient
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
+import de.gematik.zeta.zetaguard.keycloak.commons.server.permitMobileIssuance
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
 import de.gematik.zeta.zetaguard.keycloak.plugins.mapToCorsException
 import de.gematik.zeta.zetaguard.keycloak.plugins.opa.OPAConfig
@@ -74,7 +76,7 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
 
   fun enforce(request: Request) {
     val input = buildInput(request)
-    when (val outcome = OpaGateEnforcer.enforce(request.session.httpClient, input, opaConfig)) {
+    when (val outcome = OpaGateEnforcer.enforce(request.session.lookupHttpClient(OPA_HTTP_CLIENT_ID), input, opaConfig)) {
       is OpaGateEnforcer.Outcome.Skip ->
         throw mapToCorsException(
             KeycloakError(UNSUPPORTED_GRANT_TYPE, "Unsupported grant type", Response.Status.BAD_REQUEST),
@@ -82,7 +84,10 @@ class MobileOpaGate(private val opaConfig: OPAConfig) {
             request.event,
         )
 
-      is OpaGateEnforcer.Outcome.Allow -> storeContext(request.userSession, input, outcome.accessTokenTtl, outcome.refreshTokenTtl)
+      is OpaGateEnforcer.Outcome.Allow -> {
+        storeContext(request.userSession, input, outcome.accessTokenTtl, outcome.refreshTokenTtl)
+        request.session.permitMobileIssuance(request.client)
+      }
 
       is OpaGateEnforcer.Outcome.Deny -> throw mapToCorsException(outcome.error, request.cors, request.event)
       is OpaGateEnforcer.Outcome.Error -> throw mapToCorsException(outcome.error, request.cors, request.event)

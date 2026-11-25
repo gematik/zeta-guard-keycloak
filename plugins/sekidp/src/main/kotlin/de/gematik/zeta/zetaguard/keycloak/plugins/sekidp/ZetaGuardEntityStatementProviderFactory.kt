@@ -23,6 +23,7 @@
  */
 package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPENID_FEDERATION_ALIAS
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OidcFlowSettings
 import org.keycloak.Config
 import org.keycloak.models.KeycloakSession
@@ -49,5 +50,5 @@ class ZetaGuardEntityStatementProviderFactory : WellKnownProviderFactory {
   override fun getId() = "zeta-guard-entity-statement"
 
   /** Path segment below /realms/{realm}/.well-known/ — fixed by the OpenID-Federation spec. */
-  override fun getAlias() = "openid-federation"
+  override fun getAlias() = OPENID_FEDERATION_ALIAS
 }

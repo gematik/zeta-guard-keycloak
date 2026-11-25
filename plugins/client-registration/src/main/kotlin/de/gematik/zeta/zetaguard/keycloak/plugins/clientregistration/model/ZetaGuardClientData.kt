@@ -62,6 +62,7 @@ const val FIND_EXPIRED_CLIENT_DATA = "ZetaGuardClientData.findExpiredClientData"
  * Returns: List of client IDs sorted by their `lastAccess` in ascending order (oldest first).
  */
 const val FIND_OLDEST_CLIENTS = "ZetaGuardClientData.findOldestClients"
+const val COUNT_CLIENTS = "ZetaGuardClientData.countClients"
 
 const val DELETE_CLIENT_DATA = "ZetaGuardClientData.DELETE_CLIENT_DATA"
 
@@ -105,6 +106,11 @@ private const val COLUMN_CLIENT_REGISTRATION_STATUS = "CLIENT_REGISTRATION_STATU
     ORDER BY c.lastAccess ASC
     """,
               resultClass = String::class,
+          ),
+          NamedQuery(
+              name = COUNT_CLIENTS,
+              query = """SELECT COUNT(c) FROM ZetaGuardClientData c WHERE c.userData.id = :userName AND c.id <> :clientId""",
+              resultClass = Long::class,
           ),
           NamedQuery(name = DELETE_CLIENT_DATA, query = """DELETE FROM ZetaGuardClientData c WHERE c.id = :clientId"""),
         ]
