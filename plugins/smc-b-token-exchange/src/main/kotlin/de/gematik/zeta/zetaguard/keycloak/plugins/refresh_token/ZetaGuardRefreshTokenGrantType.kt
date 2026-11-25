@@ -30,12 +30,14 @@ import de.gematik.zeta.zetaguard.keycloak.commons.opa.opaTtlDurations
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_LAST_CLIENT_IP
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_MOBILE_OPA_CONTEXT
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ATTRIBUTE_SMCB_CONTEXT
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPA_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PRODUCT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PRODUCT_VERSION
 import de.gematik.zeta.zetaguard.keycloak.commons.server.CLAIM_PROFESSION_OID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.clientIP
-import de.gematik.zeta.zetaguard.keycloak.commons.server.httpClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.isSuccessStatus
+import de.gematik.zeta.zetaguard.keycloak.commons.server.permitMobileIssuance
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.rememberLastClientIp
 import de.gematik.zeta.zetaguard.keycloak.commons.smcb.ZetaGuardTokenExchangeData
 import de.gematik.zeta.zetaguard.keycloak.plugins.ZetaGuardTokenManager
@@ -76,7 +78,7 @@ class ZetaGuardRefreshTokenGrantType(private val opaConfig: OPAConfig = OPAConfi
     // Skip OPA for non-SMC-B/mobile clients sessions (e.g. master/admin-cli).
     val userSession = refreshToken.sessionId?.let { session.sessions().getUserSession(realm, it) } ?: return super.process(context)
     val replay = refreshOpaReplay(userSession) ?: return super.process(context)
-    val httpClient = session.httpClient
+    val httpClient = session.lookupHttpClient(OPA_HTTP_CLIENT_ID)
 
     return when (val outcome = OpaGateEnforcer.enforce(httpClient, refreshInput(refreshToken, replay), opaConfig)) {
       is OpaGateEnforcer.Outcome.Skip -> {
@@ -86,6 +88,10 @@ class ZetaGuardRefreshTokenGrantType(private val opaConfig: OPAConfig = OPAConfi
 
       is OpaGateEnforcer.Outcome.Allow -> {
         applyOpaTtls(userSession, replay, outcome.accessTokenTtl, outcome.refreshTokenTtl)
+        // The replayed decision belongs to the client that passed the gate, not to another client of the same SSO session
+        if (replay is RefreshOpaReplay.Mobile && replay.data.clientId == client.id) {
+          session.permitMobileIssuance(client)
+        }
         val response = super.process(context)
         if (replay is RefreshOpaReplay.Mobile && response.isSuccessStatus()) {
           rememberLastClientIp(session, client)

@@ -51,6 +51,7 @@ import io.kotest.assertions.withClue
 import io.kotest.matchers.date.shouldBeAfter
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.nulls.shouldNotBeNull
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import java.time.LocalDateTime
@@ -69,6 +70,7 @@ import org.keycloak.models.jpa.entities.ClientEntity
 import org.keycloak.models.jpa.entities.ClientScopeAttributeEntity
 import org.keycloak.models.jpa.entities.ClientScopeEntity
 import org.keycloak.models.jpa.entities.ProtocolMapperEntity
+import org.keycloak.protocol.oidc.utils.OIDCResponseType
 import org.keycloak.representations.oidc.OIDCClientRepresentation
 import org.keycloak.services.clientregistration.ClientRegistrationTokenUtils.TYPE_REGISTRATION_ACCESS_TOKEN
 
@@ -96,7 +98,7 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
     }
 
     test("Keycloak's own client registration providers are disabled") {
-      // See ClientRegistrationService.DEPRECATED_PROVIDER_IDS
+      // See ClientRegistrationService.DEPRECATED_PROVIDER_IDS since KC 26.7
       listOf("default", "install", "saml2-entity-descriptor").forEach { provider ->
         val request =
             post(keycloakWebClient.uriBuilder().createUri("/realms/{realm-name}/clients-registrations/$provider", ZETA_REALM))
@@ -126,6 +128,13 @@ class ClientRegistrationIT : ZetaGuardFunSpecIT() {
       accessTokenResponse.refreshToken.checkTokenHeader()
 
       checkAttestationState(oidcClientResponse.clientId, ClientAttestationState.VALID, now)
+    }
+
+    // Realm client policy "reject-implicit-grant" (auto-configure): the implicit flow requested via response_types "token"
+    // (see createClientOIDC) is switched off, not rejected
+    test("Client registration switches off the implicit flow requested via response_types") {
+      oidcClientResponse.responseTypes.orEmpty() shouldNotContain OIDCResponseType.ID_TOKEN
+      oidcClientResponse.responseTypes.orEmpty() shouldNotContain OIDCResponseType.TOKEN
     }
 
     test("Client registration expiration") {

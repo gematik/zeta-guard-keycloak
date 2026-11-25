@@ -24,10 +24,12 @@
 package de.gematik.zeta.zetaguard.keycloak.client_assertion
 
 import de.gematik.zeta.zetaguard.keycloak.client_attestation.TPM_ATTEST_MAGIC
+import de.gematik.zeta.zetaguard.keycloak.client_attestation.deserializeQuote
 import de.gematik.zeta.zetaguard.keycloak.commons.ZetaGuardFunSpec
 import de.gematik.zeta.zetaguard.keycloak.commons.server.createVerifierContext
 import de.gematik.zeta.zetaguard.keycloak.commons.server.fromBase64
 import de.gematik.zeta.zetaguard.keycloak.commons.server.toPublicKey
+import io.kotest.assertions.arrow.core.shouldBeLeft
 import io.kotest.assertions.arrow.core.shouldBeRight
 import io.kotest.assertions.throwables.shouldNotThrowAny
 import io.kotest.matchers.shouldBe
@@ -52,11 +54,35 @@ class TPMTest : ZetaGuardFunSpec() {
       val buffer = ByteBuffer.wrap(quoteBytes)
       buffer.getInt() shouldBe TPM_ATTEST_MAGIC
 
-      val quote = TPMS_ATTEST.fromBytes(quoteBytes)
+      val quote = quoteBytes.deserializeQuote().shouldBeRight()
       quote.magic shouldBe TPM_GENERATED.VALUE
       quote.extraData.size shouldBe 32
       val dummyChallenge = 0xab.toByte()
       quote.extraData.forEach { it shouldBe dummyChallenge }
+
+      // make sure our own parser is compatible with the unsafe library parser
+      quote.toBytes() shouldBe TPMS_ATTEST.fromBytes(quoteBytes).toBytes()
+    }
+
+    test("Manipulated data cannot force memory exhaustion") {
+      val quoteBytes = tpmQuote.fromBase64()
+      // at this position, there is a four byte array length; force it to Integer.MAX_VALUE
+      val i = 101
+      quoteBytes[i] = 0x7F.toByte()
+      quoteBytes[i + 1] = 0xFF.toByte()
+      quoteBytes[i + 2] = 0xFF.toByte()
+      quoteBytes[i + 3] = 0xFF.toByte()
+      quoteBytes.deserializeQuote().shouldBeLeft()
+    }
+
+    test("Truncated quote is rejected") {
+      val quoteBytes = tpmQuote.fromBase64()
+      quoteBytes.copyOf(quoteBytes.size - 1).deserializeQuote().shouldBeLeft()
+    }
+
+    test("Quote with trailing data is rejected") {
+      val quoteBytes = tpmQuote.fromBase64()
+      quoteBytes.copyOf(quoteBytes.size + 1).deserializeQuote().shouldBeLeft()
     }
   }
 }

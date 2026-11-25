@@ -28,11 +28,14 @@ package de.gematik.zeta.zetaguard.keycloak.commons.server
 import org.jboss.logging.Logger
 import org.keycloak.OAuth2Constants.REFRESH_TOKEN
 import org.keycloak.OAuth2Constants.TOKEN_EXCHANGE_GRANT_TYPE
+import org.keycloak.connections.httpclient.HttpClientSpi
 
 const val ATTRIBUTE_SMCB_CONTEXT = "zetaguard.smcbContext"
 const val ATTRIBUTE_MOBILE_OPA_CONTEXT = "zetaguard.mobile.opaContext"
 const val ATTRIBUTE_CLIENT_ASSESSMENT_DATA = "zetaguard.clientData"
 const val ATTRIBUTE_CLIENT_STATEMENT_DATA = "zetaguard.clientStatement"
+// Epoch seconds at which the session ends: exp of the first refresh token after full authentication (A_25662)
+const val ATTRIBUTE_SESSION_END = "zetaguard.session.end"
 
 const val ATTRIBUTE_CLIENT_STATEMENT_RAW = "zetaguard.client_statement_raw"
 
@@ -94,7 +97,6 @@ const val ZETA_CLIENT = "zeta-client"
 const val ATTRIBUTE_REALM_CLIENT_JOB_DISABLED = "zeta-guard.realm.client_job.disabled"
 
 // https://www.keycloak.org/securing-apps/client-registration
-const val KEYCLOAK_CLIENT_REGISTRATION_PATH = "/realms/{realm-name}/clients-registrations/default"
 const val OIDC_CLIENT_REGISTRATION_PATH = "/realms/{realm-name}/clients-registrations/openid-connect"
 
 // https://www.keycloak.org/docs-api/latest/rest-api/index.html#_client_initial_access
@@ -110,7 +112,15 @@ const val EMAIL_BINDING_TOKEN_EXCHANGE_PROVIDER_ID = "zeta-email-binding-token-e
 const val SMCB_IDENTITY_PROVIDER_ID = "zeta-smc-b-oidc"
 
 const val SEKIDP_IDENTITY_PROVIDER_ID = "zeta-sekidp-oidc"
+const val SEKIDP_MTLS_HTTP_CLIENT_ID = "zeta-sekidp-mtls"
+const val OPA_HTTP_CLIENT_ID = "zeta-opa-http-client"
+const val OCSP_HTTP_CLIENT_ID = "zeta-ocsp-http-client"
+const val KEYCLOAK_HTTP_CLIENT_ID = "default"
+
+val KEYCLOAK_DEFAULT_HTTP_SPI_NAME: String = HttpClientSpi().name
+
 const val ZETA_MOBILE_BROWSER_FLOW = "zeta-mobile"
+const val OPENID_FEDERATION_ALIAS = "openid-federation"
 
 const val ENV_SMCB_KEYSTORE_LOCATION = "SMCB_KEYSTORE_LOCATION"
 const val ENV_SMCB_KEYSTORE_META_LOCATION = "SMCB_KEYSTORE_META_LOCATION"
@@ -153,6 +163,7 @@ const val CLIENT_REGISTRATION_POLICY_PROVIDER_ID = "zeta-client-registration-pol
 const val ENV_CLIENT_REGISTRATION_TTL = "CLIENT_REGISTRATION_TTL"
 const val ENV_CLIENT_REGISTRATION_SCHEDULER_INTERVAL = "CLIENT_REGISTRATION_SCHEDULER_INTERVAL"
 const val ENV_CLIENT_REGISTRATION_STARTUP_DELAY = "CLIENT_REGISTRATION_STARTUP_DELAY"
+const val ENV_CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE = "CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE"
 
 const val ENV_OIDC_FLOW_ENABLED = "ZETA_OIDC_FLOW_ENABLED"
 

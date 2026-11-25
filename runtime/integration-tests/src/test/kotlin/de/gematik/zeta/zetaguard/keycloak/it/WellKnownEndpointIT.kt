@@ -57,7 +57,7 @@ class WellKnownEndpointIT : FunSpec() {
       wellknown.nonceEndpoint shouldBe nonceUri
       wellknown.serviceDocumentation.toString() shouldContain "https://gemspec.gematik.de/"
 
-      wellknown.responseTypesSupported.shouldContainExactlyInAnyOrder("code", "token")
+      wellknown.responseTypesSupported.shouldContainExactlyInAnyOrder("code")
     }
 
     test("Well-known announces PAR, redirection, revocation and api versions") {

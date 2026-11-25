@@ -27,7 +27,6 @@ package de.gematik.zeta.zetaguard.keycloak.commons
 
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ADMIN_REVOKE_SESSION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.INITIAL_ACCESS_TOKEN_PATH
-import de.gematik.zeta.zetaguard.keycloak.commons.server.KEYCLOAK_CLIENT_REGISTRATION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KEYCLOAK_REALM_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.OIDC_CLIENT_REGISTRATION_PATH
 import de.gematik.zeta.zetaguard.keycloak.commons.server.REVOCATION_FULL_PATH
@@ -65,8 +64,6 @@ class KeycloakUriBuilder(private val uriBuilder: UriBuilder) {
   fun initialAccessTokenUrl(realm: String = ZETA_REALM) = createUri(INITIAL_ACCESS_TOKEN_PATH, realm)
 
   fun realmUrl(realm: String = ZETA_REALM) = createUri(KEYCLOAK_REALM_PATH, realm)
-
-  fun clientRegistrationKeycloakUrl(realm: String = ZETA_REALM) = createUri(KEYCLOAK_CLIENT_REGISTRATION_PATH, realm)
 
   fun clientRegistrationOIDCUrl(realm: String = ZETA_REALM) = createUri(OIDC_CLIENT_REGISTRATION_PATH, realm)
 

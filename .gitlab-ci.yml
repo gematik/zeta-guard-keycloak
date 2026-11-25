@@ -19,20 +19,6 @@ stages:
   - publish_reports
 
 include:
-  - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-scanning@v0.4.2
-    inputs:
-      analyzer-image: $CI_DEPENDENCY_PROXY_GROUP_IMAGE_PREFIX/aquasec/trivy:0.69.3@sha256:7228e304ae0f610a1fad937baa463598cadac0c2ac4027cc68f3a8b997115689
-      cs-image: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$CUSTOM_IMAGE_TAG"
-      git-strategy: fetch
-      job-dependencies: [ harden ]
-      job-stage: systemtest
-      openvex-file: ".vex/vulnerabilites.openvex.json"
-      severity: UNKNOWN,HIGH,CRITICAL
-    rules:
-      - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      - if: $CI_COMMIT_TAG
-      - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
-
   - component: $CI_SERVER_FQDN/zeta/zeta-ci-cd-components/container-signing@v1.2.0
     inputs:
       image-to-sign: "$CI_REGISTRY/zeta/zeta-guard/keycloak-zeta:$CUSTOM_IMAGE_TAG"
@@ -42,6 +28,7 @@ include:
       - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
       - if: $CI_COMMIT_TAG
       - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      - if: $CI_COMMIT_BRANCH == "releases/1.3.x"
 
 default:
   image: $CI_REGISTRY/zeta/devops/ci-images/maven:3.9-eclipse-temurin-21-zeta-0
@@ -70,6 +57,8 @@ default:
     - if: "$CI_PIPELINE_SOURCE == 'merge_request_event'"
       when: on_success
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: on_success
+    - if: '$CI_COMMIT_BRANCH == "releases/1.3.x"'
       when: on_success
     - when: never
 
@@ -121,6 +110,11 @@ workflow:
         CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG
     - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
       when: never
+    - if: '$CI_COMMIT_BRANCH == "releases/1.3.x"'
+      variables:
+        # deploy and harden must use the same tag (harden builds FROM the deployed image)
+        IMAGE_TAG: $CI_COMMIT_REF_SLUG-latest
+        CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG-latest
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
       variables:
         CUSTOM_IMAGE_TAG: $CI_COMMIT_REF_SLUG
@@ -280,14 +274,17 @@ trigger_helm:
   rules:
     - if: $CI_COMMIT_TAG
       when: never
+    - if: '$CI_COMMIT_BRANCH == "releases/1.3.x"'
+      variables:
+        KEYCLOAK_IMAGE_TAG: "$CI_COMMIT_REF_SLUG-latest"
     - !reference [ .rules_mr_default, rules ]
   trigger:
     project: zeta/devops/zeta-guard-helm
-    branch: main
+    # 1.3.x line: deploys to zeta-13x with the release chart, PEP from its values
+    branch: releases/1.3.x
     strategy: depend
   variables:
     KEYCLOAK_IMAGE_TAG: "$CI_COMMIT_REF_SLUG"
-    PEPPROXY_IMAGE_TAG: "main"
 
 publish_artifacts:
   stage: publish_reports
@@ -310,15 +307,11 @@ publish_artifacts:
       artifacts: true
     - job: sbom
       artifacts: true
-    - job: container-scanning
-      artifacts: true
-      optional: true
   script:
     - git clone https://zeta-sdk:${REPORTING_TOKEN}@tas-devtools-gitlab.spree.de/zeta/reporting.git
     - mkdir -p ./reporting/zeta-guard/keycloak-zeta/
     - find . -path ./reporting -prune -o -name 'jacoco.xml' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
     - find . -path ./reporting -prune -o -name 'bom.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
-    - find . -path ./reporting -prune -o -name 'gl-container-scanning-report.json' -exec cp --parents '{}' ./reporting/zeta-guard/keycloak-zeta/ \;
     - cd reporting
     - git config user.email "ci@tas-devtools-gitlab.spree.de"
     - git config  user.name "ci"

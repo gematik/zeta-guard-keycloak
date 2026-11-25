@@ -2,6 +2,64 @@
 
 # Release Notes ZETA PDP
 
+## Release 1.3.5
+
+### changed:
+
+- OpenJDK of the hardened Keycloak image updated to 21.0.13.1 (`java-21-openjdk-headless-21.0.13.1.2-1.2.el9`)
+  because of CVE-2026-114938 ("java4shell", heap out-of-bounds write in the AVX-512 Base64 decoder of HotSpot on x86-64) and other CVEs
+
+## Release 1.3.4
+
+### added:
+- Entity statement: `metadata.openid_relying_party` carries `ti_features_supported`, `client_name`, `organization_name`,
+  `keywords`, `contacts` and `default_acr_values` (A_23034-02), plus a `metadata.federation_entity` block; set through
+  `ENTITY_STATEMENT_CLIENT_NAME`, `_ORGANIZATION_NAME`, `_CONTACT_EMAIL` and `_ID_TOKEN_VERSION`
+- `ENTITY_STATEMENT_REDIRECT_URIS` (comma-separated) sets the published `redirect_uris`; unset, those of all realm clients
+
+### fixed:
+- Mobile flow: the authserver issues KVNR tokens only within a request that passed the policy engine decision for that
+  client (or for the reduced e-mail-binding token). Other grants on a SekIDP session no longer yield such tokens
+- Keycloak's standard token exchange is disabled in the image; exchanges the 𝝵-Guard providers decline get HTTP 400
+- The e-mail-binding token exchange requires a DPoP proof of the key its subject token is bound to
+- The well-known configuration announces `response_types_supported` `code` only
+- TPM attestation is disabled until the expected protocol update.
+- The entity statement at `.well-known/openid-federation` is served with Content-Type `application/entity-statement+jwt`
+  as OpenID Federation requires, instead of `application/jwt`. Requests with `Accept: application/entity-statement+jwt`
+  no longer fail with 406, so a federation master can fetch it. Resolves ANFTI2-1074
+- Removed the compromised emSign/eMudhra root CAs (CVE-2026-114406 / CVE-2026-91403) from the hardened Keycloak image's
+    Java truststore (cacerts) and OS trust bundles
+- The client expiration job no longer removes all expired clients in a single transaction. After a load test with
+  hundreds of thousands of clients that transaction exceeded the transaction timeout and was rolled back on every run,
+  while memory grew until the container was killed (`OOMKilled`). A run now removes at most
+  `CLIENT_REGISTRATION_EXPIRATION_BATCH_SIZE` (default `500`) entries, oldest first, and leaves the rest to the next
+  run. With a large backlog, shorten `CLIENT_REGISTRATION_SCHEDULER_INTERVAL` or raise the batch size
+- The client expiration job also removes the data of an expired user whose Keycloak user no longer exists (e.g. deleted in
+  the admin console). Before, the removal failed every time
+- The maximum number of clients per user (`SMCB_USER_MAX_CLIENTS`, A_25748-02) now also holds for concurrent token
+  exchanges, across all Keycloak instances: binding a new client locks the user's row in `ZETA_USER_DATA` and evicts the
+  oldest clients until the limit is kept. Resolves ANFTI2-1031
+- The refresh token's `exp` (and `refresh_expires_in`) is capped at the session end, and rotation no longer extends the
+  session: clients must re-authenticate by token exchange after the first refresh token's TTL (A_25662)
+  Resolves ANFTI2-1013, ANFTI2-727
+- Client Registration: Implemented check that `jwks`, `grant_types`, `client_name` and `token_endpoint_auth_method` are set
+  Resolves ANFTI2-1019
+- Client Registration: Strip several URI values to prevent Keycloak making requests to attacker controlled targets
+
+### changed:
+- The SekIDP mTLS client (PAR and token requests, FedMaster, Entity-Statement and JWKS), OPA HTTP client and the OCSP HTTP client use now `connections-http-client` providers
+of their own, not the `default` HTTP provider. However, they all share the same configuration.
+- Netty dependencies for Keycloak bumped to version 4.1.139 via override of Jar-Files in the OCI image
+- BouncyCastle dependencies for Keycloak bumped to version 1.86 via override of Jar-Files in the OCI image
+- **BREAKING** Hardening: Keycloak features not used by 𝝵-Guard are disabled in the image (`KC_FEATURES_DISABLED`):
+  `account`, `account-api`, `ciba`, `device-flow`, `jwt-authorization-grant`, `authorization`,
+  `admin-fine-grained-authz`, `impersonation`, `workflows`, `identity-brokering-api`, `twitter-broker`, and the
+  `.well-known/uma2-configuration` endpoint. Their endpoints (e.g. `/realms/{realm}/account`, device and CIBA
+  endpoints) return 404, their grant types are rejected with `unsupported_grant_type`. Features set via
+  `KC_FEATURES_DISABLED` are added to this set
+- MariaDB JDBC driver for Keycloak bumped to version 3.5.9 via override of Jar-Files in the OCI image (CVE-2026-55856, CVE-2026-55857, CVE-2026-55858)
+- Jackson dependencies (`jackson-core`, `jackson-databind`) for Keycloak bumped to version 2.21.7 via override of Jar-Files in the OCI image (CVE-2026-68494, CVE-2026-68497, CVE-2026-89425, CVE-2026-91776, CVE-2026-91777, CVE-2026-89407, CVE-2026-19032, CVE-2026-77310, CVE-2026-83557)
+
 ## Release 1.3.3
 
 ### changed:

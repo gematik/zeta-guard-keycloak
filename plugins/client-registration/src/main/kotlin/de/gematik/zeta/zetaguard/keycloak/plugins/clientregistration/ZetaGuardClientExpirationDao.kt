@@ -45,20 +45,27 @@ class ZetaGuardClientExpirationDao
 constructor(emCreator: EntityManagerCreator) {
   private val entityManager by lazy { emCreator.invoke() }
 
-  fun findExpiredClientRegistrations(clientRegistrationTTL: DateTimePeriod): List<String> =
-      findExpiredClientData(clientRegistrationTTL, ClientAttestationState.PENDING)
+  fun findExpiredClientRegistrations(clientRegistrationTTL: DateTimePeriod, maxResults: Int): List<String> =
+      findExpiredClientData(clientRegistrationTTL, ClientAttestationState.PENDING, maxResults)
 
-  fun findExpiredClients(clientTTL: DateTimePeriod): List<String> = findExpiredClientData(clientTTL, ClientAttestationState.VALID)
+  fun findExpiredClients(clientTTL: DateTimePeriod, maxResults: Int): List<String> =
+      findExpiredClientData(clientTTL, ClientAttestationState.VALID, maxResults)
 
-  private fun findExpiredClientData(ttl: DateTimePeriod, state: ClientAttestationState): List<String> =
+  /** @param maxResults Upper bound of the returned IDs, oldest first, so that a huge backlog is worked off in batches. */
+  private fun findExpiredClientData(ttl: DateTimePeriod, state: ClientAttestationState, maxResults: Int): List<String> =
       entityManager
           .createNamedQuery(FIND_EXPIRED_CLIENT_DATA, String::class.java)
           .setParameter("state", state)
           .setParameter("expirationTime", currentTime().minus(ttl))
+          .setMaxResults(maxResults)
           .resultList
 
-  fun findExpiredUsers(ttl: DateTimePeriod): List<String> =
-      entityManager.createNamedQuery(FIND_EXPIRED_USER_DATA, String::class.java).setParameter("expirationTime", currentTime().minus(ttl)).resultList
+  fun findExpiredUsers(ttl: DateTimePeriod, maxResults: Int): List<String> =
+      entityManager
+          .createNamedQuery(FIND_EXPIRED_USER_DATA, String::class.java)
+          .setParameter("expirationTime", currentTime().minus(ttl))
+          .setMaxResults(maxResults)
+          .resultList
 
   fun findOldestClients(userName: String): List<String> =
       entityManager.createNamedQuery(FIND_OLDEST_CLIENTS, String::class.java).setParameter("userName", userName).resultList

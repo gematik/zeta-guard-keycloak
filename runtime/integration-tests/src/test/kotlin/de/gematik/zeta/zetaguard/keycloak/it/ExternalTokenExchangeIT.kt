@@ -97,13 +97,27 @@ class ExternalTokenExchangeIT : ZetaGuardFunSpecIT() {
       }
     }
 
-    test("External token exchange with SMC-B token, TPM attestation, client assertion and DPoP header") {
+    // ZETAP-2294 temporary disabled TPM attestation
+    xtest("External token exchange with SMC-B token, TPM attestation, client assertion and DPoP header") {
       val nonce = createNonce()
       val jwt =
           clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, postureType = TPM)
       val smcbToken = createSMCBToken(nonce)
 
       testExchangeToken(smcbToken, clientAssertion = jwt)
+    }
+
+    // Replacement while ZETAP-2294 temporary disabled TPM attestation
+    test("External token exchange with TPM attestation is rejected") {
+      val nonce = createNonce()
+      val jwt =
+          clientAssertionTokenGenerator.generateClientAssertion(audiences = listOf(clientAssertionAudience), nonceString = nonce, postureType = TPM)
+      val smcbToken = createSMCBToken(nonce)
+
+      testExchangeToken(smcbToken, clientAssertion = jwt) {
+        it.statusCode shouldBe SC_FORBIDDEN
+        it.errorDescription shouldBe "Client attestation check not implemented for »TPM« posture type"
+      }
     }
 
     test("Fail, if token is reused") {

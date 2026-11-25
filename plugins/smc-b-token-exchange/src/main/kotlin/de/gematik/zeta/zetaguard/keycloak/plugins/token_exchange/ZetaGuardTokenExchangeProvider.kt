@@ -47,6 +47,8 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAttestationState
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SecurityEventLogger
 import de.gematik.zeta.zetaguard.keycloak.commons.server.IntegrityProviderService
 import de.gematik.zeta.zetaguard.keycloak.commons.server.KeycloakError
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OCSP_HTTP_CLIENT_ID
+import de.gematik.zeta.zetaguard.keycloak.commons.server.OPA_HTTP_CLIENT_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.NONCE_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.SMCB_IDENTITY_PROVIDER_ID
 import de.gematik.zeta.zetaguard.keycloak.commons.server.VALID_GRANT_TYPES
@@ -56,7 +58,7 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.extractExtension
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstAdmission
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfession
 import de.gematik.zeta.zetaguard.keycloak.commons.server.firstProfessionInfo
-import de.gematik.zeta.zetaguard.keycloak.commons.server.httpClient
+import de.gematik.zeta.zetaguard.keycloak.commons.server.lookupHttpClient
 import de.gematik.zeta.zetaguard.keycloak.commons.server.reportAttack
 import de.gematik.zeta.zetaguard.keycloak.commons.server.serverHost
 import de.gematik.zeta.zetaguard.keycloak.commons.server.subjectCommonName
@@ -217,10 +219,19 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
       ok = true
     }
 
-    val subjectTokenType = context.params.subjectTokenType
+    if (!ok) {
+      return false
+    }
 
-    // Either there is another error or the token type is "access token" → Let the standard implementation do the job
-    return ok && JWT_TOKEN_TYPE == subjectTokenType
+    // Keycloak's standard token exchange is disabled in the image, so no other provider takes over. Without a reason,
+    // Keycloak would answer HTTP 500 instead of 400.
+    val subjectTokenType = context.params.subjectTokenType
+    if (JWT_TOKEN_TYPE != subjectTokenType) {
+      context.unsupportedReason = "Subject token type »$subjectTokenType« is not supported"
+      return false
+    }
+
+    return true
   }
 
   /**
@@ -262,7 +273,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
 
         validateCertificateChain(issuerCertificate, listOf(certificate)).mapLeft { invalidToken(it) }.bind()
 
-        val httpClient = session.httpClient
+        val httpClient = session.lookupHttpClient(OCSP_HTTP_CLIENT_ID)
 
         OcspUtil.checkRevoked(
             certificate,
@@ -394,7 +405,7 @@ open class ZetaGuardTokenExchangeProvider internal constructor(
    * https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25653 https://gemspec.gematik.de/docs/gemSpec/gemSpec_ZETA/latest/#A_25661
    */
   private fun checkOPAPolicies(context: ZetaGuardTokenExchangeContext): KeycloakValidation = either {
-    val httpClient = session.httpClient
+    val httpClient = session.lookupHttpClient(OPA_HTTP_CLIENT_ID)
     val input = populateContextAndBuildGateInput(context).mapLeft { internalError(it) }.bind()
 
     session.tracingProvider.trace(ZetaGuardTokenExchangeProvider::class.java, OPA_TRACER) {

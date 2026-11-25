@@ -311,51 +311,6 @@ class KeycloakWebClient private constructor(hostname: String, port: Int) : Keycl
   }
 
   /**
-   * Create a client (client registration) using a previously obtained initial access token
-   *
-   * https://www.keycloak.org/securing-apps/client-registration
-   *
-   * @param initialAccessToken The access token of the keycloak admin user.
-   * @param expectedStatusCode The expected status code.
-   * @return A [KeycloakResponse] containing a [ClientRepresentation].
-   */
-  fun createClientKeycloak(
-      initialAccessToken: String,
-      newClientId: String,
-      expectedStatusCode: Int = SC_CREATED,
-  ): KeycloakResponse<ClientRepresentation> {
-    val body =
-        ClientRepresentation()
-            .apply {
-              id = newClientId
-              isFullScopeAllowed = true
-              isPublicClient = true
-              isBearerOnly = false
-              description = ZETA_GUARD_CLIENT_NAME
-              clientId = newClientId
-              name = ZETA_GUARD_CLIENT_NAME
-              isEnabled = true
-              isStandardFlowEnabled = true
-              clientAuthenticatorType = AUTH_TYPE_CLIENT_SECRET
-              attributes =
-                  mapOf(
-                      REALM_CLIENT to "false",
-                      STANDARD_TOKEN_EXCHANGE_ENABLED to "true",
-                      STANDARD_TOKEN_EXCHANGE_REFRESH_ENABLED to SAME_SESSION.name,
-                  )
-            }
-            .toJSON()
-
-    val request =
-        post(uriBuilder().clientRegistrationKeycloakUrl())
-            .addJsonHeaders()
-            .addHeader(AUTHORIZATION, "$AUTH_HEADER_PREFIX$initialAccessToken")
-            .setEntity(StringEntity(body))
-
-    return httpClient().execute(request.build()).mapJSONResponse<ClientRepresentation>(expectedStatusCode)
-  }
-
-  /**
    * Create a client (client registration) using a previously obtained initial access token.
    *
    * The given JWKS is stored internally by Keycloak to verify the client_assertion JWT later on.

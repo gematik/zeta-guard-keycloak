@@ -25,7 +25,6 @@ package de.gematik.zeta.zetaguard.keycloak.plugins.sekidp
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.core.spec.style.FunSpec
-import io.kotest.matchers.shouldBe
 import java.io.File
 import java.io.FileNotFoundException
 import java.io.IOException
@@ -36,21 +35,17 @@ class SekIdpHttpClientTest : FunSpec() {
   init {
     registerBouncyCastle()
 
-    test("without mTLS config no keystore is read and no certificate is published") {
-      SekIdpHttpClient(null).use { client -> client.clientCertificate shouldBe null }
-    }
-
     test("a missing keystore file fails closed") {
-      val config = MtlsClientConfig(keystoreLocation = "/does/not/exist.p12", keystorePassword = TEST_PASSWORD)
+      val config = MTLSClientConfig(keystoreLocation = "/does/not/exist.p12", keystorePassword = TEST_PASSWORD)
 
-      shouldThrow<FileNotFoundException> { SekIdpHttpClient(config) }
+      shouldThrow<FileNotFoundException> { config.keystore }
     }
 
     test("an unreadable keystore file fails closed") {
       // Empty file: BouncyCastle rejects it as a PKCS12 store, so no client is built.
       val corruptFile = File.createTempFile("sekidp-client-corrupt", ".p12").apply { deleteOnExit() }
 
-      shouldThrow<IOException> { SekIdpHttpClient(MtlsClientConfig(corruptFile.absolutePath, TEST_PASSWORD)) }
+      shouldThrow<IOException> { MTLSClientConfig(corruptFile.absolutePath, TEST_PASSWORD).keystore }
     }
   }
 }

@@ -28,7 +28,9 @@ import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientAuthMethod
 import de.gematik.zeta.zetaguard.keycloak.commons.server.ClientRegistrationStatus
 import de.gematik.zeta.zetaguard.keycloak.commons.server.currentTime
 import de.gematik.zeta.zetaguard.keycloak.jpa.EntityManagerCreator
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.COUNT_CLIENTS
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.DELETE_CLIENT_DATA
+import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.LOCK_USER_DATA
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardClientData
 import de.gematik.zeta.zetaguard.keycloak.plugins.clientregistration.model.ZetaGuardUserData
 import jakarta.persistence.EntityManager
@@ -64,6 +66,39 @@ constructor(emCreator: EntityManagerCreator) {
   fun findClientData(clientId: String): ZetaGuardClientData? = entityManager.find(ZetaGuardClientData::class.java, clientId)
 
   fun findUserData(userId: String): ZetaGuardUserData? = entityManager.find(ZetaGuardUserData::class.java, userId)
+
+  /**
+   * Locks the user data row until the current transaction ends.
+   *
+   * A database lock rather than a JVM one, so it also holds between several Keycloak instances. Being a query, it is
+   * executed even if the entity is already managed, and pending inserts of the user are flushed before.
+   */
+  fun lockUserData(userName: String): ZetaGuardUserData? =
+      entityManager.createNamedQuery(LOCK_USER_DATA, ZetaGuardUserData::class.java).setParameter("userName", userName).resultList.firstOrNull()
+
+  /**
+   * Number of clients bound to the user, as currently stored in the database, not counting [excludedClientId].
+   *
+   * Excluding the client about to be bound makes the count independent of whether a concurrent request has bound that
+   * same client in the meantime.
+   */
+  fun countClients(userName: String, excludedClientId: String): Long =
+      entityManager
+          .createNamedQuery(COUNT_CLIENTS, Long::class.java)
+          .setParameter("userName", userName)
+          .setParameter("clientId", excludedClientId)
+          .singleResult
+          .toLong()
+
+  /**
+   * Like [deleteClientData], but a client that is already gone is no error.
+   *
+   * For removals that may race with each other, i.e. the expiration job and the eviction of the oldest client: the
+   * `DELETE` waits for the row lock of a concurrent deletion and then finds nothing left.
+   *
+   * @return true if this call deleted the client data
+   */
+  fun deleteClientDataIfPresent(clientId: String) = entityManager.createNamedQuery(DELETE_CLIENT_DATA).setParameter("clientId", clientId).executeUpdate() == 1
 
   fun deleteClientData(clientId: String) {
     val deletions = entityManager.createNamedQuery(DELETE_CLIENT_DATA).setParameter("clientId", clientId).executeUpdate()
