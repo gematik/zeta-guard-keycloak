@@ -2,6 +2,14 @@
 
 # Release Notes ZETA PDP
 
+## Release 1.2.5
+
+### changed:
+
+- OpenJDK of the hardened Keycloak image updated to 21.0.13.1 (`java-21-openjdk-headless-21.0.13.1.2-1.2.el9`)
+  because of CVE-2026-114938 ("java4shell", heap out-of-bounds write in the AVX-512 Base64 decoder of HotSpot on x86-64) and other CVEs
+
+
 ## Release 1.2.4
 
 ### changed:
