@@ -5,7 +5,7 @@
     <parent>
         <groupId>de.gematik.zeta.zeta-guard</groupId>
         <artifactId>keycloak-zeta</artifactId>
-        <version>1.2.4</version>
+        <version>1.2.5</version>
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
@@ -18,12 +18,22 @@
         <docker.tag>latest</docker.tag>
         <docker.repo/>
         <docker.image>${docker.name}:${docker.tag}</docker.image>
+        <docker.jdk.image>registry.access.redhat.com/ubi9-minimal:9.8@sha256:d330db6880a50fb113069939d5f13599aeab9913c9a4b00c9697a68a2e19c507</docker.jdk.image>
     </properties>
 
     <build>
         <resources>
             <resource>
                 <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+            </resource>
+
+            <!-- the JDK update drops the JVM configuration, so java.security has to be re-applied here -->
+            <resource>
+                <directory>${project.basedir}/../docker-keycloak/src/main/docker</directory>
+                <includes>
+                    <include>java.security</include>
+                </includes>
                 <filtering>false</filtering>
             </resource>
         </resources>
